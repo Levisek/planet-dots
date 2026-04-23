@@ -83,7 +83,7 @@ export class ParticlePool {
       this.color[3 * i]     = 1;
       this.color[3 * i + 1] = 1;
       this.color[3 * i + 2] = 1;
-      this.size[i] = 2.2;
+      this.size[i] = 3.8;
       this.alpha[i] = 0;
       this.phase[i] = PHASE.IDLE;
       this.owner[i] = -1;
@@ -134,7 +134,7 @@ export class ParticlePool {
       this.target[3*i + 1] = this.position[3*i + 1];
       this.target[3*i + 2] = this.position[3*i + 2];
       this.color[3*i]     = 1; this.color[3*i + 1] = 1; this.color[3*i + 2] = 1;
-      this.size[i] = 2.2;
+      this.size[i] = 3.8;
       this.alpha[i] = 0;
     }
     this.flushDirty();
@@ -279,7 +279,7 @@ export class ParticlePool {
       this.targetColor[3*i + 2] = data[idx + 2] / 255;
       // Alpha z textury — pokud je transparentní, tečka bude také míň viditelná
       const alpha = data[idx + 3] / 255;
-      this.size[i] = 1.6 * alpha; // malé/neviditelné tam kde ring-texture má alpha 0
+      this.size[i] = 2.8 * alpha; // menší než planeta, ale viditelné; alpha 0 z textury = neviditelné
       this.phase[i] = PHASE.FLYING_TO_PLANET;
       this.owner[i] = planetIndex;
     }

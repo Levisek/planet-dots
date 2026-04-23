@@ -12,12 +12,12 @@ export function createScene() {
   const scene = new THREE.Scene();
 
   const camera = new THREE.PerspectiveCamera(
-    40,
+    45,
     window.innerWidth / window.innerHeight,
     0.1,
     10000,
   );
-  camera.position.set(0, 50, 1400);
+  camera.position.set(0, 40, 2000);
   camera.lookAt(0, 0, 0);
 
   // světla

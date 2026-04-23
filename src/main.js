@@ -14,7 +14,7 @@ const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 // Počítá se jednou; anchory jsou perzistentní Object3D reference.
 const anchorsByIndex = PLANETS.map(p => anchors[p.id]);
 
-const pool = new ParticlePool(2000);
+const pool = new ParticlePool(3200);
 scene.add(pool.mesh);
 pool.resetAllToFree();
 

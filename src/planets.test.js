@@ -20,10 +20,10 @@ test('každá planeta má povinné atributy', () => {
   }
 });
 
-test('součet tickCount planet + prstence je ≤ 1900', () => {
+test('součet tickCount planet + prstence je ≤ 3100', () => {
   const sum = PLANETS.reduce((s, p) => s + p.tickCount + (p.ringTickCount || 0), 0);
-  assert.ok(sum <= 1900, `součet ticks = ${sum}, musí ≤ 1900 (pool je 2000)`);
-  assert.ok(sum >= 1500, `součet ticks = ${sum}, musí ≥ 1500 pro hustotu`);
+  assert.ok(sum <= 3100, `součet ticks = ${sum}, musí ≤ 3100 (pool je 3200)`);
+  assert.ok(sum >= 2500, `součet ticks = ${sum}, musí ≥ 2500 pro hustotu`);
 });
 
 test('Saturn má ringTickCount', () => {
