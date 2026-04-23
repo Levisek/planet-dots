@@ -1,15 +1,14 @@
 import * as THREE from 'three';
 import { createScene, createStarfield } from './scene.js';
-import { createPlanetMeshes } from './planetMeshes.js';
-import { updateRotations } from './rotation.js';
+import { createPlanetAnchors } from './planetAnchors.js';
 import { ParticlePool } from './particles.js';
 import { phaseAt, phaseProgress, updatePhaseInit, updatePhasePlanet, updatePhaseLive } from './animation.js';
 
 const { renderer, scene, camera } = createScene();
 createStarfield(scene);
-const { meshes, rings } = createPlanetMeshes(scene);
+const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 
-const pool = new ParticlePool(1500);
+const pool = new ParticlePool(2000);
 scene.add(pool.mesh);
 pool.resetAllToFree();
 
@@ -27,14 +26,22 @@ function tick() {
   if (ph.id === 'init') {
     updatePhaseInit(pool, elapsed, dt);
   } else if (ph.id === 'live') {
-    updatePhaseLive(pool, elapsed, dt, meshes);
+    updatePhaseLive(pool, elapsed, dt, anchors);
   } else if (ph.planetId) {
-    updatePhasePlanet(pool, ph, pt, dt, meshes, rings);
+    updatePhasePlanet(pool, ph, pt, dt, anchors, imageData);
   }
-
-  if (elapsed >= 7) updateRotations(meshes, dt);
 
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
-requestAnimationFrame(tick);
+
+// Start render loop only after textures are ready, so color sampling works.
+loaded.then(() => {
+  clock.start();
+  requestAnimationFrame(tick);
+}).catch((err) => {
+  console.error('Texture preload failed:', err);
+  // start anyway without textures
+  clock.start();
+  requestAnimationFrame(tick);
+});
