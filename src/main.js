@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import { createScene } from './scene.js';
+import { createScene, createStarfield } from './scene.js';
 
 const { renderer, scene, camera } = createScene();
+createStarfield(scene);
 
 function tick() {
   renderer.render(scene, camera);

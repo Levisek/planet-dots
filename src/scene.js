@@ -35,3 +35,28 @@ export function createScene() {
 
   return { renderer, scene, camera };
 }
+
+export function createStarfield(scene, count = 500) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    // rozprostřené v kouli poloměru 3000 kolem (0,0,0)
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 2000 + Math.random() * 1000;
+    positions[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi) - 500; // lehce za scénu
+  }
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 1.2,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.7,
+  });
+  const points = new THREE.Points(geometry, material);
+  scene.add(points);
+  return points;
+}
