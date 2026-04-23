@@ -1,0 +1,11 @@
+{
+  "name": "dots",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Edukativně-hravá vizualizace sluneční soustavy z 1500 teček",
+  "scripts": {
+    "test": "node --test src/",
+    "serve": "npx --yes serve -l 3000 ."
+  }
+}
