@@ -1,17 +1,7 @@
-import { PLANET_BY_ID } from './planets.js';
+import { PLANETS, PLANET_BY_ID } from './planets.js';
 import { textToPoints } from './label.js';
 import { fibonacciSphere } from './geometry.js';
 import { PHASE } from './phase.js';
-
-// hex (0xRRGGBB) → { r, g, b } v rozsahu 0..1 (lehká náhrada za THREE.Color
-// v kontextu animation.js, aby modul nemusel importovat three a šel testovat v Node)
-function hexToColor01(hex) {
-  return {
-    r: ((hex >> 16) & 0xff) / 255,
-    g: ((hex >> 8) & 0xff) / 255,
-    b: (hex & 0xff) / 255,
-  };
-}
 
 // Animation timeline — fáze V1.
 
@@ -74,59 +64,101 @@ function getPlanetSlotData(planetId, tickCount) {
   const p = PLANET_BY_ID[planetId];
   const labelPts = textToPoints(p.name, Math.min(tickCount, 240));
   const fibPts = fibonacciSphere(tickCount, p.radiusPx * 1.02);
-  const color = hexToColor01(p.color);
-  const data = { planet: p, labelPts, fibPts, color };
+  const planetIndex = PLANETS.findIndex((pp) => pp.id === planetId);
+  const data = { planet: p, labelPts, fibPts, planetIndex };
   _cache.set(key, data);
   return data;
 }
 
-/** Invokováno pro fázi planetárního slotu (sun, mercury, ... neptune). */
-export function updatePhasePlanet(pool, ph, phaseT, dt, planetMeshes, ringMeshes = {}) {
+/**
+ * Invokováno pro fázi planetárního slotu (sun, mercury, ... neptune).
+ * Dots-only: žádné mesh fade-in, tečky se sesypou z labelu na planetu
+ * a získají barvy sampled z textury. Saturn má navíc ring dots.
+ *
+ * @param {ParticlePool} pool
+ * @param {Object} ph — fáze z PHASES
+ * @param {number} phaseT — progress uvnitř fáze (0..1)
+ * @param {number} dt
+ * @param {Object} anchors — { [planetId]: Object3D }
+ * @param {Object} imageData — { [planetId]: ImageData, [planetId+"_ring"]: ImageData }
+ */
+export function updatePhasePlanet(pool, ph, phaseT, dt, anchors, imageData) {
   const planet = PLANET_BY_ID[ph.planetId];
   const slot = getPlanetSlotData(ph.planetId, planet.tickCount);
+  const anchor = anchors[planet.id];
+  const texData = imageData[planet.id];
+  if (!anchor || !texData) return; // textury ještě nenačtené
 
-  // první frame fáze: rezervovat indexy z FREE pool, přiřadit label targets
+  // první frame fáze: rezervovat indexy pro planet dots + label
   if (!ph._allocated) {
     ph._allocated = pool.takeFreeIndices(planet.tickCount);
     pool.assignLabelTargets(ph._allocated, slot.labelPts);
+
+    // Saturn: rezervovat i ring dots (zatím v label-holding stavu, vlastní label nemají)
+    if (planet.ringTexture && planet.ringTickCount) {
+      ph._ringAllocated = pool.takeFreeIndices(planet.ringTickCount);
+      // Ring tečky drží "stranou" (stejný label area), sesypou se souběžně s Saturnem
+      pool.assignLabelTargets(ph._ringAllocated, slot.labelPts);
+    }
   }
 
   // sub-fáze dle phaseT:
   if (phaseT < SUB.LABEL_FORM_END) {
-    // forming label — lerp k label pozici
     pool.lerpToTargets(0.18);
   } else if (phaseT < SUB.LABEL_HOLD_END) {
-    // holding — drží
     pool.lerpToTargets(0.25);
   } else if (phaseT < SUB.FLY_END) {
-    // flying to planet — přepnout targets pokud ještě ne
+    // flying to planet — přepnout targets na sphere surface s color sampling
     if (!ph._retargeted) {
-      pool.assignPlanetTargets(ph._allocated, planetMeshes[planet.id].position, slot.fibPts, slot.color);
+      const center = anchor.position;
+      pool.assignPlanetDotsFromTexture(
+        ph._allocated,
+        center,
+        slot.fibPts,
+        texData,
+        slot.planetIndex,
+      );
+      // Saturn ring:
+      if (ph._ringAllocated && imageData[`${planet.id}_ring`]) {
+        const tilt = planet.axialTilt * Math.PI / 180;
+        pool.assignRingDotsFromTexture(
+          ph._ringAllocated,
+          center,
+          planet.ringInnerRadius,
+          planet.ringOuterRadius,
+          imageData[`${planet.id}_ring`],
+          tilt,
+          slot.planetIndex,
+        );
+      }
       ph._retargeted = true;
     }
     pool.lerpToTargets(0.12);
   } else {
-    // fade-in textury
+    // final settle — lerp a přepnout na ON_PLANET / ON_RING stav
     pool.lerpToTargets(0.08);
-    const mesh = planetMeshes[planet.id];
-    const targetOp = (phaseT - SUB.FLY_END) / (1 - SUB.FLY_END);
-    mesh.material.opacity = Math.min(1, targetOp);
-    if (mesh.material.opacity >= 1) mesh.material.transparent = false;
-
-    // Saturn — fade-in prstenců
-    if (planet.ringTexture && ringMeshes[planet.id]) {
-      ringMeshes[planet.id].material.opacity = Math.min(0.9, targetOp * 0.9);
+    // první frame v této sub-fázi → promote FLYING_TO_PLANET na ON_PLANET / ON_RING
+    if (!ph._settled) {
+      for (const i of ph._allocated) {
+        if (pool.phase[i] === PHASE.FLYING_TO_PLANET) pool.phase[i] = PHASE.ON_PLANET;
+      }
+      if (ph._ringAllocated) {
+        for (const i of ph._ringAllocated) {
+          if (pool.phase[i] === PHASE.FLYING_TO_PLANET) pool.phase[i] = PHASE.ON_RING;
+        }
+      }
+      ph._settled = true;
     }
   }
 }
 
-export function updatePhaseLive(pool, tSeconds, dt, planetMeshes) {
-  // Tečky které měly fázi FLYING_TO_PLANET → přepni na ON_PLANET (first frame live only)
+export function updatePhaseLive(pool, tSeconds, dt, anchors) {
+  // Safety: cokoli ještě FLYING_TO_PLANET → ON_PLANET / ON_RING
   for (let i = 0; i < pool.count; i++) {
-    if (pool.phase[i] === PHASE.FLYING_TO_PLANET) pool.phase[i] = PHASE.ON_PLANET;
+    if (pool.phase[i] === PHASE.FLYING_TO_PLANET) {
+      pool.phase[i] = pool.size[i] < 2.0 ? PHASE.ON_RING : PHASE.ON_PLANET;
+    }
   }
   // Free tečky pokračují v noise driftu
   pool.noiseDriftAll(tSeconds, dt, 3);
-  // Povrchová oscilace
-  pool.surfaceOscillate(tSeconds, dt, 0.3);
 }
