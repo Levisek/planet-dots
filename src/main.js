@@ -3,7 +3,7 @@ import { createScene, createStarfield } from './scene.js';
 import { createPlanetMeshes } from './planetMeshes.js';
 import { updateRotations } from './rotation.js';
 import { ParticlePool } from './particles.js';
-import { phaseAt, phaseProgress, updatePhaseInit, updatePhasePlanet } from './animation.js';
+import { phaseAt, phaseProgress, updatePhaseInit, updatePhasePlanet, updatePhaseLive } from './animation.js';
 
 const { renderer, scene, camera } = createScene();
 createStarfield(scene);
@@ -26,10 +26,11 @@ function tick() {
 
   if (ph.id === 'init') {
     updatePhaseInit(pool, elapsed, dt);
+  } else if (ph.id === 'live') {
+    updatePhaseLive(pool, elapsed, dt, meshes);
   } else if (ph.planetId) {
     updatePhasePlanet(pool, ph, pt, dt, meshes, rings);
   }
-  // live phase doplníme v Task 20
 
   if (elapsed >= 7) updateRotations(meshes, dt);
 

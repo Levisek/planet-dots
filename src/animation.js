@@ -119,3 +119,14 @@ export function updatePhasePlanet(pool, ph, phaseT, dt, planetMeshes, ringMeshes
     }
   }
 }
+
+export function updatePhaseLive(pool, tSeconds, dt, planetMeshes) {
+  // Tečky které měly fázi FLYING_TO_PLANET → přepni na ON_PLANET (first frame live only)
+  for (let i = 0; i < pool.count; i++) {
+    if (pool.phase[i] === PHASE.FLYING_TO_PLANET) pool.phase[i] = PHASE.ON_PLANET;
+  }
+  // Free tečky pokračují v noise driftu
+  pool.noiseDriftAll(tSeconds, dt, 3);
+  // Povrchová oscilace
+  pool.surfaceOscillate(tSeconds, dt, 0.3);
+}

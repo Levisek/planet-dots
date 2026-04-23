@@ -208,4 +208,17 @@ export class ParticlePool {
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
   }
+
+  /** Tečky v phase ON_PLANET lehce oscilují v normále povrchu (dýchavé). */
+  surfaceOscillate(time, dt, amplitude = 0.4) {
+    for (let i = 0; i < this.count; i++) {
+      if (this.phase[i] !== PHASE.ON_PLANET) continue;
+      const seed = i * 0.07;
+      const osc = Math.sin(time * 1.2 + seed) * amplitude * dt;
+      this.position[3*i]     += (this.target[3*i]     - this.position[3*i])     * 0.05 + osc;
+      this.position[3*i + 1] += (this.target[3*i + 1] - this.position[3*i + 1]) * 0.05;
+      this.position[3*i + 2] += (this.target[3*i + 2] - this.position[3*i + 2]) * 0.05;
+    }
+    this.posAttr.needsUpdate = true;
+  }
 }
