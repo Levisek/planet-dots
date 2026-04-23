@@ -20,10 +20,15 @@ test('každá planeta má povinné atributy', () => {
   }
 });
 
-test('součet tickCount planet je ≤ 1500', () => {
-  const sum = PLANETS.reduce((s, p) => s + p.tickCount, 0);
-  assert.ok(sum <= 1500, `součet ticks = ${sum}, musí ≤ 1500`);
-  assert.ok(sum >= 800, `součet ticks = ${sum}, musí ≥ 800 (ať zbyde pool)`);
+test('součet tickCount planet + prstence je ≤ 1900', () => {
+  const sum = PLANETS.reduce((s, p) => s + p.tickCount + (p.ringTickCount || 0), 0);
+  assert.ok(sum <= 1900, `součet ticks = ${sum}, musí ≤ 1900 (pool je 2000)`);
+  assert.ok(sum >= 1500, `součet ticks = ${sum}, musí ≥ 1500 pro hustotu`);
+});
+
+test('Saturn má ringTickCount', () => {
+  const saturn = PLANETS.find(p => p.id === 'saturn');
+  assert.ok(saturn.ringTickCount && saturn.ringTickCount > 0, 'Saturn musí mít ringTickCount');
 });
 
 test('proporce radiusPx vůči Jupiteru = 180 px referenční', () => {
