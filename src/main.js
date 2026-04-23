@@ -1,2 +1,11 @@
-// Bootstrap — zatím stub, naplníme v Task 5.
-console.log('Dots main.js loaded');
+import * as THREE from 'three';
+import { createScene } from './scene.js';
+
+const { renderer, scene, camera } = createScene();
+
+function tick() {
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
