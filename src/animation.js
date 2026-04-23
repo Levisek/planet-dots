@@ -81,7 +81,7 @@ function getPlanetSlotData(planetId, tickCount) {
 }
 
 /** Invokováno pro fázi planetárního slotu (sun, mercury, ... neptune). */
-export function updatePhasePlanet(pool, ph, phaseT, dt, planetMeshes) {
+export function updatePhasePlanet(pool, ph, phaseT, dt, planetMeshes, ringMeshes = {}) {
   const planet = PLANET_BY_ID[ph.planetId];
   const slot = getPlanetSlotData(ph.planetId, planet.tickCount);
 
@@ -112,5 +112,10 @@ export function updatePhasePlanet(pool, ph, phaseT, dt, planetMeshes) {
     const targetOp = (phaseT - SUB.FLY_END) / (1 - SUB.FLY_END);
     mesh.material.opacity = Math.min(1, targetOp);
     if (mesh.material.opacity >= 1) mesh.material.transparent = false;
+
+    // Saturn — fade-in prstenců
+    if (planet.ringTexture && ringMeshes[planet.id]) {
+      ringMeshes[planet.id].material.opacity = Math.min(0.9, targetOp * 0.9);
+    }
   }
 }

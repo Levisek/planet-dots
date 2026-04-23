@@ -27,7 +27,7 @@ function tick() {
   if (ph.id === 'init') {
     updatePhaseInit(pool, elapsed, dt);
   } else if (ph.planetId) {
-    updatePhasePlanet(pool, ph, pt, dt, meshes);
+    updatePhasePlanet(pool, ph, pt, dt, meshes, rings);
   }
   // live phase doplníme v Task 20
 
