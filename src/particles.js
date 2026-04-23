@@ -40,10 +40,12 @@ void main() {
 export class ParticlePool {
   constructor(count = 1500) {
     this.count = count;
+    // GPU-uploaded (via BufferAttribute níže):
     this.position = new Float32Array(count * 3);
-    this.target   = new Float32Array(count * 3);
-    this.velocity = new Float32Array(count * 3);
     this.color    = new Float32Array(count * 3);
+    // CPU-only state pro animation lerp (nenahrává se na GPU):
+    this.target      = new Float32Array(count * 3);
+    this.velocity    = new Float32Array(count * 3);
     this.targetColor = new Float32Array(count * 3);
     this.size     = new Float32Array(count);
     this.alpha    = new Float32Array(count);
@@ -55,10 +57,16 @@ export class ParticlePool {
     this.colorAttr = new THREE.BufferAttribute(this.color, 3);
     this.sizeAttr  = new THREE.BufferAttribute(this.size, 1);
     this.alphaAttr = new THREE.BufferAttribute(this.alpha, 1);
+    // všechny 4 atributy se přepisují každý frame → dynamic draw hint
+    this.posAttr.setUsage(THREE.DynamicDrawUsage);
+    this.colorAttr.setUsage(THREE.DynamicDrawUsage);
+    this.sizeAttr.setUsage(THREE.DynamicDrawUsage);
+    this.alphaAttr.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('position', this.posAttr);
     geometry.setAttribute('aColor',   this.colorAttr);
     geometry.setAttribute('aSize',    this.sizeAttr);
     geometry.setAttribute('aAlpha',   this.alphaAttr);
+    this.geometry = geometry;
 
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
@@ -103,10 +111,17 @@ export class ParticlePool {
     this.targetColor[3*i] = r; this.targetColor[3*i+1] = g; this.targetColor[3*i+2] = b;
   }
 
+  // Full re-upload všech 4 GPU atributů. Pro init/reset; per-frame updaty
+  // volají `this.posAttr.needsUpdate = true` apod. granulárně.
   flushDirty() {
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
     this.alphaAttr.needsUpdate = true;
     this.sizeAttr.needsUpdate = true;
+  }
+
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
   }
 }
