@@ -48,6 +48,7 @@ export function createPlanetMeshes(scene) {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(p.xPosition, 0, 0);
+    mesh.rotation.z = THREE.MathUtils.degToRad(p.axialTilt);
     mesh.userData.planet = p;
     scene.add(mesh);
     meshes[p.id] = mesh;
@@ -55,6 +56,8 @@ export function createPlanetMeshes(scene) {
     if (p.ringTexture) {
       const ring = createRingMesh(p);
       ring.position.copy(mesh.position);
+      // prstence sdílí tilt planety (jsou v rovníku)
+      ring.rotation.x = Math.PI / 2 + THREE.MathUtils.degToRad(p.axialTilt);
       scene.add(ring);
       rings[p.id] = ring;
     }
