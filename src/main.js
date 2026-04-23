@@ -3,13 +3,11 @@ import { createPlanetMeshes } from './planetMeshes.js';
 
 const { renderer, scene, camera } = createScene();
 createStarfield(scene);
-const planetMeshes = createPlanetMeshes(scene);
+const { meshes, rings } = createPlanetMeshes(scene);
 
-// DEBUG — zobrazit všechny okamžitě (odstraníme v Task 17).
-for (const mesh of Object.values(planetMeshes)) {
-  mesh.material.opacity = 1;
-  mesh.material.transparent = false;
-}
+// DEBUG — zobrazit všechny okamžitě.
+for (const m of Object.values(meshes)) { m.material.opacity = 1; m.material.transparent = false; }
+for (const r of Object.values(rings)) { r.material.opacity = 0.9; }
 
 function tick() {
   renderer.render(scene, camera);
