@@ -124,4 +124,44 @@ export class ParticlePool {
     this.geometry.dispose();
     this.material.dispose();
   }
+
+  resetAllToFree() {
+    for (let i = 0; i < this.count; i++) {
+      this.phase[i] = PHASE.FREE;
+      this.owner[i] = -1;
+      // random start position ve viewportu
+      this.position[3*i]     = (Math.random() - 0.5) * 1800;
+      this.position[3*i + 1] = (Math.random() - 0.5) * 800;
+      this.position[3*i + 2] = (Math.random() - 0.5) * 400;
+      this.target[3*i]     = this.position[3*i];
+      this.target[3*i + 1] = this.position[3*i + 1];
+      this.target[3*i + 2] = this.position[3*i + 2];
+      this.color[3*i]     = 1; this.color[3*i + 1] = 1; this.color[3*i + 2] = 1;
+      this.size[i] = 2.2;
+      this.alpha[i] = 0;
+    }
+    this.flushDirty();
+  }
+
+  noiseDriftAll(time, dt, magnitude = 6) {
+    for (let i = 0; i < this.count; i++) {
+      if (this.phase[i] !== PHASE.FREE) continue;
+      const seed = i * 0.13;
+      this.position[3*i]     += Math.sin(time * 0.5 + seed) * magnitude * dt;
+      this.position[3*i + 1] += Math.cos(time * 0.4 + seed * 2) * magnitude * dt;
+      this.position[3*i + 2] += Math.sin(time * 0.3 + seed * 3) * magnitude * 0.5 * dt;
+    }
+    this.posAttr.needsUpdate = true;
+  }
+
+  fadeInAll(rate, dt) {
+    let dirty = false;
+    for (let i = 0; i < this.count; i++) {
+      if (this.alpha[i] < 0.7) {
+        this.alpha[i] = Math.min(0.7, this.alpha[i] + rate * dt);
+        dirty = true;
+      }
+    }
+    if (dirty) this.alphaAttr.needsUpdate = true;
+  }
 }

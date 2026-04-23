@@ -43,3 +43,9 @@ export const SUB = Object.freeze({
   LABEL_HOLD_END: 0.55,
   FLY_END: 0.85,
 });
+
+export function updatePhaseInit(pool, tSeconds, dt) {
+  // 0..1s — materializace (fade-in alpha) + noise drift
+  pool.fadeInAll(1.2, dt);
+  pool.noiseDriftAll(tSeconds, dt, 8);
+}
