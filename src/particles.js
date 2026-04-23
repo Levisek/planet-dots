@@ -40,6 +40,8 @@ export class ParticlePool {
     this.target      = new Float32Array(count * 3);
     this.velocity    = new Float32Array(count * 3);
     this.targetColor = new Float32Array(count * 3);
+    // Local offset od center planety (pro cluster rotaci v live fázi):
+    this.localOffset = new Float32Array(count * 3);
     this.size     = new Float32Array(count);
     this.alpha    = new Float32Array(count);
     this.phase    = new Uint8Array(count);
@@ -191,6 +193,89 @@ export class ParticlePool {
       this.targetColor[3*i]     = planetColor.r;
       this.targetColor[3*i + 1] = planetColor.g;
       this.targetColor[3*i + 2] = planetColor.b;
+    }
+  }
+
+  /**
+   * Přiřadí každé tečce pozici na povrchu planety + barvu sampled z textury.
+   * Uloží také localOffset pro rotaci clusteru v live fázi.
+   * @param {number[]} indices — indexy teček v poolu
+   * @param {{x:number,y:number,z:number}} center — pozice planety v world space
+   * @param {number[][]} fibPts — Fibonacci sphere body [x,y,z] (relativní, už škálované na radius)
+   * @param {ImageData} imageData — bitmap textury planety
+   */
+  assignPlanetDotsFromTexture(indices, center, fibPts, imageData) {
+    const { data, width, height } = imageData;
+    for (let k = 0; k < indices.length; k++) {
+      const i = indices[k];
+      const off = fibPts[k % fibPts.length];
+      const ox = off[0], oy = off[1], oz = off[2];
+      // World target pozice:
+      this.target[3*i]     = center.x + ox;
+      this.target[3*i + 1] = center.y + oy;
+      this.target[3*i + 2] = center.z + oz;
+      // Local offset (pro rotaci):
+      this.localOffset[3*i]     = ox;
+      this.localOffset[3*i + 1] = oy;
+      this.localOffset[3*i + 2] = oz;
+      // UV z sphere pozice (normalizovat):
+      const r = Math.sqrt(ox*ox + oy*oy + oz*oz) || 1;
+      const u = Math.atan2(oz, ox) / (Math.PI * 2) + 0.5;
+      const v = Math.asin(oy / r) / Math.PI + 0.5;
+      const px = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
+      const py = Math.min(height - 1, Math.max(0, Math.floor((1 - v) * height)));
+      const idx = (py * width + px) * 4;
+      this.targetColor[3*i]     = data[idx]     / 255;
+      this.targetColor[3*i + 1] = data[idx + 1] / 255;
+      this.targetColor[3*i + 2] = data[idx + 2] / 255;
+      this.phase[i] = PHASE.FLYING_TO_PLANET;
+    }
+  }
+
+  /**
+   * Přiřadí tečkám pozice v nakloněném prstencovém disku + barvy sampled
+   * z 1D ring textury (horizontální proužek).
+   * @param {number[]} indices
+   * @param {{x:number,y:number,z:number}} center
+   * @param {number} innerRadius
+   * @param {number} outerRadius
+   * @param {ImageData} imageData
+   * @param {number} tiltRadians — sklon ring disku (kolem X osy, stejný jako axial tilt planety)
+   */
+  assignRingDotsFromTexture(indices, center, innerRadius, outerRadius, imageData, tiltRadians) {
+    const { data, width, height } = imageData;
+    const cosT = Math.cos(tiltRadians);
+    const sinT = Math.sin(tiltRadians);
+    const py = Math.floor(0.5 * height);
+    for (let k = 0; k < indices.length; k++) {
+      const i = indices[k];
+      const t = Math.random();
+      const r = Math.sqrt(innerRadius*innerRadius + t * (outerRadius*outerRadius - innerRadius*innerRadius));
+      const theta = Math.random() * Math.PI * 2;
+      // Local pos v ring plane (z=0):
+      const lx = Math.cos(theta) * r;
+      const ly = 0;
+      const lz = Math.sin(theta) * r;
+      // Apply tilt rotation kolem X osy:
+      const ox = lx;
+      const oy = ly * cosT - lz * sinT;
+      const oz = ly * sinT + lz * cosT;
+      this.target[3*i]     = center.x + ox;
+      this.target[3*i + 1] = center.y + oy;
+      this.target[3*i + 2] = center.z + oz;
+      this.localOffset[3*i]     = ox;
+      this.localOffset[3*i + 1] = oy;
+      this.localOffset[3*i + 2] = oz;
+      // Sample color z ring textury podle radiálního t:
+      const px = Math.min(width - 1, Math.max(0, Math.floor(t * width)));
+      const idx = (py * width + px) * 4;
+      this.targetColor[3*i]     = data[idx]     / 255;
+      this.targetColor[3*i + 1] = data[idx + 1] / 255;
+      this.targetColor[3*i + 2] = data[idx + 2] / 255;
+      // Alpha z textury — pokud je transparentní, tečka bude také míň viditelná
+      const alpha = data[idx + 3] / 255;
+      this.size[i] = 1.6 * alpha; // malé/neviditelné tam kde ring-texture má alpha 0
+      this.phase[i] = PHASE.FLYING_TO_PLANET;
     }
   }
 
