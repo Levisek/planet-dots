@@ -1,14 +1,7 @@
 import * as THREE from 'three';
+import { PHASE } from './phase.js';
 
-export const PHASE = Object.freeze({
-  IDLE: 0,           // rezerva
-  FREE: 1,           // vznáší se v Perlin noise
-  FORMING_LABEL: 2,  // letí k label pozici
-  HOLDING_LABEL: 3,  // drží v label pozici
-  FLYING_TO_PLANET: 4,
-  ON_PLANET: 5,
-  ON_RING: 6,
-});
+export { PHASE };
 
 const VERTEX_SHADER = /* glsl */ `
 attribute vec3 aColor;
@@ -163,5 +156,56 @@ export class ParticlePool {
       }
     }
     if (dirty) this.alphaAttr.needsUpdate = true;
+  }
+
+  /** Alokuje prvních `count` FREE particle indexů. Vrací pole indexů. */
+  takeFreeIndices(count) {
+    const out = [];
+    for (let i = 0; i < this.count && out.length < count; i++) {
+      if (this.phase[i] === PHASE.FREE) out.push(i);
+    }
+    return out;
+  }
+
+  /** Nastaví target pozice pro indexy + phase FORMING_LABEL. */
+  assignLabelTargets(indices, labelPoints) {
+    for (let k = 0; k < indices.length; k++) {
+      const i = indices[k];
+      const p = labelPoints[k % labelPoints.length];
+      this.target[3*i]     = p[0];
+      this.target[3*i + 1] = p[1];
+      this.target[3*i + 2] = p[2];
+      this.phase[i] = PHASE.FORMING_LABEL;
+    }
+  }
+
+  /** Nastaví target pozice k povrchu planety + phase FLYING_TO_PLANET. */
+  assignPlanetTargets(indices, planetPosition, fibonacciPts, planetColor) {
+    for (let k = 0; k < indices.length; k++) {
+      const i = indices[k];
+      const off = fibonacciPts[k % fibonacciPts.length];
+      this.target[3*i]     = planetPosition.x + off[0];
+      this.target[3*i + 1] = planetPosition.y + off[1];
+      this.target[3*i + 2] = planetPosition.z + off[2];
+      this.phase[i] = PHASE.FLYING_TO_PLANET;
+      this.targetColor[3*i]     = planetColor.r;
+      this.targetColor[3*i + 1] = planetColor.g;
+      this.targetColor[3*i + 2] = planetColor.b;
+    }
+  }
+
+  /** Lerp position→target a color→targetColor s daným koeficientem (0..1). */
+  lerpToTargets(k) {
+    for (let i = 0; i < this.count; i++) {
+      if (this.phase[i] === PHASE.FREE || this.phase[i] === PHASE.IDLE) continue;
+      this.position[3*i]     += (this.target[3*i]     - this.position[3*i])     * k;
+      this.position[3*i + 1] += (this.target[3*i + 1] - this.position[3*i + 1]) * k;
+      this.position[3*i + 2] += (this.target[3*i + 2] - this.position[3*i + 2]) * k;
+      this.color[3*i]     += (this.targetColor[3*i]     - this.color[3*i])     * k * 0.5;
+      this.color[3*i + 1] += (this.targetColor[3*i + 1] - this.color[3*i + 1]) * k * 0.5;
+      this.color[3*i + 2] += (this.targetColor[3*i + 2] - this.color[3*i + 2]) * k * 0.5;
+    }
+    this.posAttr.needsUpdate = true;
+    this.colorAttr.needsUpdate = true;
   }
 }

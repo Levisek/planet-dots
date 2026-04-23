@@ -3,7 +3,7 @@ import { createScene, createStarfield } from './scene.js';
 import { createPlanetMeshes } from './planetMeshes.js';
 import { updateRotations } from './rotation.js';
 import { ParticlePool } from './particles.js';
-import { phaseAt, updatePhaseInit } from './animation.js';
+import { phaseAt, phaseProgress, updatePhaseInit, updatePhasePlanet } from './animation.js';
 
 const { renderer, scene, camera } = createScene();
 createStarfield(scene);
@@ -22,10 +22,14 @@ function tick() {
   elapsed += dt;
 
   const ph = phaseAt(elapsed);
-  if (ph.id === 'init') updatePhaseInit(pool, elapsed, dt);
-  // ostatní fáze doplníme v dalších taskech
+  const pt = phaseProgress(elapsed);
 
-  // po 7s se roztočí rotace
+  if (ph.id === 'init') {
+    updatePhaseInit(pool, elapsed, dt);
+  } else if (ph.id === 'sun') {
+    updatePhasePlanet(pool, ph, pt, dt, meshes);
+  }
+
   if (elapsed >= 7) updateRotations(meshes, dt);
 
   renderer.render(scene, camera);
