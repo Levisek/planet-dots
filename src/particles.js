@@ -3,6 +3,8 @@ import { PHASE } from './phase.js';
 
 export { PHASE };
 
+const _tmpVec3 = new THREE.Vector3();
+
 const VERTEX_SHADER = /* glsl */ `
 attribute vec3 aColor;
 attribute float aSize;
@@ -203,8 +205,9 @@ export class ParticlePool {
    * @param {{x:number,y:number,z:number}} center — pozice planety v world space
    * @param {number[][]} fibPts — Fibonacci sphere body [x,y,z] (relativní, už škálované na radius)
    * @param {ImageData} imageData — bitmap textury planety
+   * @param {number} planetIndex — index planety v PLANETS (pro cluster rotaci)
    */
-  assignPlanetDotsFromTexture(indices, center, fibPts, imageData) {
+  assignPlanetDotsFromTexture(indices, center, fibPts, imageData, planetIndex) {
     const { data, width, height } = imageData;
     for (let k = 0; k < indices.length; k++) {
       const i = indices[k];
@@ -229,6 +232,7 @@ export class ParticlePool {
       this.targetColor[3*i + 1] = data[idx + 1] / 255;
       this.targetColor[3*i + 2] = data[idx + 2] / 255;
       this.phase[i] = PHASE.FLYING_TO_PLANET;
+      this.owner[i] = planetIndex;
     }
   }
 
@@ -241,8 +245,9 @@ export class ParticlePool {
    * @param {number} outerRadius
    * @param {ImageData} imageData
    * @param {number} tiltRadians — sklon ring disku (kolem X osy, stejný jako axial tilt planety)
+   * @param {number} planetIndex — index planety v PLANETS (pro cluster rotaci)
    */
-  assignRingDotsFromTexture(indices, center, innerRadius, outerRadius, imageData, tiltRadians) {
+  assignRingDotsFromTexture(indices, center, innerRadius, outerRadius, imageData, tiltRadians, planetIndex) {
     const { data, width, height } = imageData;
     const cosT = Math.cos(tiltRadians);
     const sinT = Math.sin(tiltRadians);
@@ -276,6 +281,7 @@ export class ParticlePool {
       const alpha = data[idx + 3] / 255;
       this.size[i] = 1.6 * alpha; // malé/neviditelné tam kde ring-texture má alpha 0
       this.phase[i] = PHASE.FLYING_TO_PLANET;
+      this.owner[i] = planetIndex;
     }
   }
 
@@ -303,6 +309,33 @@ export class ParticlePool {
       this.position[3*i]     += (this.target[3*i]     - this.position[3*i])     * 0.05 + osc;
       this.position[3*i + 1] += (this.target[3*i + 1] - this.position[3*i + 1]) * 0.05;
       this.position[3*i + 2] += (this.target[3*i + 2] - this.position[3*i + 2]) * 0.05;
+    }
+    this.posAttr.needsUpdate = true;
+  }
+
+  /**
+   * Pro všechny tečky ON_PLANET/ON_RING: world position = anchor.matrixWorld * localOffset.
+   * Předpokládá že anchory už byly v tomto framu natočeny (updateMatrixWorld volaný).
+   * @param {THREE.Object3D[]} anchors — indexovaná pole anchorů (stejné pořadí jako PLANETS)
+   */
+  applyClusterRotation(anchors) {
+    const tmp = _tmpVec3;
+    for (let i = 0; i < this.count; i++) {
+      const ph = this.phase[i];
+      if (ph !== PHASE.ON_PLANET && ph !== PHASE.ON_RING) continue;
+      const ownerIdx = this.owner[i];
+      if (ownerIdx < 0) continue;
+      const anchor = anchors[ownerIdx];
+      if (!anchor) continue;
+      tmp.set(
+        this.localOffset[3*i],
+        this.localOffset[3*i + 1],
+        this.localOffset[3*i + 2],
+      );
+      tmp.applyMatrix4(anchor.matrixWorld);
+      this.position[3*i]     = tmp.x;
+      this.position[3*i + 1] = tmp.y;
+      this.position[3*i + 2] = tmp.z;
     }
     this.posAttr.needsUpdate = true;
   }

@@ -1,16 +1,23 @@
 import * as THREE from 'three';
 import { PLANETS } from './planets.js';
 
-// Rotace kolem lokální Y osy (severní pól = +Y po aplikaci tilt).
-// Používáme Object3D.rotateOnAxis s vektorem (0,1,0) v LOCAL prostoru,
-// aby rotace respektovala axial tilt aplikovaný přes mesh.rotation.z.
+// Lokální Y osa planety (po aplikaci axial tilt přes anchor.rotation.z).
 const LOCAL_Y = new THREE.Vector3(0, 1, 0);
 
-export function updateRotations(meshes, dtSeconds) {
+/**
+ * Rotuje každý planetární anchor kolem své lokální Y osy
+ * realistickými poměry period (Země = 10 s, ostatní přepočteny).
+ * Po úpravě rotace volá updateMatrixWorld aby matrixWorld byl fresh.
+ *
+ * @param {Object} anchorsById — { [planetId]: Object3D }
+ * @param {number} dtSeconds
+ */
+export function rotateAnchors(anchorsById, dtSeconds) {
   for (const p of PLANETS) {
-    const mesh = meshes[p.id];
-    if (!mesh) continue;
-    const omega = (Math.PI * 2) / p.rotationPeriod; // rad/s
-    mesh.rotateOnAxis(LOCAL_Y, omega * p.direction * dtSeconds);
+    const anchor = anchorsById[p.id];
+    if (!anchor) continue;
+    const omega = (Math.PI * 2) / p.rotationPeriod;
+    anchor.rotateOnAxis(LOCAL_Y, omega * p.direction * dtSeconds);
+    anchor.updateMatrixWorld(true);
   }
 }
