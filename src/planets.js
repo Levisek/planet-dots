@@ -83,7 +83,7 @@ export const PLANETS = [
     radiusPx: 90,
     texture: 'textures/jupiter.jpg',
     emissive: false,
-    tickCount: 5000,
+    tickCount: 5500,
     axialTilt: 3.13,
     rotationPeriod: 4.1,
     direction: 1,
@@ -99,9 +99,9 @@ export const PLANETS = [
     ringTexture: 'textures/saturn_ring.png',
     ringInnerRadius: 90,
     ringOuterRadius: 175,
-    ringTickCount: 2000,
+    ringTickCount: 3500,
     emissive: false,
-    tickCount: 4000,
+    tickCount: 4500,
     axialTilt: 26.73,
     rotationPeriod: 4.5,
     direction: 1,
@@ -115,7 +115,7 @@ export const PLANETS = [
     radiusPx: 32.5,
     texture: 'textures/uranus.jpg',
     emissive: false,
-    tickCount: 2000,
+    tickCount: 2300,
     axialTilt: 97.77,
     rotationPeriod: 7.2,
     direction: -1,
@@ -129,7 +129,7 @@ export const PLANETS = [
     radiusPx: 31.5,
     texture: 'textures/neptune.jpg',
     emissive: false,
-    tickCount: 2000,
+    tickCount: 2300,
     axialTilt: 28.32,
     rotationPeriod: 6.7,
     direction: 1,
@@ -141,7 +141,7 @@ export const PLANETS = [
 export const PLANET_BY_ID = Object.fromEntries(PLANETS.map(p => [p.id, p]));
 
 // Celkový pool size pro ParticlePool (sun + planety + ringy + rezerva na labely/in-flight).
-export const POOL_SIZE = 30000;
+export const POOL_SIZE = 33000;
 
 // Kolik teček z proudu každé planety tvoří její label (odbočují nad planetou, drží, pak padnou na surface).
 export const LABEL_TICK_COUNT = 250;

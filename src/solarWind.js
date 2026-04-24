@@ -134,7 +134,18 @@ function getPlanetTargets(planet, anchor, imageData, ringImageData) {
  */
 export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
   const ph = phaseAt(currentTime);
-  if (!ph || ph.id === 'init' || ph.id === 'live' || ph.id === 'sun') return;
+  if (!ph) return;
+
+  // Sun fáze (1..2s) — odemykej alpha tečkám na Slunci postupně, ať se Slunce rozsvěcuje.
+  if (ph.id === 'sun') {
+    const sunCount = PLANETS[0].tickCount;
+    const progress = Math.min(1, (currentTime - ph.start) / (ph.end - ph.start));
+    const revealed = Math.floor(progress * sunCount);
+    for (let i = 0; i < revealed; i++) pool.alpha[i] = 1;
+    return;
+  }
+
+  if (ph.id === 'init' || ph.id === 'live') return;
   if (!ph.planetId) return;
 
   const planet = PLANET_BY_ID[ph.planetId];
@@ -193,7 +204,7 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
 
     // Ring alpha korekce velikosti — zachovat minimum viditelnosti.
     if (t.ringAlpha !== undefined) {
-      pool.size[idx] = 4.5 * Math.max(0.35, t.ringAlpha);
+      pool.size[idx] = 4.5 * Math.max(0.6, t.ringAlpha);
     }
   }
 

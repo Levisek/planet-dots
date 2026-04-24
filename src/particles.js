@@ -139,7 +139,7 @@ export class ParticlePool {
       this.color[3*i]     = data[idx] / 255;
       this.color[3*i + 1] = data[idx + 1] / 255;
       this.color[3*i + 2] = data[idx + 2] / 255;
-      this.alpha[i] = 1.0;
+      this.alpha[i] = 0; // sun reveal ramp odemkne v sun fázi (1..2s)
       this.size[i] = 6.0;
       this.phase[i] = PHASE.ON_SUN;
       this.owner[i] = 0; // Sun = index 0 in PLANETS
@@ -284,6 +284,8 @@ export class ParticlePool {
     }
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
+    this.sizeAttr.needsUpdate = true;
+    this.alphaAttr.needsUpdate = true;
   }
 
   /**
