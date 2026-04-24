@@ -226,6 +226,70 @@ export class ParticlePool {
   }
 
   /**
+   * Spawn tečky z povrchu mateřské planety ven na orbitu měsíce.
+   * Podobné spawnFromSun, ale zdroj = planet surface, cíl = moon orbit position.
+   * Používá IDLE index, nastaví FLYING pak ON_MOON po arrival.
+   *
+   * @param {number} sourceIdx — volný IDLE index
+   * @param {{x,y,z}} planetCenter — world pos planety
+   * @param {number} planetRadius
+   * @param {{x,y,z}} moonOrbitWorld — world pos cílové pozice (moonAnchor surface point)
+   * @param {{x,y,z}} moonLocalOffset — offset v moonAnchor frame (pro cluster rotaci)
+   * @param {[number,number,number]} planetColor — barva startu
+   * @param {[number,number,number]} moonColor — barva po příletu
+   * @param {number} moonOwnerIdx — unified anchor index (9 + moon array index)
+   * @param {number} currentTime
+   * @param {number} travelTime — 0.25–0.35 s
+   */
+  spawnFromPlanet(sourceIdx, planetCenter, planetRadius, moonOrbitWorld, moonLocalOffset,
+                  planetColor, moonColor, moonOwnerIdx, currentTime, travelTime) {
+    const i = sourceIdx;
+    // start pozice = random bod na povrchu planety
+    const rx = (Math.random() - 0.5) * 2;
+    const ry = (Math.random() - 0.5) * 2;
+    const rz = (Math.random() - 0.5) * 2;
+    const len = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1;
+    const sx = planetCenter.x + (rx/len) * planetRadius;
+    const sy = planetCenter.y + (ry/len) * planetRadius;
+    const sz = planetCenter.z + (rz/len) * planetRadius;
+    this.position[3*i]     = sx;
+    this.position[3*i + 1] = sy;
+    this.position[3*i + 2] = sz;
+    // barva při emit = planet color (sampled)
+    this.color[3*i]     = planetColor[0];
+    this.color[3*i + 1] = planetColor[1];
+    this.color[3*i + 2] = planetColor[2];
+    this.alpha[i] = 1.0;
+
+    const tx = moonOrbitWorld.x;
+    const ty = moonOrbitWorld.y;
+    const tz = moonOrbitWorld.z;
+    this.target[3*i]     = tx;
+    this.target[3*i + 1] = ty;
+    this.target[3*i + 2] = tz;
+
+    this.velocity[3*i]     = (tx - sx) / travelTime;
+    this.velocity[3*i + 1] = (ty - sy) / travelTime;
+    this.velocity[3*i + 2] = (tz - sz) / travelTime;
+
+    this.postArrivalTarget[3*i]     = tx;
+    this.postArrivalTarget[3*i + 1] = ty;
+    this.postArrivalTarget[3*i + 2] = tz;
+    this.postArrivalColor[3*i]     = moonColor[0];
+    this.postArrivalColor[3*i + 1] = moonColor[1];
+    this.postArrivalColor[3*i + 2] = moonColor[2];
+    this.localOffset[3*i]     = moonLocalOffset.x;
+    this.localOffset[3*i + 1] = moonLocalOffset.y;
+    this.localOffset[3*i + 2] = moonLocalOffset.z;
+
+    this.arrivalTime[i] = currentTime + travelTime;
+    this.holdUntil[i] = 0; // no label hold
+    this.owner[i] = moonOwnerIdx;
+    this.phase[i] = PHASE.FLYING;
+    this.size[i] = 5.0; // moon size — owner>=9 distinguuje od planety v updateFlight
+  }
+
+  /**
    * Update tečky pro daný frame:
    *  - FLYING: position += velocity * dt; if time >= arrivalTime → snap to target, transition.
    *  - HOLDING_LABEL: drží, if time >= holdUntil → re-target na postArrivalTarget (velocity = ?).
@@ -255,7 +319,14 @@ export class ParticlePool {
             this.phase[i] = PHASE.HOLDING_LABEL;
           } else {
             // settle to final phase (ON_PLANET or ON_RING based on size)
-            this.phase[i] = (this.size[i] < 5.0) ? PHASE.ON_RING : PHASE.ON_PLANET;
+            // owner >= 9 = moon, size < 5 = ring, else planet
+            if (this.owner[i] >= 9) {
+              this.phase[i] = PHASE.ON_MOON;
+            } else if (this.size[i] < 5.0) {
+              this.phase[i] = PHASE.ON_RING;
+            } else {
+              this.phase[i] = PHASE.ON_PLANET;
+            }
             // snap color to final
             this.color[3*i]     = this.postArrivalColor[3*i];
             this.color[3*i + 1] = this.postArrivalColor[3*i + 1];
@@ -296,7 +367,7 @@ export class ParticlePool {
     const tmp = _tmpVec3;
     for (let i = 0; i < this.count; i++) {
       const ph = this.phase[i];
-      if (ph !== PHASE.ON_PLANET && ph !== PHASE.ON_RING && ph !== PHASE.ON_SUN) continue;
+      if (ph !== PHASE.ON_PLANET && ph !== PHASE.ON_RING && ph !== PHASE.ON_SUN && ph !== PHASE.ON_MOON) continue;
       const oi = this.owner[i];
       if (oi < 0) continue;
       const anchor = anchorsByIndex[oi];

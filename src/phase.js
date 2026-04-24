@@ -8,4 +8,5 @@ export const PHASE = Object.freeze({
   HOLDING_LABEL: 3,   // dorazila k label pozici, drží
   ON_PLANET: 4,       // usazená na povrchu planety
   ON_RING: 5,         // usazená na prstenci
+  ON_MOON: 6,         // usazená na povrchu měsíce
 });
