@@ -1,34 +1,27 @@
 // Pure helpers (bez Three.js) pro rozmístění bodů.
 
 /**
- * Fibonacci sphere s volitelným jitter (default 1.0 = rozbije viditelnou
- * golden-ratio spirálu). Body leží přesně na povrchu sféry daného poloměru.
- * jitter=0 vypne, jitter=1 posune každý bod zhruba o polovinu sousedské vzdálenosti.
+ * Uniformní náhodné rozložení bodů na kouli pomocí Marsaglia metody.
+ * Nevytváří viditelnou spirálu/pattern jako Fibonacci (golden ratio má u pólů
+ * konvergentní spirálu viditelnou lidskému oku). Kompromis: drobný
+ * Poisson-clustering (některá místa hustší) — vizuálně mnohem méně rušivý
+ * než spirála na texturovaných planetách.
+ *
+ * Funkce si jméno ponechává kvůli callerům; vnitřně je teď random.
  */
-export function fibonacciSphere(count, radius, jitter = 1.0) {
+export function fibonacciSphere(count, radius) {
   const points = [];
-  const phi = Math.PI * (Math.sqrt(5) - 1); // golden angle
-  const jitterMag = count > 1 ? jitter * 2 / Math.sqrt(count) : 0;
   for (let i = 0; i < count; i++) {
-    const y = count === 1 ? 0 : 1 - (i / (count - 1)) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = phi * i;
-    let x = Math.cos(theta) * r;
-    let yy = y;
-    let z = Math.sin(theta) * r;
-
-    if (jitterMag > 0) {
-      x += (Math.random() - 0.5) * jitterMag;
-      yy += (Math.random() - 0.5) * jitterMag;
-      z += (Math.random() - 0.5) * jitterMag;
-      // renormalize na jednotkovou sféru — bod zůstane přesně na povrchu po vynásobení radiusem
-      const len = Math.sqrt(x * x + yy * yy + z * z) || 1;
-      x /= len;
-      yy /= len;
-      z /= len;
-    }
-
-    points.push([x * radius, yy * radius, z * radius]);
+    // Marsaglia: sample uniformly z jednotkové krychle, odmítni mimo-kouli, pak normalize.
+    let x, y, z, d2;
+    do {
+      x = 2 * Math.random() - 1;
+      y = 2 * Math.random() - 1;
+      z = 2 * Math.random() - 1;
+      d2 = x * x + y * y + z * z;
+    } while (d2 > 1 || d2 < 1e-8);
+    const d = Math.sqrt(d2);
+    points.push([x / d * radius, y / d * radius, z / d * radius]);
   }
   return points;
 }

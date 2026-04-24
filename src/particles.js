@@ -154,22 +154,21 @@ export class ParticlePool {
   initFullSun(center, radius, sunImageData, count, dotSize = 6.0) {
     this._sunDotSize = dotSize;
     const { data, width, height } = sunImageData;
-    const phi = Math.PI * (Math.sqrt(5) - 1);
-    const jitterMag = count > 1 ? 2 / Math.sqrt(count) : 0;
     const indices = [];
     for (let i = 0; i < count; i++) {
       if (i >= this.count) break;
-      const y0 = count === 1 ? 0 : 1 - (i / (count - 1)) * 2;
-      const rr = Math.sqrt(Math.max(0, 1 - y0 * y0));
-      const theta = phi * i;
-      // Jitter + renormalize — rozbije viditelnou golden-ratio spirálu (artefakt při pohledu shora/zdola).
-      let jx = Math.cos(theta) * rr + (Math.random() - 0.5) * jitterMag;
-      let jy = y0 + (Math.random() - 0.5) * jitterMag;
-      let jz = Math.sin(theta) * rr + (Math.random() - 0.5) * jitterMag;
-      const jlen = Math.sqrt(jx * jx + jy * jy + jz * jz) || 1;
-      const sx = jx / jlen;
-      const sy = jy / jlen;
-      const sz = jz / jlen;
+      // Uniformní random distribuce (Marsaglia) — bez viditelné spirály.
+      let rx, ry, rz, d2;
+      do {
+        rx = 2 * Math.random() - 1;
+        ry = 2 * Math.random() - 1;
+        rz = 2 * Math.random() - 1;
+        d2 = rx * rx + ry * ry + rz * rz;
+      } while (d2 > 1 || d2 < 1e-8);
+      const d = Math.sqrt(d2);
+      const sx = rx / d;
+      const sy = ry / d;
+      const sz = rz / d;
       const ox = sx * radius;
       const oy = sy * radius;
       const oz = sz * radius;
