@@ -18,7 +18,7 @@ import { createMoonLabels } from './moonLabels.js';
 import { buildBodyMesh } from './bodyMesh.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
-import { easeInOutCubic } from './cameraTween.js';
+import { createTween } from './cameraTween.js';
 
 const { renderer, scene, camera, controls } = createScene();
 createStarfield(scene);
@@ -118,23 +118,19 @@ function tick() {
   const dt = clock.getDelta();
   elapsed += dt;
 
-  // Camera tween (pro fly-to)
+  // Camera tween (pro fly-to) — jednotný přes cameraTween.js
   if (_activeCameraTween) {
-    const twn = _activeCameraTween;
-    twn.t += dt;
-    const u = Math.min(1, twn.t / twn.duration);
-    const eased = easeInOutCubic(u);
-    camera.position.set(
-      twn.fromPos.x + (twn.toPos.x - twn.fromPos.x) * eased,
-      twn.fromPos.y + (twn.toPos.y - twn.fromPos.y) * eased,
-      twn.fromPos.z + (twn.toPos.z - twn.fromPos.z) * eased,
-    );
-    controlsTarget.x = twn.fromTarget.x + (twn.toTarget.x - twn.fromTarget.x) * eased;
-    controlsTarget.y = twn.fromTarget.y + (twn.toTarget.y - twn.fromTarget.y) * eased;
-    controlsTarget.z = twn.fromTarget.z + (twn.toTarget.z - twn.fromTarget.z) * eased;
+    _activeCameraTween.t += dt;
+    const s = _activeCameraTween.tween.sample(_activeCameraTween.t);
+    camera.position.set(s.pos.x, s.pos.y, s.pos.z);
+    controlsTarget.x = s.target.x;
+    controlsTarget.y = s.target.y;
+    controlsTarget.z = s.target.z;
     camera.lookAt(controlsTarget.x, controlsTarget.y, controlsTarget.z);
     if (controls.enabled) controls.target.set(controlsTarget.x, controlsTarget.y, controlsTarget.z);
-    if (u >= 1) _activeCameraTween = null;
+    if (_activeCameraTween.tween.isComplete(_activeCameraTween.t)) {
+      _activeCameraTween = null;
+    }
   }
 
   // Detail view state
@@ -289,19 +285,21 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   detailView = createDetailView({
     cameraFlyTo: (toPos, toTarget, duration) => {
       _activeCameraTween = {
-        fromPos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-        fromTarget: { x: controlsTarget.x, y: controlsTarget.y, z: controlsTarget.z },
-        toPos: { ...toPos },
-        toTarget: { ...toTarget },
+        tween: createTween({
+          fromPos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+          fromTarget: { x: controlsTarget.x, y: controlsTarget.y, z: controlsTarget.z },
+          toPos: { ...toPos },
+          toTarget: { ...toTarget },
+          duration,
+        }),
         t: 0,
-        duration,
       };
     },
     getCameraState: () => ({
       pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
       target: { x: controlsTarget.x, y: controlsTarget.y, z: controlsTarget.z },
     }),
-    setPaused: (v) => { /* detailView state řídí pause — tick() se na to dotáže */ },
+    setPaused: () => { /* placeholder — pauza se řídí přes detailView.state() v tick() */ },
     fadeOthers: (focusId, alpha) => {
       for (let i = 0; i < PLANETS.length; i++) {
         const id = PLANETS[i].id;
