@@ -43,4 +43,10 @@ Spustí pure-JS unit testy (data, geometry, label sampling). Rendering se verifi
 ## Licence
 
 Code: MIT.
-Textury: CC BY 4.0 — [Solar System Scope](https://www.solarsystemscope.com/textures/).
+
+**Textury planet:** CC BY 4.0 — [Solar System Scope](https://www.solarsystemscope.com/textures/).
+
+**Textury měsíců:**
+- Luna: CC BY 4.0 — Solar System Scope.
+- Ostatní (Phobos, Deimos, Io, Europa, Ganymede, Callisto, Titan, Rhea, Iapetus, Dione, Tethys, Enceladus, Mimas, Miranda, Ariel, Umbriel, Titania, Oberon): [Wikimedia Commons](https://commons.wikimedia.org/) — licence se liší per soubor (převážně Public Domain — NASA / JPL / Cassini / Voyager mise, některé CC BY-SA). Pro přesnou atribuci konkrétního souboru navštiv Wikipedia článek daného měsíce → infobox image → licence.
+- Download: `python3 scripts/download_moon_textures.py` (vyžaduje Pillow).
