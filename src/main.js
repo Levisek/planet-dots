@@ -331,6 +331,10 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       return Math.max(baseDist, maxMoonDist * 1.3 + p.radiusPx);
     },
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
+    resetScale: () => {
+      // Vymaž všechny moon scale faktory — každá další planeta začne v compressed scale.
+      for (const k in moonScaleFactors) delete moonScaleFactors[k];
+    },
   });
 
   // Picker events

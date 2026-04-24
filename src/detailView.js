@@ -86,6 +86,9 @@ export function createDetailView(deps) {
     _tween = null;
     _returnPos = null;
     _returnTarget = null;
+    // Reset real-scale toggle — každá další planeta začne s compressed scale.
+    _scaleOn = false;
+    if (deps.resetScale) deps.resetScale();
     deps.setPaused(false);
   }
 
