@@ -36,7 +36,6 @@ scene.add(pool.mesh);
 
 const clock = new THREE.Clock();
 let elapsed = 0;
-const paused = false;
 
 let picker = null;
 let tooltip = null;
@@ -116,7 +115,7 @@ function setMoonScaleReal(parentId, realOn) {
 
 function tick() {
   const tickStart = performance.now();
-  const dt = paused ? 0 : clock.getDelta();
+  const dt = clock.getDelta();
   elapsed += dt;
 
   // Camera tween (pro fly-to)

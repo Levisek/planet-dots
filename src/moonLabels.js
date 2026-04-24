@@ -62,9 +62,8 @@ export function createMoonLabels({ camera, canvas, moonAnchors }) {
         if (m.parent !== activeParentId) continue;
         const label = labels[m.id];
         if (!label) continue;
-        const world = new THREE.Vector3();
-        label.anchor.getWorldPosition(world);
-        const { x, y, behindCamera } = project(world);
+        label.anchor.getWorldPosition(_vec);
+        const { x, y, behindCamera } = project(_vec);
         if (behindCamera) {
           label.el.style.opacity = 0;
           continue;

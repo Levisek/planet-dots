@@ -38,13 +38,6 @@ export function phaseProgress(t) {
   return (t - ph.start) / (ph.end - ph.start);
 }
 
-// Sub-fáze uvnitř každého planet slotu (ponecháno pro referenční použití ve solar windu).
-export const SUB = Object.freeze({
-  LABEL_FORM_END: 0.25,
-  LABEL_HOLD_END: 0.55,
-  FLY_END: 0.85,
-});
-
 /** Reset per-phase emission counters (volá se při restartu animace). */
 export function resetPhaseEmissions() {
   for (const ph of PHASES) {
