@@ -424,6 +424,18 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     detailView.enter(id);
   });
 
+  // Debug / audit API — playwright-friendly programmatic control
+  if (typeof window !== 'undefined') {
+    window.__dotsAudit = {
+      enter: (id) => detailView.enter(id),
+      exit: () => detailView.exit(),
+      state: () => detailView.state(),
+      focusId: () => detailView.focusId(),
+      planets: PLANETS.map((p) => p.id),
+      moons: MOONS.map((m) => m.id),
+    };
+  }
+
   // Panel handlers
   infoPanel.onClose(() => detailView.exit());
   infoPanel.onScaleToggle((on) => {
