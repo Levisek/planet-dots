@@ -14,6 +14,7 @@ import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
 import { createDetailView, STATE as DV_STATE } from './detailView.js';
 import { createSunActivity } from './sunActivity.js';
+import { createMoonLabels } from './moonLabels.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { easeInOutCubic } from './cameraTween.js';
@@ -41,6 +42,7 @@ let tooltip = null;
 let infoPanel = null;
 let detailView = null;
 let sunActivity = null;
+let moonLabels = null;
 let _activeCameraTween = null;
 const controlsTarget = { x: 0, y: 0, z: 0 };
 
@@ -170,6 +172,8 @@ function tick() {
 
   // Tooltip follow (updatuje screen pos)
   if (tooltip) tooltip.update();
+  // Moon labels (viditelné v planet-detail)
+  if (moonLabels) moonLabels.update();
 
   renderer.render(scene, camera);
 
@@ -223,6 +227,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   tooltip = createTooltip({ camera, canvas: renderer.domElement });
   infoPanel = createInfoPanel();
   sunActivity = createSunActivity({ sunOwner: 0, sunRadius: PLANETS[0].radiusPx });
+  moonLabels = createMoonLabels({ camera, canvas: renderer.domElement, moonAnchors });
 
   // Helper pro body world-position
   function getBodyPos(id) {
@@ -280,9 +285,12 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         if (planet.detailDotSize !== undefined) {
           pool.setOwnerSize(ownerIdx, planet.detailDotSize);
         }
+        // Zobraz labely pro měsíce této planety
+        if (moonLabels) moonLabels.showForParent(id);
       } else {
         // Moon detail — nic klikatelného, exit pouze přes ESC/křížek.
         picker.setActiveIds(new Set());
+        if (moonLabels) moonLabels.hideAll();
       }
     },
     hidePanel: () => {
@@ -293,6 +301,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         const p = PLANETS[i];
         pool.setOwnerSize(i, p.dotSize ?? 6.0);
       }
+      if (moonLabels) moonLabels.hideAll();
     },
     enableOrbit: (enabled, target) => {
       controls.enabled = enabled;

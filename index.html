@@ -85,6 +85,23 @@
     }
     #infoPanel .scaleToggle input { cursor: pointer; transform: scale(1.3); }
     #infoPanel .scaleHint { color: #888; font-size: 11px; margin-top: 4px; text-align: right; }
+    .moonLabel {
+      position: fixed;
+      pointer-events: none;
+      color: rgba(255, 255, 255, 0.55);
+      font: 10px/1 system-ui, sans-serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transform: translate(-50%, -180%);
+      user-select: none;
+      white-space: nowrap;
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+      z-index: 8;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .moonLabel.visible { opacity: 1; }
+    .moonLabel .dist { color: rgba(180, 200, 255, 0.7); font-size: 9px; margin-left: 4px; }
   </style>
 </head>
 <body>
@@ -93,6 +110,7 @@
   <div id="stats">fps — · tick — ms · rot — ms</div>
   <div id="tooltip"></div>
   <div id="infoPanel"></div>
+  <div id="moonLabels"></div>
   <script type="importmap">
     {
       "imports": {
