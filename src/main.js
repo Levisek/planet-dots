@@ -15,6 +15,8 @@ import { createInfoPanel } from './infoPanel.js';
 import { createDetailView, STATE as DV_STATE } from './detailView.js';
 import { createSunActivity } from './sunActivity.js';
 import { BODY_DATA } from './bodyData.js';
+import { MOON_OWNER_BASE } from './phase.js';
+import { easeInOutCubic } from './cameraTween.js';
 
 const { renderer, scene, camera, controls } = createScene();
 createStarfield(scene);
@@ -109,7 +111,7 @@ function tick() {
     const twn = _activeCameraTween;
     twn.t += dt;
     const u = Math.min(1, twn.t / twn.duration);
-    const eased = u < 0.5 ? 4*u*u*u : 1 - Math.pow(-2*u + 2, 3) / 2;
+    const eased = easeInOutCubic(u);
     camera.position.set(
       twn.fromPos.x + (twn.toPos.x - twn.fromPos.x) * eased,
       twn.fromPos.y + (twn.toPos.y - twn.fromPos.y) * eased,
@@ -243,7 +245,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       }
       for (let i = 0; i < MOONS.length; i++) {
         const id = MOONS[i].id;
-        const ownerIdx = 9 + i;
+        const ownerIdx = MOON_OWNER_BASE + i;
         pool.setOwnerAlpha(ownerIdx, id === focusId ? 1 : alpha);
       }
     },
@@ -290,6 +292,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     }
   });
   picker.onClick((id) => {
+    tooltip.hide();
     detailView.enter(id);
   });
 
@@ -297,6 +300,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   infoPanel.onClose(() => detailView.exit());
   infoPanel.onScaleToggle((on) => {
     detailView.toggleScale(on);
+    infoPanel.updateScaleState(on);
     const focusId = detailView.focusId();
     if (focusId) setMoonScaleReal(focusId, on);
   });
