@@ -31,10 +31,12 @@ const FRAGMENT_SHADER = /* glsl */ `
 varying vec3 vColor;
 varying float vAlpha;
 void main() {
-  vec2 c = gl_PointCoord - vec2(0.5);
-  float d = length(c);
-  if (d > 0.5) discard;
-  // Tvrdý okraj (žádný anti-alias) — jinak se small dots rozmazávají a vypadají jako překryv.
+  // Hexagon (pointy-top) místo kruhu — lépe tilují s icosphere 6-valencí,
+  // méně mezery a překryvu mezi sousedními tečkami. Minecraft/geodesic look.
+  vec2 p = abs(gl_PointCoord - vec2(0.5));
+  const float k = 0.866025404; // sqrt(3)/2
+  float hex = max(p.y, k * p.x + 0.5 * p.y);
+  if (hex > 0.5) discard;
   gl_FragColor = vec4(vColor, vAlpha);
 }
 `;
