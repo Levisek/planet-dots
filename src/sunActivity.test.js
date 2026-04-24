@@ -15,7 +15,7 @@ function makeMockPool(count) {
   };
 }
 
-test('spawnSunspot označí ~30-50 teček', () => {
+test('spawnSunspot označí ~6-18 teček (reálně malé sunspoty)', () => {
   const pool = makeMockPool(1000);
   for (let i = 0; i < 1000; i++) {
     pool.localOffset[3*i] = Math.cos(i);
@@ -24,7 +24,7 @@ test('spawnSunspot označí ~30-50 teček', () => {
   }
   const act = createSunActivity({ sunOwner: 0, sunRadius: 1 });
   const spot = act._spawnSunspot(pool, 0);
-  assert.ok(spot.indices.length >= 20 && spot.indices.length <= 60,
+  assert.ok(spot.indices.length >= 5 && spot.indices.length <= 20,
     `cluster size = ${spot.indices.length}`);
 });
 
