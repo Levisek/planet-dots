@@ -16,7 +16,7 @@ void main() {
   vAlpha = aAlpha;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = aSize * (320.0 / -mv.z);
+  gl_PointSize = aSize * (900.0 / -mv.z);
 }
 `;
 
@@ -27,8 +27,9 @@ void main() {
   vec2 c = gl_PointCoord - vec2(0.5);
   float d = length(c);
   if (d > 0.5) discard;
-  float g = smoothstep(0.5, 0.0, d);
-  gl_FragColor = vec4(vColor, g * vAlpha);
+  // Ostrý, neprůhledný disk (žádný gradient) — planety/Slunce vypadají solidně.
+  float edge = smoothstep(0.5, 0.45, d); // jen krátký anti-alias na okraji
+  gl_FragColor = vec4(vColor, edge * vAlpha);
 }
 `;
 
@@ -70,8 +71,8 @@ export class ParticlePool {
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
       transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      depthWrite: true,                  // solid look, planety neprůsvitné
+      blending: THREE.NormalBlending,    // bez additive překrytí
     });
 
     this.mesh = new THREE.Points(geometry, this.material);
@@ -80,7 +81,7 @@ export class ParticlePool {
     for (let i = 0; i < count; i++) {
       this.phase[i] = PHASE.IDLE;
       this.owner[i] = -1;
-      this.size[i] = 3.8;
+      this.size[i] = 5.5;
       this.alpha[i] = 0;
     }
     this.flushAll();
@@ -138,8 +139,8 @@ export class ParticlePool {
       this.color[3*i]     = data[idx] / 255;
       this.color[3*i + 1] = data[idx + 1] / 255;
       this.color[3*i + 2] = data[idx + 2] / 255;
-      this.alpha[i] = 0.85;
-      this.size[i] = 3.2;
+      this.alpha[i] = 1.0;
+      this.size[i] = 6.0;
       this.phase[i] = PHASE.ON_SUN;
       this.owner[i] = 0; // Sun = index 0 in PLANETS
       indices.push(i);
@@ -184,7 +185,7 @@ export class ParticlePool {
     this.color[3*i]     = 1;
     this.color[3*i + 1] = 0.95;
     this.color[3*i + 2] = 0.7;
-    this.alpha[i] = 0.9;
+    this.alpha[i] = 1.0;
 
     // Target: buď label pos (pokud předán) nebo final target
     let tx, ty, tz;
@@ -221,7 +222,7 @@ export class ParticlePool {
     // finalPhase uložíme v odhadnutém místě: (hack — postArrivalColor[3] není, musíme někam jinam)
     // Řešení: používáme size[i] > 3 = ON_PLANET, size[i] <= 3 = ON_RING — simple discrimination
     // Nebo: použijeme owner znaménko nebo jiný bit. Nejjednodušší: size signals ring.
-    this.size[i] = (finalPhase === PHASE.ON_RING) ? 2.8 : 3.8;
+    this.size[i] = (finalPhase === PHASE.ON_RING) ? 4.5 : 6.0;
   }
 
   /**
@@ -254,7 +255,7 @@ export class ParticlePool {
             this.phase[i] = PHASE.HOLDING_LABEL;
           } else {
             // settle to final phase (ON_PLANET or ON_RING based on size)
-            this.phase[i] = (this.size[i] < 3.2) ? PHASE.ON_RING : PHASE.ON_PLANET;
+            this.phase[i] = (this.size[i] < 5.0) ? PHASE.ON_RING : PHASE.ON_PLANET;
             // snap color to final
             this.color[3*i]     = this.postArrivalColor[3*i];
             this.color[3*i + 1] = this.postArrivalColor[3*i + 1];

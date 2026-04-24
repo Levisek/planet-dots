@@ -191,9 +191,9 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
       pool.postArrivalTarget[3 * idx + 2] = t.labelFallTarget.z;
     }
 
-    // Ring alpha korekce velikosti tečky.
+    // Ring alpha korekce velikosti — zachovat minimum viditelnosti.
     if (t.ringAlpha !== undefined) {
-      pool.size[idx] = 2.8 * t.ringAlpha;
+      pool.size[idx] = 4.5 * Math.max(0.35, t.ringAlpha);
     }
   }
 
