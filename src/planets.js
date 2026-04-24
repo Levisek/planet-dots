@@ -20,8 +20,8 @@ export const PLANETS = [
     xPosition: -1500,
     color: 0xffd966,
     realDistanceFromSunKm: 0,
-    dotSize: 22,            // main — Sun veliký, potřebuje krytí
-    detailDotSize: 16,      // detail — PointSize ~3.2 při cam 4.5r
+    dotSize: 18,
+    detailDotSize: 11,
   },
   {
     id: 'mercury',
@@ -37,8 +37,8 @@ export const PLANETS = [
     xPosition: -390,
     color: 0x8c7853,
     realDistanceFromSunKm: 57_909_000,
-    dotSize: 1.0,
-    detailDotSize: 0.05,
+    dotSize: 0.8,
+    detailDotSize: 0.03,
   },
   {
     id: 'venus',
@@ -54,8 +54,8 @@ export const PLANETS = [
     xPosition: -340,
     color: 0xe7c98f,
     realDistanceFromSunKm: 108_209_000,
-    dotSize: 1.2,
-    detailDotSize: 0.12,
+    dotSize: 1.0,
+    detailDotSize: 0.08,
   },
   {
     id: 'earth',
@@ -71,8 +71,8 @@ export const PLANETS = [
     xPosition: -290,
     color: 0x3a84d4,
     realDistanceFromSunKm: 149_598_000,
-    dotSize: 1.2,
-    detailDotSize: 0.13,
+    dotSize: 1.0,
+    detailDotSize: 0.08,
   },
   {
     id: 'mars',
@@ -88,8 +88,8 @@ export const PLANETS = [
     xPosition: -245,
     color: 0xc1440e,
     realDistanceFromSunKm: 227_944_000,
-    dotSize: 1.0,
-    detailDotSize: 0.07,
+    dotSize: 0.8,
+    detailDotSize: 0.045,
   },
   {
     id: 'jupiter',
@@ -106,8 +106,8 @@ export const PLANETS = [
     xPosition: -100,
     color: 0xd8c185,
     realDistanceFromSunKm: 778_340_000,
-    dotSize: 3.5,
-    detailDotSize: 1.45,
+    dotSize: 2.5,
+    detailDotSize: 0.9,
   },
   {
     id: 'saturn',
@@ -128,8 +128,8 @@ export const PLANETS = [
     xPosition: 180,
     color: 0xe3c07a,
     realDistanceFromSunKm: 1_426_666_000,
-    dotSize: 3.0,
-    detailDotSize: 1.2,
+    dotSize: 2.2,
+    detailDotSize: 0.75,
   },
   {
     id: 'uranus',
@@ -145,8 +145,8 @@ export const PLANETS = [
     xPosition: 470,
     color: 0x9fd8e3,
     realDistanceFromSunKm: 2_870_658_000,
-    dotSize: 2.0,
-    detailDotSize: 0.52,
+    dotSize: 1.5,
+    detailDotSize: 0.32,
   },
   {
     id: 'neptune',
@@ -162,8 +162,8 @@ export const PLANETS = [
     xPosition: 570,
     color: 0x3b5ff7,
     realDistanceFromSunKm: 4_498_396_000,
-    dotSize: 2.0,
-    detailDotSize: 0.5,
+    dotSize: 1.5,
+    detailDotSize: 0.3,
   },
 ];
 
