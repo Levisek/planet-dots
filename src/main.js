@@ -28,6 +28,13 @@ const clock = new THREE.Clock();
 let elapsed = 0;
 const paused = false;
 
+// ——— Perf diag ———
+const statsEl = document.getElementById('stats');
+let frameCount = 0;
+let tickMsAcc = 0;
+let rotMsAcc = 0;
+let lastStatsAt = performance.now();
+
 function initAfterLoad() {
   // Naplň Slunce initial Fibonacci clusterem (PLANETS[0] = sun).
   const sun = PLANETS[0];
@@ -61,6 +68,7 @@ function updateMoonOrbits(t) {
 }
 
 function tick() {
+  const tickStart = performance.now();
   const dt = paused ? 0 : clock.getDelta();
   elapsed += dt;
 
@@ -78,9 +86,27 @@ function tick() {
   pool.updateFlight(elapsed, dt);
 
   // Usazené tečky (ON_SUN / ON_PLANET / ON_RING / ON_MOON) sledují rotující anchor.
+  const rotStart = performance.now();
   pool.applyClusterRotation(anchorsByIndex);
+  const rotEnd = performance.now();
 
   renderer.render(scene, camera);
+
+  const tickEnd = performance.now();
+  frameCount++;
+  tickMsAcc += (tickEnd - tickStart);
+  rotMsAcc += (rotEnd - rotStart);
+  if (tickEnd - lastStatsAt >= 500) {
+    const fps = (frameCount * 1000 / (tickEnd - lastStatsAt)).toFixed(0);
+    const tickMs = (tickMsAcc / frameCount).toFixed(1);
+    const rotMs = (rotMsAcc / frameCount).toFixed(1);
+    if (statsEl) statsEl.textContent = `fps ${fps} · tick ${tickMs} ms · rot ${rotMs} ms`;
+    frameCount = 0;
+    tickMsAcc = 0;
+    rotMsAcc = 0;
+    lastStatsAt = tickEnd;
+  }
+
   requestAnimationFrame(tick);
 }
 

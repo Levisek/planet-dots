@@ -14,6 +14,12 @@ varying float vAlpha;
 void main() {
   vColor = aColor;
   vAlpha = aAlpha;
+  // Cull invisible (IDLE) particles — jinak sedí na (0,0,0) a dělají masivní overdraw.
+  if (aAlpha <= 0.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // outside NDC → clip
+    gl_PointSize = 0.0;
+    return;
+  }
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
   gl_PointSize = aSize * (900.0 / -mv.z);
