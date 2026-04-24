@@ -9,14 +9,14 @@ const VERTEX_SHADER = /* glsl */ `
 attribute vec3 aColor;
 attribute float aSize;
 attribute float aAlpha;
+attribute float aOwnerAlpha;
 varying vec3 vColor;
 varying float vAlpha;
 void main() {
   vColor = aColor;
-  vAlpha = aAlpha;
-  // Cull invisible (IDLE) particles — jinak sedí na (0,0,0) a dělají masivní overdraw.
-  if (aAlpha <= 0.0) {
-    gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // outside NDC → clip
+  vAlpha = aAlpha * aOwnerAlpha;
+  if (vAlpha <= 0.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     gl_PointSize = 0.0;
     return;
   }
@@ -47,6 +47,7 @@ export class ParticlePool {
     this.color = new Float32Array(count * 3);
     this.size = new Float32Array(count);
     this.alpha = new Float32Array(count);
+    this.ownerAlpha = new Float32Array(count); // per-particle kopie ownerAlphaMul[owner]
     // CPU-only
     this.target = new Float32Array(count * 3);
     this.velocity = new Float32Array(count * 3);    // pro FLYING tečky (world-space units/sec)
@@ -64,14 +65,17 @@ export class ParticlePool {
     this.colorAttr = new THREE.BufferAttribute(this.color, 3);
     this.sizeAttr = new THREE.BufferAttribute(this.size, 1);
     this.alphaAttr = new THREE.BufferAttribute(this.alpha, 1);
+    this.ownerAlphaAttr = new THREE.BufferAttribute(this.ownerAlpha, 1);
     this.posAttr.setUsage(THREE.DynamicDrawUsage);
     this.colorAttr.setUsage(THREE.DynamicDrawUsage);
     this.sizeAttr.setUsage(THREE.DynamicDrawUsage);
     this.alphaAttr.setUsage(THREE.DynamicDrawUsage);
+    this.ownerAlphaAttr.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('position', this.posAttr);
     geometry.setAttribute('aColor', this.colorAttr);
     geometry.setAttribute('aSize', this.sizeAttr);
     geometry.setAttribute('aAlpha', this.alphaAttr);
+    geometry.setAttribute('aOwnerAlpha', this.ownerAlphaAttr);
     this.geometry = geometry;
 
     this.material = new THREE.ShaderMaterial({
@@ -90,9 +94,25 @@ export class ParticlePool {
       this.owner[i] = -1;
       this.size[i] = 5.5;
       this.alpha[i] = 0;
+      this.ownerAlpha[i] = 1.0;
       this.postArrivalAlpha[i] = 1.0;
     }
     this.flushAll();
+  }
+
+  ownerAlphaMul = new Float32Array(28).fill(1);
+
+  /**
+   * Nastaví ownerAlphaMul[ownerIdx] a propaguje hodnotu do per-particle ownerAlpha arrayu.
+   */
+  setOwnerAlpha(ownerIdx, value) {
+    this.ownerAlphaMul[ownerIdx] = value;
+    for (let i = 0; i < this.count; i++) {
+      if (this.owner[i] === ownerIdx) {
+        this.ownerAlpha[i] = value;
+      }
+    }
+    this.ownerAlphaAttr.needsUpdate = true;
   }
 
   flushAll() {
@@ -100,6 +120,7 @@ export class ParticlePool {
     this.colorAttr.needsUpdate = true;
     this.sizeAttr.needsUpdate = true;
     this.alphaAttr.needsUpdate = true;
+    this.ownerAlphaAttr.needsUpdate = true;
   }
 
   dispose() {
@@ -228,6 +249,7 @@ export class ParticlePool {
 
     this.arrivalTime[i] = currentTime + travelTime;
     this.owner[i] = planetOwnerIdx;
+    this.ownerAlpha[i] = this.ownerAlphaMul[planetOwnerIdx];
     this.phase[i] = PHASE.FLYING;
     // finalPhase uložíme v odhadnutém místě: (hack — postArrivalColor[3] není, musíme někam jinam)
     // Řešení: používáme size[i] > 3 = ON_PLANET, size[i] <= 3 = ON_RING — simple discrimination
@@ -296,6 +318,7 @@ export class ParticlePool {
     this.arrivalTime[i] = currentTime + travelTime;
     this.holdUntil[i] = 0; // no label hold
     this.owner[i] = moonOwnerIdx;
+    this.ownerAlpha[i] = this.ownerAlphaMul[moonOwnerIdx];
     this.phase[i] = PHASE.FLYING;
     this.size[i] = 5.0; // moon size — owner>=9 distinguuje od planety v updateFlight
   }
