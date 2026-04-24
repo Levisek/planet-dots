@@ -268,13 +268,15 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     },
     showPanel: (id, opts) => {
       infoPanel.show(id, opts);
-      // Při vstupu do planet-detail aktivuj moon picking
+      // V detail view izolované prostředí: jen aktuální tělo + jeho měsíce (pro planet).
+      // Cizí planety nejsou klikatelné (exit přes ESC/křížek pro návrat do MAIN).
       const planet = PLANET_BY_ID[id];
       if (planet) {
         const childMoons = MOONS.filter((m) => m.parent === id).map((m) => m.id);
-        picker.setActiveIds(new Set([...PLANETS.map((p) => p.id), ...childMoons]));
+        picker.setActiveIds(new Set([id, ...childMoons]));
       } else {
-        picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
+        // Moon detail — nic klikatelného, exit pouze přes ESC/křížek.
+        picker.setActiveIds(new Set());
       }
     },
     hidePanel: () => {
@@ -296,6 +298,26 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       if (p) return p.radiusPx;
       const m = MOONS.find((mm) => mm.id === id);
       return m ? Math.max(m.radiusPx, 3) : 1;
+    },
+    getCameraDistance: (id, scaleOn) => {
+      // Pro planety se zahrnou i jejich měsíce (camera z-offset zahrne max moon dist).
+      const p = PLANET_BY_ID[id];
+      if (!p) {
+        // Moon detail — rozumný offset.
+        const m = MOONS.find((mm) => mm.id === id);
+        return m ? Math.max(m.radiusPx * 8, 30) : 40;
+      }
+      const baseDist = p.radiusPx * 4.5;
+      const childMoons = MOONS.filter((mm) => mm.parent === id);
+      if (childMoons.length === 0) return baseDist;
+      let maxMoonDist = 0;
+      for (const m of childMoons) {
+        const factor = scaleOn ? computeRealFactor(m) : 1;
+        const moonDist = m.a * p.radiusPx * factor;
+        if (moonDist > maxMoonDist) maxMoonDist = moonDist;
+      }
+      // Camera musí být dál než nejvzdálenější měsíc (s rezervou 1.3×).
+      return Math.max(baseDist, maxMoonDist * 1.3 + p.radiusPx);
     },
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
   });

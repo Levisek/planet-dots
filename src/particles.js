@@ -197,7 +197,7 @@ export class ParticlePool {
    */
   spawnFromSun(sourceIdx, sunCenter, sunRadius, finalTarget, finalTargetLocal,
                finalColor, planetOwnerIdx, finalPhase, currentTime, travelTime,
-               labelPos, labelHoldDuration = 0.3, finalAlpha = 1.0) {
+               labelPos, labelHoldDuration = 0.3, finalAlpha = 1.0, finalSize = null) {
     const i = sourceIdx;
     // start pozice = random na Sun surface
     const rx = (Math.random() - 0.5) * 2;
@@ -254,7 +254,11 @@ export class ParticlePool {
     // finalPhase uložíme v odhadnutém místě: (hack — postArrivalColor[3] není, musíme někam jinam)
     // Řešení: používáme size[i] > 3 = ON_PLANET, size[i] <= 3 = ON_RING — simple discrimination
     // Nebo: použijeme owner znaménko nebo jiný bit. Nejjednodušší: size signals ring.
-    this.size[i] = (finalPhase === PHASE.ON_RING) ? 4.5 : 6.0;
+    if (finalSize !== null) {
+      this.size[i] = finalSize;
+    } else {
+      this.size[i] = (finalPhase === PHASE.ON_RING) ? 4.5 : 6.0;
+    }
   }
 
   /**

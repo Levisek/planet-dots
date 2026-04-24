@@ -194,6 +194,7 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
       t.isLabel ? t.pos : null,
       LABEL_HOLD,
       planet.alpha ?? 1.0,
+      t.phase === PHASE.ON_RING ? null : (planet.dotSize ?? 6.0),
     );
 
     // Pro label: postArrivalTarget musí být labelFallTarget (povrch), ne label pozice.

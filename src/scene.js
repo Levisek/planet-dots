@@ -16,7 +16,7 @@ export function createScene() {
     45,
     window.innerWidth / window.innerHeight,
     0.1,
-    10000,
+    200000,
   );
   camera.position.set(0, 40, 2000);
   camera.lookAt(0, 0, 0);
@@ -39,30 +39,31 @@ export function createScene() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.minDistance = 30;
-  controls.maxDistance = 8000;
+  controls.maxDistance = 50000;
 
   return { renderer, scene, camera, controls };
 }
 
-export function createStarfield(scene, count = 500) {
+export function createStarfield(scene, count = 1500) {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    // rozprostřené v kouli poloměru 3000 kolem (0,0,0)
+    // Hvězdy daleko (r = 80k..120k) aby při přeletu kamery na libovolnou planetu
+    // nedocházelo k viditelnému parallaxu (hvězdy musí vypadat jako v nekonečnu).
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
-    const r = 2000 + Math.random() * 1000;
+    const r = 80000 + Math.random() * 40000;
     positions[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
     positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-    positions[i * 3 + 2] = r * Math.cos(phi) - 500; // lehce za scénu
+    positions[i * 3 + 2] = r * Math.cos(phi);
   }
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const material = new THREE.PointsMaterial({
     color: 0xffffff,
-    size: 1.2,
+    size: 80,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.85,
   });
   const points = new THREE.Points(geometry, material);
   scene.add(points);

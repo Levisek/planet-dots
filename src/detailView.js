@@ -21,8 +21,13 @@ export function createDetailView(deps) {
   function computeDetailCameraOffset(id) {
     const r = deps.getBodyRadius(id);
     const p = deps.getBodyPosition(id);
+    // Volitelná dep getCameraDistance(id, scaleOn) přebije defaultní r*4.5
+    // (používá se pro zahrnutí měsíců do pohledu, zejména v real-scale módu).
+    const dist = deps.getCameraDistance
+      ? deps.getCameraDistance(id, _scaleOn)
+      : r * 4.5;
     return {
-      pos: { x: p.x, y: p.y + r * 0.6, z: p.z + r * 4.5 },
+      pos: { x: p.x, y: p.y + r * 0.6, z: p.z + dist },
       target: p,
     };
   }
@@ -115,6 +120,13 @@ export function createDetailView(deps) {
     },
     toggleScale(on) {
       _scaleOn = on;
+      // Pokud jsme v DETAIL, spustí mini fly-to na novou kameru dist (zahrne měsíce).
+      if (_state === STATE.DETAIL && _focusId) {
+        const cs = deps.getCameraState();
+        const { pos, target } = computeDetailCameraOffset(_focusId);
+        deps.cameraFlyTo(pos, target, 0.6);
+        // Jen informativní — samotný tween je driver v main.js
+      }
     },
     tick(dt) {
       if (_tween) {
