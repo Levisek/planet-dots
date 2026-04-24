@@ -95,6 +95,9 @@ export function createDetailView(deps) {
   return {
     enter(id) {
       if (_state === STATE.TRANSITION_IN || _state === STATE.TRANSITION_OUT) return;
+      // Ignoruj kliknutí na již zobrazené tělo — jinak by každý klik resetoval kameru
+      // zpátky do výchozí detail view pozice (znemožňoval by drag-to-orbit po prohlédnutí).
+      if (id === _focusId) return;
       if (_state === STATE.MAIN) {
         startTransitionIn(id);
         return;

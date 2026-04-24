@@ -67,13 +67,33 @@ export function createPicker({ scene, camera, canvas }) {
     }
   }
 
-  function handleClick(ev) {
+  // Drag detection: pokud se mezi mousedown a mouseup kurzor hodně pohnul,
+  // není to "click" — uživatel dragoval. V detail view to je orbit-kamera.
+  let _downX = 0;
+  let _downY = 0;
+  let _downTime = 0;
+  const DRAG_THRESHOLD_PX = 6;
+  const CLICK_MAX_MS = 500;
+
+  function handleDown(ev) {
+    _downX = ev.clientX;
+    _downY = ev.clientY;
+    _downTime = performance.now();
+  }
+
+  function handleUp(ev) {
+    const dx = ev.clientX - _downX;
+    const dy = ev.clientY - _downY;
+    const dist = Math.hypot(dx, dy);
+    const dt = performance.now() - _downTime;
+    if (dist > DRAG_THRESHOLD_PX || dt > CLICK_MAX_MS) return; // drag or long hold — ignoruj
     const id = pickFromMouse(ev);
     if (id) clickCb && clickCb(id, ev);
   }
 
   canvas.addEventListener('mousemove', handleMove);
-  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('mousedown', handleDown);
+  canvas.addEventListener('mouseup', handleUp);
 
   return {
     addBody,
@@ -83,7 +103,8 @@ export function createPicker({ scene, camera, canvas }) {
     update() { updateMeshPositions(); },
     dispose() {
       canvas.removeEventListener('mousemove', handleMove);
-      canvas.removeEventListener('click', handleClick);
+      canvas.removeEventListener('mousedown', handleDown);
+      canvas.removeEventListener('mouseup', handleUp);
       for (const b of bodies) {
         scene.remove(b.mesh);
         b.mesh.geometry.dispose();
