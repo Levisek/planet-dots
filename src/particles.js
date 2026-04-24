@@ -31,12 +31,13 @@ const FRAGMENT_SHADER = /* glsl */ `
 varying vec3 vColor;
 varying float vAlpha;
 void main() {
-  // Hexagon (pointy-top) místo kruhu — lépe tilují s icosphere 6-valencí,
-  // méně mezery a překryvu mezi sousedními tečkami. Minecraft/geodesic look.
+  // Octagon — kulatější než hexagon, hranatější než kruh.
+  // Netilují dokonale (mezi 4 octagony vzniknou čtvercové mezery), ale
+  // vypadají pixelart-příjemně a při malé velikosti vizuálně zaplní.
   vec2 p = abs(gl_PointCoord - vec2(0.5));
-  const float k = 0.866025404; // sqrt(3)/2
-  float hex = max(p.y, k * p.x + 0.5 * p.y);
-  if (hex > 0.5) discard;
+  const float INV_SQRT2 = 0.7071068;
+  float oct = max(max(p.x, p.y), (p.x + p.y) * INV_SQRT2);
+  if (oct > 0.5) discard;
   gl_FragColor = vec4(vColor, vAlpha);
 }
 `;
