@@ -3,30 +3,10 @@ import { fibonacciSphere } from './geometry.js';
 import { textToPoints } from './label.js';
 import { phaseAt } from './animation.js';
 import { PHASE } from './phase.js';
+import { sampleColor, sphericalUV } from './textureUtils.js';
 
 export const TRAVEL_TIME = 0.35;
 export const LABEL_HOLD = 0.3;
-
-/**
- * Vzorkuje RGB z ImageData podle UV (0..1).
- * Vrací [r,g,b] v rozsahu 0..1.
- */
-function sampleColor(imageData, u, v) {
-  const { data, width, height } = imageData;
-  const px = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
-  const py = Math.min(height - 1, Math.max(0, Math.floor((1 - v) * height)));
-  const idx = (py * width + px) * 4;
-  return [data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255];
-}
-
-/**
- * Spočítá UV pro Fibonacci sphere bod [x,y,z] (sphere of given radius).
- */
-function sphericalUV(x, y, z, r) {
-  const u = Math.atan2(z, x) / (Math.PI * 2) + 0.5;
-  const v = Math.asin(y / r) / Math.PI + 0.5;
-  return [u, v];
-}
 
 /**
  * Per-planet targets: label pozice + Fibonacci sphere surface + (pro Saturn) ring.

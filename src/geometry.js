@@ -1,33 +1,22 @@
 // Pure helpers (bez Three.js) pro rozmístění bodů.
 
 /**
- * Icosphere — začne ikosaedronem (12 vrcholů) a každou stěnu rozdělí na 4.
- * Po k děleních: V_k = 12 + 10*(4^k - 1)/3 vrcholů.
+ * Vygeneruje raw icosphere topologii (jednotková koule) — vrcholy + trojúhelníky.
+ * Každá subdivision rozdělí trojúhelník na 4 menší. Vrcholy mají 5 nebo 6 sousedů
+ * ve stejné vzdálenosti → perfektní hex tiling. Počty per level:
  *   k=0 → 12, k=1 → 42, k=2 → 162, k=3 → 642, k=4 → 2562,
  *   k=5 → 10242, k=6 → 40962, k=7 → 163842.
  *
- * Každý vrchol má 5 nebo 6 sousedů ve STEJNÉ vzdálenosti → perfektní hexagonální
- * tiling na sféře. Žádný pól, žádná viditelná spirála (Fibonacci artifact), žádné
- * náhodné clumps. Je to nejhezčí dostupné rozložení bodů na kouli.
- *
- * @param {number} count — minimální požadovaný počet; vrátí vrcholy nejbližší
- *   vyšší subdivision level (tedy obvykle o něco víc, ale perfektně uniformní).
- * @param {number} radius
- * @returns {number[][]} pole [x,y,z] bodů na povrchu koule
+ * @param {number} minVertices — nejmenší akceptovatelný počet; vrátí dáe nejbližší vyšší level.
+ * @returns {{ vertices: number[][], faces: number[][] }}
  */
-export function fibonacciSphere(count, radius) {
-  return icosphere(count, radius);
-}
-
-export function icosphere(minCount, radius) {
-  // Base icosahedron — 12 vrcholů
+export function icosphereRaw(minVertices) {
   const t = (1 + Math.sqrt(5)) / 2;
   const rawVerts = [
     [-1,  t,  0], [ 1,  t,  0], [-1, -t,  0], [ 1, -t,  0],
     [ 0, -1,  t], [ 0,  1,  t], [ 0, -1, -t], [ 0,  1, -t],
     [ t,  0, -1], [ t,  0,  1], [-t,  0, -1], [-t,  0,  1],
   ];
-  // Normalize na jednotkovou kouli
   const vertices = rawVerts.map(([x, y, z]) => {
     const d = Math.sqrt(x * x + y * y + z * z);
     return [x / d, y / d, z / d];
@@ -40,8 +29,7 @@ export function icosphere(minCount, radius) {
     [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
   ];
 
-  // Dělej subdivision dokud nemáme dost vrcholů
-  while (vertices.length < minCount) {
+  while (vertices.length < minVertices) {
     const midCache = new Map();
     const newFaces = [];
 
@@ -68,15 +56,27 @@ export function icosphere(minCount, radius) {
       newFaces.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
     }
     faces = newFaces;
-    // Pokud by base 12 ani po 10 subdivisionech nestačilo (>10M verts), bail out.
-    if (faces.length > 1000000) break;
+    if (faces.length > 2000000) break;
   }
 
-  // Shuffle vrcholy deterministicky — jinak první N vrcholů = původní ikosaedr +
-  // prvních pár úrovní dělení = lokální cluster, který se projeví jako "flek" když
-  // caller použije jen prvních N (label-dots, sunspot seeds, atd.).
+  return { vertices, faces };
+}
+
+/**
+ * Icosphere vrcholy škálované na daný poloměr, shuffled deterministicky
+ * (jinak první N vrcholů by byly lokální cluster původního ikosaedru → "flek"
+ * při použití prvních N pro label-dots nebo sunspoty).
+ *
+ * Jméno `fibonacciSphere` zachováno pro zpětnou kompatibilitu s callery.
+ */
+export function fibonacciSphere(count, radius) {
+  return icosphere(count, radius);
+}
+
+export function icosphere(minCount, radius) {
+  const { vertices } = icosphereRaw(minCount);
   const out = vertices.map(([x, y, z]) => [x * radius, y * radius, z * radius]);
-  // Deterministický Fisher-Yates s LCG seedem (aby stejný počet dal stejné pořadí).
+  // Deterministický Fisher-Yates s LCG seedem (stabilní pořadí per count).
   let seed = out.length | 0;
   for (let i = out.length - 1; i > 0; i--) {
     seed = (seed * 1664525 + 1013904223) >>> 0;

@@ -4,24 +4,11 @@ import { PLANET_BY_ID } from './planets.js';
 import { fibonacciSphere } from './geometry.js';
 import { phaseAt } from './animation.js';
 import { MOON_OWNER_BASE } from './phase.js';
+import { sampleColor, sphericalUV } from './textureUtils.js';
 
 export const MOON_TRAVEL_TIME = 0.3;
 
 const MOON_INDEX_BY_ID = Object.fromEntries(MOONS.map((m, i) => [m.id, i]));
-
-function sampleColor(imageData, u, v) {
-  const { data, width, height } = imageData;
-  const px = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
-  const py = Math.min(height - 1, Math.max(0, Math.floor((1 - v) * height)));
-  const idx = (py * width + px) * 4;
-  return [data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255];
-}
-
-function sphericalUV(x, y, z, r) {
-  const u = Math.atan2(z, x) / (Math.PI * 2) + 0.5;
-  const v = Math.asin(y / r) / Math.PI + 0.5;
-  return [u, v];
-}
 
 /**
  * Per-moon: Fibonacci sphere surface points + sampled colors.

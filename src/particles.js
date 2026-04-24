@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PHASE, MOON_OWNER_BASE } from './phase.js';
 import { icosphere } from './geometry.js';
+import { sphericalUV, sampleColorPoleSafe } from './textureUtils.js';
 
 export { PHASE };
 
@@ -156,10 +157,7 @@ export class ParticlePool {
    */
   initFullSun(center, radius, sunImageData, count, dotSize = 6.0) {
     this._sunDotSize = dotSize;
-    const { data, width, height } = sunImageData;
     const indices = [];
-    // Icosphere vrátí vrcholy regular hexagonální mřížky. Vrchol = jednotkový
-    // bod na kouli; vynásobíme poloměrem podle potřeby níže.
     const unit = icosphere(count, 1);
     const total = Math.min(count, unit.length);
     for (let i = 0; i < total; i++) {
@@ -174,17 +172,11 @@ export class ParticlePool {
       this.localOffset[3*i]     = ox;
       this.localOffset[3*i + 1] = oy;
       this.localOffset[3*i + 2] = oz;
-      // sample color — UV s ochranou před sampling extrémních pólů textury
-      // (equirectangular sun.jpg mívá tmavý horní/dolní pixel od stlačení pólů).
-      const u = Math.atan2(sz, sx) / (Math.PI * 2) + 0.5;
-      const vRaw = Math.asin(sy) / Math.PI + 0.5;
-      const vSafe = Math.max(0.03, Math.min(0.97, vRaw));
-      const px = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
-      const py = Math.min(height - 1, Math.max(0, Math.floor((1 - vSafe) * height)));
-      const idx = (py * width + px) * 4;
-      this.color[3*i]     = data[idx] / 255;
-      this.color[3*i + 1] = data[idx + 1] / 255;
-      this.color[3*i + 2] = data[idx + 2] / 255;
+      const [u, v] = sphericalUV(sx, sy, sz, 1);
+      const [cr, cg, cb] = sampleColorPoleSafe(sunImageData, u, v);
+      this.color[3*i]     = cr;
+      this.color[3*i + 1] = cg;
+      this.color[3*i + 2] = cb;
       this.alpha[i] = 0; // sun reveal ramp odemkne v sun fázi (1..2s)
       this.postArrivalAlpha[i] = 1.0;
       this.size[i] = this._sunDotSize ?? 6.0;
