@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export function createScene() {
   const canvas = document.getElementById('canvas');
@@ -33,7 +34,14 @@ export function createScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { renderer, scene, camera };
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enabled = false;
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 30;
+  controls.maxDistance = 8000;
+
+  return { renderer, scene, camera, controls };
 }
 
 export function createStarfield(scene, count = 500) {

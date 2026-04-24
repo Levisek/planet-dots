@@ -10,7 +10,7 @@ import { updateSolarWind } from './solarWind.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
 
-const { renderer, scene, camera } = createScene();
+const { renderer, scene, camera, controls } = createScene();
 createStarfield(scene);
 const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
@@ -89,6 +89,8 @@ function tick() {
   const rotStart = performance.now();
   pool.applyClusterRotation(anchorsByIndex);
   const rotEnd = performance.now();
+
+  if (controls.enabled) controls.update();
 
   renderer.render(scene, camera);
 
