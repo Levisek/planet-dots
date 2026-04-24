@@ -90,9 +90,9 @@ export function buildBodyMesh(imageData, radius, minVertices) {
     const px = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
     const py = Math.min(height - 1, Math.max(0, Math.floor((1 - vSafe) * height)));
     const idx = (py * width + px) * 4;
-    const r = data[idx] / 255;
-    const g = data[idx + 1] / 255;
-    const b = data[idx + 2] / 255;
+    const cr = data[idx] / 255;
+    const cg = data[idx + 1] / 255;
+    const cb = data[idx + 2] / 255;
 
     // 3 verts × 3 souřadnice (non-shared pro flat shading)
     const base = i * 9;
@@ -108,9 +108,9 @@ export function buildBodyMesh(imageData, radius, minVertices) {
 
     // Stejná barva na všech 3 verts trojúhelníku → flat shading
     for (let k = 0; k < 3; k++) {
-      colorArray[base + k * 3 + 0] = r;
-      colorArray[base + k * 3 + 1] = g;
-      colorArray[base + k * 3 + 2] = b;
+      colorArray[base + k * 3 + 0] = cr;
+      colorArray[base + k * 3 + 1] = cg;
+      colorArray[base + k * 3 + 2] = cb;
     }
   }
 
