@@ -19,6 +19,7 @@ export const PLANETS = [
     direction: 1,
     xPosition: -1500,
     color: 0xffd966,
+    realDistanceFromSunKm: 0,
   },
   {
     id: 'mercury',
@@ -33,6 +34,7 @@ export const PLANETS = [
     direction: 1,
     xPosition: -390,
     color: 0x8c7853,
+    realDistanceFromSunKm: 57_909_000,
   },
   {
     id: 'venus',
@@ -47,6 +49,7 @@ export const PLANETS = [
     direction: -1,
     xPosition: -340,
     color: 0xe7c98f,
+    realDistanceFromSunKm: 108_209_000,
   },
   {
     id: 'earth',
@@ -61,6 +64,7 @@ export const PLANETS = [
     direction: 1,
     xPosition: -290,
     color: 0x3a84d4,
+    realDistanceFromSunKm: 149_598_000,
   },
   {
     id: 'mars',
@@ -75,6 +79,7 @@ export const PLANETS = [
     direction: 1,
     xPosition: -245,
     color: 0xc1440e,
+    realDistanceFromSunKm: 227_944_000,
   },
   {
     id: 'jupiter',
@@ -90,6 +95,7 @@ export const PLANETS = [
     direction: 1,
     xPosition: -100,
     color: 0xd8c185,
+    realDistanceFromSunKm: 778_340_000,
   },
   {
     id: 'saturn',
@@ -109,6 +115,7 @@ export const PLANETS = [
     direction: 1,
     xPosition: 180,
     color: 0xe3c07a,
+    realDistanceFromSunKm: 1_426_666_000,
   },
   {
     id: 'uranus',
@@ -123,6 +130,7 @@ export const PLANETS = [
     direction: -1,
     xPosition: 470,
     color: 0x9fd8e3,
+    realDistanceFromSunKm: 2_870_658_000,
   },
   {
     id: 'neptune',
@@ -137,6 +145,7 @@ export const PLANETS = [
     direction: 1,
     xPosition: 570,
     color: 0x3b5ff7,
+    realDistanceFromSunKm: 4_498_396_000,
   },
 ];
 
