@@ -10,3 +10,8 @@ export const PHASE = Object.freeze({
   ON_RING: 5,         // usazená na prstenci
   ON_MOON: 6,         // usazená na povrchu měsíce
 });
+
+// Unified anchor index base pro měsíce v pool.owner[i].
+// Planety obsazují 0..MOON_OWNER_BASE-1, měsíce MOON_OWNER_BASE..MOON_OWNER_BASE+18.
+// Hodnota odpovídá PLANETS.length (9: Slunce + 8 planet).
+export const MOON_OWNER_BASE = 9;

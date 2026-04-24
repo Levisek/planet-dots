@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PHASE } from './phase.js';
+import { PHASE, MOON_OWNER_BASE } from './phase.js';
 
 export { PHASE };
 
@@ -320,7 +320,7 @@ export class ParticlePool {
           } else {
             // settle to final phase (ON_PLANET or ON_RING based on size)
             // owner >= 9 = moon, size < 5 = ring, else planet
-            if (this.owner[i] >= 9) {
+            if (this.owner[i] >= MOON_OWNER_BASE) {
               this.phase[i] = PHASE.ON_MOON;
             } else if (this.size[i] < 5.0) {
               this.phase[i] = PHASE.ON_RING;
