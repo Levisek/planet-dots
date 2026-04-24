@@ -11,7 +11,12 @@ export const PHASES = [
   { start: 5.7, end: 7.0, id: 'saturn',  planetId: 'saturn',  label: 'SATURN' },
   { start: 7.0, end: 7.8, id: 'uranus',  planetId: 'uranus',  label: 'URAN' },
   { start: 7.8, end: 8.6, id: 'neptune', planetId: 'neptune', label: 'NEPTUN' },
-  { start: 8.6, end: Infinity, id: 'live' },
+  { start: 8.6, end: 9.0,   id: 'earth_moons',   parentId: 'earth' },
+  { start: 9.0, end: 9.4,   id: 'mars_moons',    parentId: 'mars' },
+  { start: 9.4, end: 10.4,  id: 'jupiter_moons', parentId: 'jupiter' },
+  { start: 10.4, end: 12.0, id: 'saturn_moons',  parentId: 'saturn' },
+  { start: 12.0, end: 13.0, id: 'uranus_moons',  parentId: 'uranus' },
+  { start: 13.0, end: Infinity, id: 'live' },
 ];
 
 export function phaseAt(t) {
