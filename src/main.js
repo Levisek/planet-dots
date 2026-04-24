@@ -15,6 +15,7 @@ import { createInfoPanel } from './infoPanel.js';
 import { createDetailView, STATE as DV_STATE } from './detailView.js';
 import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
+import { buildBodyMesh } from './bodyMesh.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { easeInOutCubic } from './cameraTween.js';
@@ -43,6 +44,7 @@ let infoPanel = null;
 let detailView = null;
 let sunActivity = null;
 let moonLabels = null;
+const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo
 let _activeCameraTween = null;
 const controlsTarget = { x: 0, y: 0, z: 0 };
 
@@ -220,6 +222,26 @@ function tick() {
 Promise.all([loaded, moonsLoaded]).then(() => {
   initAfterLoad();
 
+  // Postavit pevné mesh-y pro všechna tělesa: icosphere s per-face barvami
+  // sampled z textury ve středu trojúhelníku. Flat shading = pravé minecraft
+  // plochy, žádné mezery ani překryv.
+  for (const p of PLANETS) {
+    const tex = imageData[p.id];
+    if (!tex) continue;
+    // Level 5 = 20480 trojúhelníků. Detaily na planetách ~~ 30-60 tri napříč sférou na obrazovce.
+    const mesh = buildBodyMesh(tex, p.radiusPx, 10242);
+    anchors[p.id].add(mesh);
+    bodyMeshes[p.id] = mesh;
+  }
+  for (const m of MOONS) {
+    const tex = moonImageData[m.id];
+    if (!tex) continue;
+    // Level 4 = 5120 trojúhelníků pro měsíce (menší, dost tiles pro tvar)
+    const mesh = buildBodyMesh(tex, m.radiusPx, 2562);
+    moonAnchors[m.id].add(mesh);
+    bodyMeshes[m.id] = mesh;
+  }
+
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
   picker = createPicker({ scene, camera, canvas: renderer.domElement });
   for (const p of PLANETS) {
@@ -284,7 +306,10 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     fadeOthers: (focusId, alpha) => {
       for (let i = 0; i < PLANETS.length; i++) {
         const id = PLANETS[i].id;
-        pool.setOwnerAlpha(i, id === focusId ? 1 : alpha);
+        const keep = id === focusId;
+        pool.setOwnerAlpha(i, keep ? 1 : alpha);
+        const mesh = bodyMeshes[id];
+        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
       }
       for (let i = 0; i < MOONS.length; i++) {
         const m = MOONS[i];
@@ -292,6 +317,8 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         // V planet-detail chceme vidět i měsíce dané planety (orbity Kepler).
         const keep = m.id === focusId || m.parent === focusId;
         pool.setOwnerAlpha(ownerIdx, keep ? 1 : alpha);
+        const mesh = bodyMeshes[m.id];
+        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
       }
     },
     showPanel: (id, opts) => {
