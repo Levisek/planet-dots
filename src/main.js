@@ -130,8 +130,17 @@ function tick() {
   const dvState = detailView ? detailView.state() : 'MAIN';
   const isMainState = dvState === 'MAIN';
 
-  // Rotace planet + moon orbits běží vždy (i v detail view, aby bylo vidět spin + orbit)
-  rotateAnchors(anchors, dt);
+  // Rotace planet — v MAIN běží, v DETAIL se zastaví (uživatel si prohlíží tělo staticky).
+  // Měsíčné orbity v DETAIL dál běží (kepler visualization zůstává funkční).
+  if (isMainState) {
+    rotateAnchors(anchors, dt);
+  } else {
+    // V DETAIL jen refresh matrixWorld (anchor se nemění ale potřebujeme fresh pro picker/cluster)
+    for (const p of PLANETS) {
+      const a = anchors[p.id];
+      if (a) a.updateMatrixWorld(true);
+    }
+  }
   updateMoonOrbits(elapsed, moonScaleFactors);
 
   // Solar wind + moon wind — pausnu v detail view
@@ -187,11 +196,17 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
   picker = createPicker({ scene, camera, canvas: renderer.domElement });
   for (const p of PLANETS) {
+    // Slunce má menší picker radius než jeho vizuální (malé vnitřní planety by jinak
+    // byly uvnitř sluneční raycast sféry a nešlo by je kliknout). Pro malé planety
+    // zvýšíme minimální raycast poloměr aby šly pohodlně kliknout.
+    const pickRadius = p.id === 'sun'
+      ? p.radiusPx * 0.95
+      : Math.max(p.radiusPx * 1.5, 30);
     picker.addBody(p.id, () => ({
       x: anchors[p.id].position.x,
       y: anchors[p.id].position.y,
       z: anchors[p.id].position.z,
-    }), p.radiusPx * 1.5);
+    }), pickRadius);
   }
   for (const m of MOONS) {
     const moonAnchor = moonAnchors[m.id];
@@ -244,9 +259,11 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         pool.setOwnerAlpha(i, id === focusId ? 1 : alpha);
       }
       for (let i = 0; i < MOONS.length; i++) {
-        const id = MOONS[i].id;
+        const m = MOONS[i];
         const ownerIdx = MOON_OWNER_BASE + i;
-        pool.setOwnerAlpha(ownerIdx, id === focusId ? 1 : alpha);
+        // V planet-detail chceme vidět i měsíce dané planety (orbity Kepler).
+        const keep = m.id === focusId || m.parent === focusId;
+        pool.setOwnerAlpha(ownerIdx, keep ? 1 : alpha);
       }
     },
     showPanel: (id, opts) => {

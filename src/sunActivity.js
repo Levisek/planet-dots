@@ -147,6 +147,9 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
       };
       const idle = takeIdleIndices(pool, PROMINENCE_DOTS);
       if (idle.length === 0) return null;
+      // Per-dot phase offsets vytvoří "stream" efekt — tečky se rozprostřou po oblouku
+      // místo letění v jedné kouli.
+      const phaseOffsets = idle.map((_, k) => (k / idle.length) * 0.45);
       const flare = {
         kind: 'arch',
         A, B,
@@ -154,18 +157,21 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
         bornAt: time,
         dieAt: time + PROMINENCE_LIFETIME,
         indices: idle,
+        phaseOffsets,
       };
+      const jitter = sunRadius * 0.03;
       for (const i of idle) {
-        pool.position[3*i] = A.x;
-        pool.position[3*i+1] = A.y;
-        pool.position[3*i+2] = A.z;
+        pool.position[3*i] = A.x + (rng() - 0.5) * jitter;
+        pool.position[3*i+1] = A.y + (rng() - 0.5) * jitter;
+        pool.position[3*i+2] = A.z + (rng() - 0.5) * jitter;
         pool.color[3*i] = 1.0;
-        pool.color[3*i+1] = 0.7;
-        pool.color[3*i+2] = 0.2;
+        pool.color[3*i+1] = 0.65;
+        pool.color[3*i+2] = 0.15;
         pool.alpha[i] = 1.0;
-        if (pool.size) pool.size[i] = 5.0;
+        if (pool.size) pool.size[i] = 8.0;
         if (pool.phase) pool.phase[i] = 99;
         if (pool.owner) pool.owner[i] = sunOwner;
+        if (pool.ownerAlpha) pool.ownerAlpha[i] = pool.ownerAlphaMul ? pool.ownerAlphaMul[sunOwner] : 1;
       }
       activeFlares.push(flare);
       return flare;
@@ -183,17 +189,19 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
         dieAt: time + CME_LIFETIME,
         indices: idle,
       };
+      const jitter = sunRadius * 0.04;
       for (const i of idle) {
-        pool.position[3*i] = A.x;
-        pool.position[3*i+1] = A.y;
-        pool.position[3*i+2] = A.z;
+        pool.position[3*i] = A.x + (rng() - 0.5) * jitter;
+        pool.position[3*i+1] = A.y + (rng() - 0.5) * jitter;
+        pool.position[3*i+2] = A.z + (rng() - 0.5) * jitter;
         pool.color[3*i] = 1.0;
-        pool.color[3*i+1] = 0.8;
-        pool.color[3*i+2] = 0.3;
+        pool.color[3*i+1] = 0.75;
+        pool.color[3*i+2] = 0.25;
         pool.alpha[i] = 1.0;
-        if (pool.size) pool.size[i] = 4.5;
+        if (pool.size) pool.size[i] = 7.0;
         if (pool.phase) pool.phase[i] = 99;
         if (pool.owner) pool.owner[i] = sunOwner;
+        if (pool.ownerAlpha) pool.ownerAlpha[i] = pool.ownerAlphaMul ? pool.ownerAlphaMul[sunOwner] : 1;
       }
       activeFlares.push(flare);
       return flare;
@@ -207,8 +215,11 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
       const lifetime = flare.dieAt - flare.bornAt;
       const t = Math.min(1, age / lifetime);
       if (flare.kind === 'arch') {
-        for (const i of flare.indices) {
-          const pos = parabolicArcPos(flare.A, flare.B, flare.peak, t);
+        for (let k = 0; k < flare.indices.length; k++) {
+          const i = flare.indices[k];
+          const offset = flare.phaseOffsets ? flare.phaseOffsets[k] : 0;
+          const pt = Math.max(0, Math.min(1, t - offset));
+          const pos = parabolicArcPos(flare.A, flare.B, flare.peak, pt);
           pool.position[3*i] = pos.x;
           pool.position[3*i+1] = pos.y;
           pool.position[3*i+2] = pos.z;
@@ -236,10 +247,10 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
 
   function update(pool, time, dt, opts = {}) {
     const intensity = opts.intensity || 'low';
-    const spawnInterval = intensity === 'high' ? 12 : 25;
-    const maxSpots = intensity === 'high' ? 3 : 1;
+    const spawnInterval = intensity === 'high' ? 10 : 18;
+    const maxSpots = intensity === 'high' ? 3 : 2;
 
-    const flareInterval = intensity === 'high' ? 6 : 12;
+    const flareInterval = intensity === 'high' ? 4 : 7;
     if (time - lastFlareAt >= flareInterval) {
       if (spawnProminence(pool, time)) lastFlareAt = time;
     }
@@ -274,6 +285,7 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
     pool.colorAttr.needsUpdate = true;
     if (pool.posAttr) pool.posAttr.needsUpdate = true;
     if (pool.alphaAttr) pool.alphaAttr.needsUpdate = true;
+    if (pool.ownerAlphaAttr) pool.ownerAlphaAttr.needsUpdate = true;
   }
 
   return {
