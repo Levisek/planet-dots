@@ -33,36 +33,37 @@ void main() {
 `;
 
 export class ParticlePool {
-  constructor(count = 1500) {
+  constructor(count) {
     this.count = count;
-    // GPU-uploaded (via BufferAttribute níže):
+    // GPU-uploaded
     this.position = new Float32Array(count * 3);
-    this.color    = new Float32Array(count * 3);
-    // CPU-only state pro animation lerp (nenahrává se na GPU):
-    this.target      = new Float32Array(count * 3);
-    this.velocity    = new Float32Array(count * 3);
-    this.targetColor = new Float32Array(count * 3);
-    // Local offset od center planety (pro cluster rotaci v live fázi):
-    this.localOffset = new Float32Array(count * 3);
-    this.size     = new Float32Array(count);
-    this.alpha    = new Float32Array(count);
-    this.phase    = new Uint8Array(count);
-    this.owner    = new Int16Array(count); // planet index or -1
+    this.color = new Float32Array(count * 3);
+    this.size = new Float32Array(count);
+    this.alpha = new Float32Array(count);
+    // CPU-only
+    this.target = new Float32Array(count * 3);
+    this.velocity = new Float32Array(count * 3);    // pro FLYING tečky (world-space units/sec)
+    this.localOffset = new Float32Array(count * 3); // relative to owner anchor — pro cluster rotaci
+    this.arrivalTime = new Float32Array(count);      // kdy FLYING tečka dorazí
+    this.postArrivalTarget = new Float32Array(count * 3); // kam jít po HOLDING_LABEL (sphere pos)
+    this.postArrivalColor = new Float32Array(count * 3);  // barva po HOLDING_LABEL
+    this.holdUntil = new Float32Array(count);         // kdy skončí HOLDING_LABEL
+    this.phase = new Uint8Array(count);
+    this.owner = new Int16Array(count);
 
     const geometry = new THREE.BufferGeometry();
-    this.posAttr   = new THREE.BufferAttribute(this.position, 3);
+    this.posAttr = new THREE.BufferAttribute(this.position, 3);
     this.colorAttr = new THREE.BufferAttribute(this.color, 3);
-    this.sizeAttr  = new THREE.BufferAttribute(this.size, 1);
+    this.sizeAttr = new THREE.BufferAttribute(this.size, 1);
     this.alphaAttr = new THREE.BufferAttribute(this.alpha, 1);
-    // všechny 4 atributy se přepisují každý frame → dynamic draw hint
     this.posAttr.setUsage(THREE.DynamicDrawUsage);
     this.colorAttr.setUsage(THREE.DynamicDrawUsage);
     this.sizeAttr.setUsage(THREE.DynamicDrawUsage);
     this.alphaAttr.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('position', this.posAttr);
-    geometry.setAttribute('aColor',   this.colorAttr);
-    geometry.setAttribute('aSize',    this.sizeAttr);
-    geometry.setAttribute('aAlpha',   this.alphaAttr);
+    geometry.setAttribute('aColor', this.colorAttr);
+    geometry.setAttribute('aSize', this.sizeAttr);
+    geometry.setAttribute('aAlpha', this.alphaAttr);
     this.geometry = geometry;
 
     this.material = new THREE.ShaderMaterial({
@@ -75,46 +76,21 @@ export class ParticlePool {
 
     this.mesh = new THREE.Points(geometry, this.material);
 
-    // init: všechny FREE, na random pozicích (naplníme v animation fázi Init).
+    // init všechny IDLE
     for (let i = 0; i < count; i++) {
-      this.position[3 * i]     = 0;
-      this.position[3 * i + 1] = 0;
-      this.position[3 * i + 2] = 0;
-      this.color[3 * i]     = 1;
-      this.color[3 * i + 1] = 1;
-      this.color[3 * i + 2] = 1;
-      this.size[i] = 3.8;
-      this.alpha[i] = 0;
       this.phase[i] = PHASE.IDLE;
       this.owner[i] = -1;
+      this.size[i] = 3.8;
+      this.alpha[i] = 0;
     }
+    this.flushAll();
+  }
 
+  flushAll() {
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
-    this.alphaAttr.needsUpdate = true;
     this.sizeAttr.needsUpdate = true;
-  }
-
-  setPosition(i, x, y, z) {
-    this.position[3*i] = x; this.position[3*i+1] = y; this.position[3*i+2] = z;
-  }
-  setTarget(i, x, y, z) {
-    this.target[3*i] = x; this.target[3*i+1] = y; this.target[3*i+2] = z;
-  }
-  setColor(i, r, g, b) {
-    this.color[3*i] = r; this.color[3*i+1] = g; this.color[3*i+2] = b;
-  }
-  setTargetColor(i, r, g, b) {
-    this.targetColor[3*i] = r; this.targetColor[3*i+1] = g; this.targetColor[3*i+2] = b;
-  }
-
-  // Full re-upload všech 4 GPU atributů. Pro init/reset; per-frame updaty
-  // volají `this.posAttr.needsUpdate = true` apod. granulárně.
-  flushDirty() {
-    this.posAttr.needsUpdate = true;
-    this.colorAttr.needsUpdate = true;
     this.alphaAttr.needsUpdate = true;
-    this.sizeAttr.needsUpdate = true;
   }
 
   dispose() {
@@ -122,210 +98,205 @@ export class ParticlePool {
     this.material.dispose();
   }
 
-  resetAllToFree() {
-    for (let i = 0; i < this.count; i++) {
-      this.phase[i] = PHASE.FREE;
-      this.owner[i] = -1;
-      // random start position ve viewportu
-      this.position[3*i]     = (Math.random() - 0.5) * 1800;
-      this.position[3*i + 1] = (Math.random() - 0.5) * 800;
-      this.position[3*i + 2] = (Math.random() - 0.5) * 400;
-      this.target[3*i]     = this.position[3*i];
-      this.target[3*i + 1] = this.position[3*i + 1];
-      this.target[3*i + 2] = this.position[3*i + 2];
-      this.color[3*i]     = 1; this.color[3*i + 1] = 1; this.color[3*i + 2] = 1;
-      this.size[i] = 3.8;
-      this.alpha[i] = 0;
-    }
-    this.flushDirty();
-  }
-
-  noiseDriftAll(time, dt, magnitude = 6) {
-    for (let i = 0; i < this.count; i++) {
-      if (this.phase[i] !== PHASE.FREE) continue;
-      const seed = i * 0.13;
-      this.position[3*i]     += Math.sin(time * 0.5 + seed) * magnitude * dt;
-      this.position[3*i + 1] += Math.cos(time * 0.4 + seed * 2) * magnitude * dt;
-      this.position[3*i + 2] += Math.sin(time * 0.3 + seed * 3) * magnitude * 0.5 * dt;
-    }
-    this.posAttr.needsUpdate = true;
-  }
-
-  fadeInAll(rate, dt) {
-    let dirty = false;
-    for (let i = 0; i < this.count; i++) {
-      if (this.alpha[i] < 0.7) {
-        this.alpha[i] = Math.min(0.7, this.alpha[i] + rate * dt);
-        dirty = true;
-      }
-    }
-    if (dirty) this.alphaAttr.needsUpdate = true;
-  }
-
-  /** Alokuje prvních `count` FREE particle indexů. Vrací pole indexů. */
-  takeFreeIndices(count) {
-    const out = [];
-    for (let i = 0; i < this.count && out.length < count; i++) {
-      if (this.phase[i] === PHASE.FREE) out.push(i);
-    }
-    return out;
-  }
-
-  /** Nastaví target pozice pro indexy + phase FORMING_LABEL. */
-  assignLabelTargets(indices, labelPoints) {
-    for (let k = 0; k < indices.length; k++) {
-      const i = indices[k];
-      const p = labelPoints[k % labelPoints.length];
-      this.target[3*i]     = p[0];
-      this.target[3*i + 1] = p[1];
-      this.target[3*i + 2] = p[2];
-      this.phase[i] = PHASE.FORMING_LABEL;
-    }
-  }
-
-  /** Nastaví target pozice k povrchu planety + phase FLYING_TO_PLANET. */
-  assignPlanetTargets(indices, planetPosition, fibonacciPts, planetColor) {
-    for (let k = 0; k < indices.length; k++) {
-      const i = indices[k];
-      const off = fibonacciPts[k % fibonacciPts.length];
-      this.target[3*i]     = planetPosition.x + off[0];
-      this.target[3*i + 1] = planetPosition.y + off[1];
-      this.target[3*i + 2] = planetPosition.z + off[2];
-      this.phase[i] = PHASE.FLYING_TO_PLANET;
-      this.targetColor[3*i]     = planetColor.r;
-      this.targetColor[3*i + 1] = planetColor.g;
-      this.targetColor[3*i + 2] = planetColor.b;
-    }
-  }
-
   /**
-   * Přiřadí každé tečce pozici na povrchu planety + barvu sampled z textury.
-   * Uloží také localOffset pro rotaci clusteru v live fázi.
-   * @param {number[]} indices — indexy teček v poolu
-   * @param {{x:number,y:number,z:number}} center — pozice planety v world space
-   * @param {number[][]} fibPts — Fibonacci sphere body [x,y,z] (relativní, už škálované na radius)
-   * @param {ImageData} imageData — bitmap textury planety
-   * @param {number} planetIndex — index planety v PLANETS (pro cluster rotaci)
+   * Naplní prvních `count` teček statickými pozicemi na Slunci (Fibonacci sphere).
+   * Tečky mají phase ON_SUN, barvy sampled ze sun texture.
+   * Tyto tečky jsou „zdrojem" — solar wind controller z nich bude brát při emisi.
+   * @param {{x,y,z}} center
+   * @param {number} radius
+   * @param {ImageData} sunImageData
+   * @param {number} count — kolik teček naplnit (první v poolu)
+   * @returns {number[]} indices — použité indexy
    */
-  assignPlanetDotsFromTexture(indices, center, fibPts, imageData, planetIndex) {
-    const { data, width, height } = imageData;
-    for (let k = 0; k < indices.length; k++) {
-      const i = indices[k];
-      const off = fibPts[k % fibPts.length];
-      const ox = off[0], oy = off[1], oz = off[2];
-      // World target pozice:
-      this.target[3*i]     = center.x + ox;
-      this.target[3*i + 1] = center.y + oy;
-      this.target[3*i + 2] = center.z + oz;
-      // Local offset (pro rotaci):
+  initFullSun(center, radius, sunImageData, count) {
+    const { data, width, height } = sunImageData;
+    const phi = Math.PI * (Math.sqrt(5) - 1);
+    const indices = [];
+    for (let i = 0; i < count; i++) {
+      if (i >= this.count) break;
+      const y = count === 1 ? 0 : 1 - (i / (count - 1)) * 2;
+      const rr = Math.sqrt(Math.max(0, 1 - y * y));
+      const theta = phi * i;
+      const sx = Math.cos(theta) * rr;
+      const sy = y;
+      const sz = Math.sin(theta) * rr;
+      const ox = sx * radius;
+      const oy = sy * radius;
+      const oz = sz * radius;
+      this.position[3*i]     = center.x + ox;
+      this.position[3*i + 1] = center.y + oy;
+      this.position[3*i + 2] = center.z + oz;
       this.localOffset[3*i]     = ox;
       this.localOffset[3*i + 1] = oy;
       this.localOffset[3*i + 2] = oz;
-      // UV z sphere pozice (normalizovat):
-      const r = Math.sqrt(ox*ox + oy*oy + oz*oz) || 1;
-      const u = Math.atan2(oz, ox) / (Math.PI * 2) + 0.5;
-      const v = Math.asin(oy / r) / Math.PI + 0.5;
+      // sample color:
+      const u = Math.atan2(sz, sx) / (Math.PI * 2) + 0.5;
+      const v = Math.asin(sy) / Math.PI + 0.5;
       const px = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
       const py = Math.min(height - 1, Math.max(0, Math.floor((1 - v) * height)));
       const idx = (py * width + px) * 4;
-      this.targetColor[3*i]     = data[idx]     / 255;
-      this.targetColor[3*i + 1] = data[idx + 1] / 255;
-      this.targetColor[3*i + 2] = data[idx + 2] / 255;
-      this.phase[i] = PHASE.FLYING_TO_PLANET;
-      this.owner[i] = planetIndex;
+      this.color[3*i]     = data[idx] / 255;
+      this.color[3*i + 1] = data[idx + 1] / 255;
+      this.color[3*i + 2] = data[idx + 2] / 255;
+      this.alpha[i] = 0.85;
+      this.size[i] = 3.2;
+      this.phase[i] = PHASE.ON_SUN;
+      this.owner[i] = 0; // Sun = index 0 in PLANETS
+      indices.push(i);
     }
+    this.flushAll();
+    return indices;
   }
 
   /**
-   * Přiřadí tečkám pozice v nakloněném prstencovém disku + barvy sampled
-   * z 1D ring textury (horizontální proužek).
-   * @param {number[]} indices
-   * @param {{x:number,y:number,z:number}} center
-   * @param {number} innerRadius
-   * @param {number} outerRadius
-   * @param {ImageData} imageData
-   * @param {number} tiltRadians — sklon ring disku (kolem X osy, stejný jako axial tilt planety)
-   * @param {number} planetIndex — index planety v PLANETS (pro cluster rotaci)
+   * Spawn jedné letící tečky ze Slunce. Použije FREE (IDLE) index.
+   * Nastaví position = ze Slunce (random point on Sun surface), velocity k target.
+   * @param {number} sourceIdx — index volné IDLE tečky
+   * @param {{x,y,z}} sunCenter — world pos Slunce
+   * @param {number} sunRadius
+   * @param {{x,y,z}} finalTarget — kam dorazí (world pos)
+   * @param {{x,y,z}} finalTargetLocal — local offset relativně k ownerovi (po příletu pro cluster rotaci)
+   * @param {[number,number,number]} finalColor — barva po příletu (sampled from texture)
+   * @param {number} planetOwnerIdx — planet index (pro ON_PLANET owner)
+   * @param {number} finalPhase — PHASE.ON_PLANET nebo PHASE.ON_RING po příletu
+   * @param {number} currentTime — čas v sekundách
+   * @param {number} travelTime — jak dlouho letět
+   * @param {{x,y,z}=} labelPos — pokud je dané, tečka nejdřív letí sem (hold 0.3s), pak finalTarget
+   * @param {number=} labelHoldDuration
    */
-  assignRingDotsFromTexture(indices, center, innerRadius, outerRadius, imageData, tiltRadians, planetIndex) {
-    const { data, width, height } = imageData;
-    const cosT = Math.cos(tiltRadians);
-    const sinT = Math.sin(tiltRadians);
-    const py = Math.floor(0.5 * height);
-    for (let k = 0; k < indices.length; k++) {
-      const i = indices[k];
-      const t = Math.random();
-      const r = Math.sqrt(innerRadius*innerRadius + t * (outerRadius*outerRadius - innerRadius*innerRadius));
-      const theta = Math.random() * Math.PI * 2;
-      // Local pos v ring plane (z=0):
-      const lx = Math.cos(theta) * r;
-      const ly = 0;
-      const lz = Math.sin(theta) * r;
-      // Apply tilt rotation kolem X osy:
-      const ox = lx;
-      const oy = ly * cosT - lz * sinT;
-      const oz = ly * sinT + lz * cosT;
-      this.target[3*i]     = center.x + ox;
-      this.target[3*i + 1] = center.y + oy;
-      this.target[3*i + 2] = center.z + oz;
-      this.localOffset[3*i]     = ox;
-      this.localOffset[3*i + 1] = oy;
-      this.localOffset[3*i + 2] = oz;
-      // Sample color z ring textury podle radiálního t:
-      const px = Math.min(width - 1, Math.max(0, Math.floor(t * width)));
-      const idx = (py * width + px) * 4;
-      this.targetColor[3*i]     = data[idx]     / 255;
-      this.targetColor[3*i + 1] = data[idx + 1] / 255;
-      this.targetColor[3*i + 2] = data[idx + 2] / 255;
-      // Alpha z textury — pokud je transparentní, tečka bude také míň viditelná
-      const alpha = data[idx + 3] / 255;
-      this.size[i] = 2.8 * alpha; // menší než planeta, ale viditelné; alpha 0 z textury = neviditelné
-      this.phase[i] = PHASE.FLYING_TO_PLANET;
-      this.owner[i] = planetIndex;
+  spawnFromSun(sourceIdx, sunCenter, sunRadius, finalTarget, finalTargetLocal,
+               finalColor, planetOwnerIdx, finalPhase, currentTime, travelTime,
+               labelPos, labelHoldDuration = 0.3) {
+    const i = sourceIdx;
+    // start pozice = random na Sun surface
+    const rx = (Math.random() - 0.5) * 2;
+    const ry = (Math.random() - 0.5) * 2;
+    const rz = (Math.random() - 0.5) * 2;
+    const len = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1;
+    const sx = sunCenter.x + (rx/len) * sunRadius;
+    const sy = sunCenter.y + (ry/len) * sunRadius;
+    const sz = sunCenter.z + (rz/len) * sunRadius;
+    this.position[3*i]     = sx;
+    this.position[3*i + 1] = sy;
+    this.position[3*i + 2] = sz;
+    // Final color = cílová barva (barva v průběhu letu se lerpne)
+    // Barva při emit = bílá/sluneční (zažehnutá z povrchu Slunce)
+    this.color[3*i]     = 1;
+    this.color[3*i + 1] = 0.95;
+    this.color[3*i + 2] = 0.7;
+    this.alpha[i] = 0.9;
+
+    // Target: buď label pos (pokud předán) nebo final target
+    let tx, ty, tz;
+    if (labelPos) {
+      tx = labelPos.x; ty = labelPos.y; tz = labelPos.z;
+      this.holdUntil[i] = currentTime + travelTime + labelHoldDuration;
+    } else {
+      tx = finalTarget.x; ty = finalTarget.y; tz = finalTarget.z;
+      this.holdUntil[i] = 0; // no hold
     }
+    this.target[3*i]     = tx;
+    this.target[3*i + 1] = ty;
+    this.target[3*i + 2] = tz;
+
+    // Velocity = (target - start) / travelTime (linear flight)
+    this.velocity[3*i]     = (tx - sx) / travelTime;
+    this.velocity[3*i + 1] = (ty - sy) / travelTime;
+    this.velocity[3*i + 2] = (tz - sz) / travelTime;
+
+    // Post-arrival (po HOLDING_LABEL nebo rovnou settled)
+    this.postArrivalTarget[3*i]     = finalTarget.x;
+    this.postArrivalTarget[3*i + 1] = finalTarget.y;
+    this.postArrivalTarget[3*i + 2] = finalTarget.z;
+    this.postArrivalColor[3*i]     = finalColor[0];
+    this.postArrivalColor[3*i + 1] = finalColor[1];
+    this.postArrivalColor[3*i + 2] = finalColor[2];
+    this.localOffset[3*i]     = finalTargetLocal.x;
+    this.localOffset[3*i + 1] = finalTargetLocal.y;
+    this.localOffset[3*i + 2] = finalTargetLocal.z;
+
+    this.arrivalTime[i] = currentTime + travelTime;
+    this.owner[i] = planetOwnerIdx;
+    this.phase[i] = PHASE.FLYING;
+    // finalPhase uložíme v odhadnutém místě: (hack — postArrivalColor[3] není, musíme někam jinam)
+    // Řešení: používáme size[i] > 3 = ON_PLANET, size[i] <= 3 = ON_RING — simple discrimination
+    // Nebo: použijeme owner znaménko nebo jiný bit. Nejjednodušší: size signals ring.
+    this.size[i] = (finalPhase === PHASE.ON_RING) ? 2.8 : 3.8;
   }
 
-  /** Lerp position→target a color→targetColor s daným koeficientem (0..1). */
-  lerpToTargets(k) {
+  /**
+   * Update tečky pro daný frame:
+   *  - FLYING: position += velocity * dt; if time >= arrivalTime → snap to target, transition.
+   *  - HOLDING_LABEL: drží, if time >= holdUntil → re-target na postArrivalTarget (velocity = ?).
+   *  - Lerp color from current to postArrivalColor during FLYING.
+   */
+  updateFlight(currentTime, dt) {
     for (let i = 0; i < this.count; i++) {
-      if (this.phase[i] === PHASE.FREE || this.phase[i] === PHASE.IDLE) continue;
-      this.position[3*i]     += (this.target[3*i]     - this.position[3*i])     * k;
-      this.position[3*i + 1] += (this.target[3*i + 1] - this.position[3*i + 1]) * k;
-      this.position[3*i + 2] += (this.target[3*i + 2] - this.position[3*i + 2]) * k;
-      this.color[3*i]     += (this.targetColor[3*i]     - this.color[3*i])     * k * 0.5;
-      this.color[3*i + 1] += (this.targetColor[3*i + 1] - this.color[3*i + 1]) * k * 0.5;
-      this.color[3*i + 2] += (this.targetColor[3*i + 2] - this.color[3*i + 2]) * k * 0.5;
+      const ph = this.phase[i];
+      if (ph === PHASE.FLYING) {
+        // move
+        this.position[3*i]     += this.velocity[3*i]     * dt;
+        this.position[3*i + 1] += this.velocity[3*i + 1] * dt;
+        this.position[3*i + 2] += this.velocity[3*i + 2] * dt;
+        // lerp color toward post-arrival
+        const k = 0.04;
+        this.color[3*i]     += (this.postArrivalColor[3*i]     - this.color[3*i])     * k;
+        this.color[3*i + 1] += (this.postArrivalColor[3*i + 1] - this.color[3*i + 1]) * k;
+        this.color[3*i + 2] += (this.postArrivalColor[3*i + 2] - this.color[3*i + 2]) * k;
+        // arrival?
+        if (currentTime >= this.arrivalTime[i]) {
+          // snap to target
+          this.position[3*i]     = this.target[3*i];
+          this.position[3*i + 1] = this.target[3*i + 1];
+          this.position[3*i + 2] = this.target[3*i + 2];
+          // if holdUntil > 0 → hold label; else settle
+          if (this.holdUntil[i] > currentTime) {
+            this.phase[i] = PHASE.HOLDING_LABEL;
+          } else {
+            // settle to final phase (ON_PLANET or ON_RING based on size)
+            this.phase[i] = (this.size[i] < 3.2) ? PHASE.ON_RING : PHASE.ON_PLANET;
+            // snap color to final
+            this.color[3*i]     = this.postArrivalColor[3*i];
+            this.color[3*i + 1] = this.postArrivalColor[3*i + 1];
+            this.color[3*i + 2] = this.postArrivalColor[3*i + 2];
+          }
+        }
+      } else if (ph === PHASE.HOLDING_LABEL) {
+        // check if hold is over
+        if (currentTime >= this.holdUntil[i]) {
+          // re-target to postArrivalTarget (surface)
+          const dx = this.postArrivalTarget[3*i]     - this.position[3*i];
+          const dy = this.postArrivalTarget[3*i + 1] - this.position[3*i + 1];
+          const dz = this.postArrivalTarget[3*i + 2] - this.position[3*i + 2];
+          const flyTime = 0.5; // fall from label to surface
+          this.velocity[3*i]     = dx / flyTime;
+          this.velocity[3*i + 1] = dy / flyTime;
+          this.velocity[3*i + 2] = dz / flyTime;
+          this.target[3*i]     = this.postArrivalTarget[3*i];
+          this.target[3*i + 1] = this.postArrivalTarget[3*i + 1];
+          this.target[3*i + 2] = this.postArrivalTarget[3*i + 2];
+          this.arrivalTime[i] = currentTime + flyTime;
+          this.holdUntil[i] = 0; // won't hold again
+          this.phase[i] = PHASE.FLYING;
+        }
+      }
     }
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
   }
 
-  /** Tečky v phase ON_PLANET lehce oscilují v normále povrchu (dýchavé). */
-  surfaceOscillate(time, dt, amplitude = 0.4) {
-    for (let i = 0; i < this.count; i++) {
-      if (this.phase[i] !== PHASE.ON_PLANET) continue;
-      const seed = i * 0.07;
-      const osc = Math.sin(time * 1.2 + seed) * amplitude * dt;
-      this.position[3*i]     += (this.target[3*i]     - this.position[3*i])     * 0.05 + osc;
-      this.position[3*i + 1] += (this.target[3*i + 1] - this.position[3*i + 1]) * 0.05;
-      this.position[3*i + 2] += (this.target[3*i + 2] - this.position[3*i + 2]) * 0.05;
-    }
-    this.posAttr.needsUpdate = true;
-  }
-
   /**
-   * Pro všechny tečky ON_PLANET/ON_RING: world position = anchor.matrixWorld * localOffset.
-   * Předpokládá že anchory už byly v tomto framu natočeny (updateMatrixWorld volaný).
-   * @param {THREE.Object3D[]} anchors — indexovaná pole anchorů (stejné pořadí jako PLANETS)
+   * Pro ON_PLANET/ON_RING tečky: worldPos = anchor.matrixWorld * localOffset
+   * @param {THREE.Object3D[]} anchorsByIndex
    */
-  applyClusterRotation(anchors) {
+  applyClusterRotation(anchorsByIndex) {
     const tmp = _tmpVec3;
     for (let i = 0; i < this.count; i++) {
       const ph = this.phase[i];
-      if (ph !== PHASE.ON_PLANET && ph !== PHASE.ON_RING) continue;
-      const ownerIdx = this.owner[i];
-      if (ownerIdx < 0) continue;
-      const anchor = anchors[ownerIdx];
+      if (ph !== PHASE.ON_PLANET && ph !== PHASE.ON_RING && ph !== PHASE.ON_SUN) continue;
+      const oi = this.owner[i];
+      if (oi < 0) continue;
+      const anchor = anchorsByIndex[oi];
       if (!anchor) continue;
       tmp.set(
         this.localOffset[3*i],
@@ -338,5 +309,16 @@ export class ParticlePool {
       this.position[3*i + 2] = tmp.z;
     }
     this.posAttr.needsUpdate = true;
+  }
+
+  /**
+   * Najde první N IDLE indexů, nebo vyhoří pokud ne je dostatek.
+   */
+  takeIdleIndices(count) {
+    const out = [];
+    for (let i = 0; i < this.count && out.length < count; i++) {
+      if (this.phase[i] === PHASE.IDLE) out.push(i);
+    }
+    return out;
   }
 }
