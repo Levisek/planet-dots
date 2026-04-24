@@ -9,6 +9,12 @@ import { rotateAnchors } from './rotation.js';
 import { updateSolarWind } from './solarWind.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
+import { createPicker } from './picking.js';
+import { createTooltip } from './tooltip.js';
+import { createInfoPanel } from './infoPanel.js';
+import { createDetailView, STATE as DV_STATE } from './detailView.js';
+import { createSunActivity } from './sunActivity.js';
+import { BODY_DATA } from './bodyData.js';
 
 const { renderer, scene, camera, controls } = createScene();
 createStarfield(scene);
@@ -27,6 +33,14 @@ scene.add(pool.mesh);
 const clock = new THREE.Clock();
 let elapsed = 0;
 const paused = false;
+
+let picker = null;
+let tooltip = null;
+let infoPanel = null;
+let detailView = null;
+let sunActivity = null;
+let _activeCameraTween = null;
+const controlsTarget = { x: 0, y: 0, z: 0 };
 
 // ——— Perf diag ———
 const statsEl = document.getElementById('stats');
@@ -90,25 +104,60 @@ function tick() {
   const dt = paused ? 0 : clock.getDelta();
   elapsed += dt;
 
-  // Rotace planet (V1) — před orbit update, aby matrixWorld planety byl fresh.
+  // Camera tween (pro fly-to)
+  if (_activeCameraTween) {
+    const twn = _activeCameraTween;
+    twn.t += dt;
+    const u = Math.min(1, twn.t / twn.duration);
+    const eased = u < 0.5 ? 4*u*u*u : 1 - Math.pow(-2*u + 2, 3) / 2;
+    camera.position.set(
+      twn.fromPos.x + (twn.toPos.x - twn.fromPos.x) * eased,
+      twn.fromPos.y + (twn.toPos.y - twn.fromPos.y) * eased,
+      twn.fromPos.z + (twn.toPos.z - twn.fromPos.z) * eased,
+    );
+    controlsTarget.x = twn.fromTarget.x + (twn.toTarget.x - twn.fromTarget.x) * eased;
+    controlsTarget.y = twn.fromTarget.y + (twn.toTarget.y - twn.fromTarget.y) * eased;
+    controlsTarget.z = twn.fromTarget.z + (twn.toTarget.z - twn.fromTarget.z) * eased;
+    camera.lookAt(controlsTarget.x, controlsTarget.y, controlsTarget.z);
+    if (controls.enabled) controls.target.set(controlsTarget.x, controlsTarget.y, controlsTarget.z);
+    if (u >= 1) _activeCameraTween = null;
+  }
+
+  // Detail view state
+  if (detailView) detailView.tick(dt);
+  const dvState = detailView ? detailView.state() : 'MAIN';
+  const isMainState = dvState === 'MAIN';
+
+  // Rotace planet + moon orbits běží vždy (i v detail view, aby bylo vidět spin + orbit)
   rotateAnchors(anchors, dt);
-  // Moon orbit + tidal lock — aktualizuje moon anchors lokálně a propaguje matrixWorld.
   updateMoonOrbits(elapsed, moonScaleFactors);
 
-  // Emise ze Slunce (V1) — běží během planet fází.
-  updateSolarWind(pool, elapsed, dt, anchors, imageData);
-  // Emise z planet (V2) — běží během moon sub-fází.
-  updateMoonWind(pool, elapsed, dt, anchors, moonAnchors, imageData, moonImageData);
+  // Solar wind + moon wind — pausnu v detail view
+  if (isMainState) {
+    updateSolarWind(pool, elapsed, dt, anchors, imageData);
+    updateMoonWind(pool, elapsed, dt, anchors, moonAnchors, imageData, moonImageData);
+  }
 
-  // Tečky v letu: position += velocity * dt, lerp color, arrival snap.
   pool.updateFlight(elapsed, dt);
 
-  // Usazené tečky (ON_SUN / ON_PLANET / ON_RING / ON_MOON) sledují rotující anchor.
+  // Sun activity — vždy aktivní, ale intenzita vyšší pokud je Slunce v detailu
+  if (sunActivity) {
+    const isSunDetail = dvState === 'DETAIL' && detailView.focusId() === 'sun';
+    sunActivity.update(pool, elapsed, dt, { intensity: isSunDetail ? 'high' : 'low' });
+  }
+
   const rotStart = performance.now();
   pool.applyClusterRotation(anchorsByIndex);
   const rotEnd = performance.now();
 
+  // Picker updatuje mesh pozice (musí po applyClusterRotation)
+  if (picker) picker.update();
+
+  // OrbitControls aktivní jen v DETAIL
   if (controls.enabled) controls.update();
+
+  // Tooltip follow (updatuje screen pos)
+  if (tooltip) tooltip.update();
 
   renderer.render(scene, camera);
 
@@ -132,6 +181,133 @@ function tick() {
 
 Promise.all([loaded, moonsLoaded]).then(() => {
   initAfterLoad();
+
+  // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
+  picker = createPicker({ scene, camera, canvas: renderer.domElement });
+  for (const p of PLANETS) {
+    picker.addBody(p.id, () => ({
+      x: anchors[p.id].position.x,
+      y: anchors[p.id].position.y,
+      z: anchors[p.id].position.z,
+    }), p.radiusPx * 1.5);
+  }
+  for (const m of MOONS) {
+    const moonAnchor = moonAnchors[m.id];
+    picker.addBody(m.id, () => {
+      const v = new THREE.Vector3();
+      moonAnchor.getWorldPosition(v);
+      return { x: v.x, y: v.y, z: v.z };
+    }, Math.max(m.radiusPx * 2, 4));
+  }
+  // V main stavu aktivní = jen planets + sun
+  picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
+
+  tooltip = createTooltip({ camera, canvas: renderer.domElement });
+  infoPanel = createInfoPanel();
+  sunActivity = createSunActivity({ sunOwner: 0, sunRadius: PLANETS[0].radiusPx });
+
+  // Helper pro body world-position
+  function getBodyPos(id) {
+    const p = PLANET_BY_ID[id];
+    if (p) return { x: anchors[id].position.x, y: anchors[id].position.y, z: anchors[id].position.z };
+    const mAnchor = moonAnchors[id];
+    if (mAnchor) {
+      const v = new THREE.Vector3();
+      mAnchor.getWorldPosition(v);
+      return { x: v.x, y: v.y, z: v.z };
+    }
+    return { x: 0, y: 0, z: 0 };
+  }
+
+  // Detail view wiring
+  detailView = createDetailView({
+    cameraFlyTo: (toPos, toTarget, duration) => {
+      _activeCameraTween = {
+        fromPos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        fromTarget: { x: controlsTarget.x, y: controlsTarget.y, z: controlsTarget.z },
+        toPos: { ...toPos },
+        toTarget: { ...toTarget },
+        t: 0,
+        duration,
+      };
+    },
+    getCameraState: () => ({
+      pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+      target: { x: controlsTarget.x, y: controlsTarget.y, z: controlsTarget.z },
+    }),
+    setPaused: (v) => { /* detailView state řídí pause — tick() se na to dotáže */ },
+    fadeOthers: (focusId, alpha) => {
+      for (let i = 0; i < PLANETS.length; i++) {
+        const id = PLANETS[i].id;
+        pool.setOwnerAlpha(i, id === focusId ? 1 : alpha);
+      }
+      for (let i = 0; i < MOONS.length; i++) {
+        const id = MOONS[i].id;
+        const ownerIdx = 9 + i;
+        pool.setOwnerAlpha(ownerIdx, id === focusId ? 1 : alpha);
+      }
+    },
+    showPanel: (id, opts) => {
+      infoPanel.show(id, opts);
+      // Při vstupu do planet-detail aktivuj moon picking
+      const planet = PLANET_BY_ID[id];
+      if (planet) {
+        const childMoons = MOONS.filter((m) => m.parent === id).map((m) => m.id);
+        picker.setActiveIds(new Set([...PLANETS.map((p) => p.id), ...childMoons]));
+      } else {
+        picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
+      }
+    },
+    hidePanel: () => {
+      infoPanel.hide();
+      picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
+    },
+    enableOrbit: (enabled, target) => {
+      controls.enabled = enabled;
+      if (enabled && target) {
+        controls.target.set(target.x, target.y, target.z);
+        controlsTarget.x = target.x;
+        controlsTarget.y = target.y;
+        controlsTarget.z = target.z;
+      }
+    },
+    getBodyPosition: getBodyPos,
+    getBodyRadius: (id) => {
+      const p = PLANET_BY_ID[id];
+      if (p) return p.radiusPx;
+      const m = MOONS.find((mm) => mm.id === id);
+      return m ? Math.max(m.radiusPx, 3) : 1;
+    },
+    getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
+  });
+
+  // Picker events
+  picker.onHover((id) => {
+    if (id && detailView.state() === DV_STATE.MAIN) {
+      tooltip.show(id, () => getBodyPos(id));
+    } else {
+      tooltip.hide();
+    }
+  });
+  picker.onClick((id) => {
+    detailView.enter(id);
+  });
+
+  // Panel handlers
+  infoPanel.onClose(() => detailView.exit());
+  infoPanel.onScaleToggle((on) => {
+    detailView.toggleScale(on);
+    const focusId = detailView.focusId();
+    if (focusId) setMoonScaleReal(focusId, on);
+  });
+
+  // ESC handler
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && detailView.state() === DV_STATE.DETAIL) {
+      detailView.exit();
+    }
+  });
+
   clock.start();
   requestAnimationFrame(tick);
 }).catch((err) => {
