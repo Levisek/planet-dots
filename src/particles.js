@@ -173,11 +173,13 @@ export class ParticlePool {
       this.localOffset[3*i]     = ox;
       this.localOffset[3*i + 1] = oy;
       this.localOffset[3*i + 2] = oz;
-      // sample color:
+      // sample color — UV s ochranou před sampling extrémních pólů textury
+      // (equirectangular sun.jpg mívá tmavý horní/dolní pixel od stlačení pólů).
       const u = Math.atan2(sz, sx) / (Math.PI * 2) + 0.5;
-      const v = Math.asin(sy) / Math.PI + 0.5;
+      const vRaw = Math.asin(sy) / Math.PI + 0.5;
+      const vSafe = Math.max(0.03, Math.min(0.97, vRaw));
       const px = Math.min(width - 1, Math.max(0, Math.floor(u * width)));
-      const py = Math.min(height - 1, Math.max(0, Math.floor((1 - v) * height)));
+      const py = Math.min(height - 1, Math.max(0, Math.floor((1 - vSafe) * height)));
       const idx = (py * width + px) * 4;
       this.color[3*i]     = data[idx] / 255;
       this.color[3*i + 1] = data[idx + 1] / 255;
