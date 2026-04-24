@@ -4,9 +4,9 @@ Edukativně-hravá vizualizace sluneční soustavy z 1500 teček.
 
 ## Roadmap
 
-- **V1** (aktuální): Slunce + 8 planet, animace sesypání z teček, labely česky, reálné axial tilts a rotace kolem os.
-- V2: 19 měsíců s Keplerovou orbitální mechanikou.
-- V3: Hover/click detail view s reálnou mechanikou a info panelem.
+- **V1** (hotová): Slunce + 8 planet, animace sesypání z teček, labely česky, reálné axial tilts a rotace kolem os.
+- **V2** (hotová): 19 měsíců s Keplerovou orbitální mechanikou.
+- **V3** (hotová): Click → detail view s info panelem, reálné měřítko toggle, drag-to-orbit kamera, živé Slunce (sunspoty + erupce).
 - V4: Asteroidový pás, Kuiperův pás, Oortův oblak.
 - V5: Komety s ohony z teček.
 
@@ -31,6 +31,9 @@ Pak v prohlížeči otevřít `http://localhost:3000/` (resp. `:8000`).
 
 - `R` — restart animace.
 - `Space` — pauza / resume.
+- Hover nad tělem — tooltip.
+- Klik na Slunce/planetu — detail view (ESC zavře).
+- V detailu: drag myší = orbit kamera, scroll = zoom, checkbox = reálné měřítko.
 
 ## Testy
 
