@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASES, phaseAt, phaseProgress } from './animation.js';
 
-test('PHASES pokrývají čas 0..7 s bez děr', () => {
+test('PHASES pokrývají čas 0..8.6 s bez děr', () => {
   let t = 0;
   for (const ph of PHASES) {
     assert.equal(ph.start, t, `díra před ${ph.id}`);
@@ -21,9 +21,10 @@ test('phaseAt vrátí správnou fázi pro čas', () => {
   assert.equal(phaseAt(0.5).id, 'init');
   assert.equal(phaseAt(1.5).id, 'sun');
   assert.equal(phaseAt(2.2).id, 'mercury');
-  assert.equal(phaseAt(3.0).id, 'earth');
-  assert.equal(phaseAt(5.5).id, 'saturn');
-  assert.equal(phaseAt(7.0).id, 'live');
+  assert.equal(phaseAt(2.7).id, 'venus');
+  assert.equal(phaseAt(3.5).id, 'earth');
+  assert.equal(phaseAt(6.5).id, 'saturn');
+  assert.equal(phaseAt(8.6).id, 'live');
   assert.equal(phaseAt(100).id, 'live');
 });
 
