@@ -48,22 +48,40 @@ function initAfterLoad() {
 }
 
 /**
- * Per-frame update moon orbitálních pozic + tidal lock spin angle.
- * Moon anchor je child parent anchoru, takže .position je v lokálním frame.
- * Po update voláme updateMatrixWorld aby matrixWorld byl fresh pro moonWind spawn cíl.
+ * factorsByMoon: { [moonId]: number } — multiplier pro orbit semi-major axis (default 1).
+ * Pro real-scale toggle obsahuje poměr realAPx / compressedAPx pro každý měsíc rodiče.
  */
-function updateMoonOrbits(t) {
+function updateMoonOrbits(t, factorsByMoon = {}) {
   for (const m of MOONS) {
     const parent = PLANET_BY_ID[m.parent];
     const parentRadius = parent.radiusPx;
-    const aPx = m.a * parentRadius;
+    const factor = factorsByMoon[m.id] ?? 1;
+    const aPx = m.a * parentRadius * factor;
     const { x, z, E } = orbitPosition(t, m.phaseOffset, m.period, aPx, m.e);
     const moonAnchor = moonAnchors[m.id];
     if (!moonAnchor) continue;
     moonAnchor.position.set(x, 0, z);
     const nu = trueAnomaly(E, m.e);
-    moonAnchor.rotation.y = nu + Math.PI; // tidal lock: near side vždy k parent
+    moonAnchor.rotation.y = nu + Math.PI;
     moonAnchor.updateMatrixWorld(true);
+  }
+}
+
+let moonScaleFactors = {}; // { [moonId]: number }, pokud klíč chybí → 1
+
+function computeRealFactor(m) {
+  const parent = PLANET_BY_ID[m.parent];
+  if (!parent.realDiameterKm || !m.realSemiMajorAxisKm) return 1;
+  const kmPerPx = parent.realDiameterKm / (parent.radiusPx * 2);
+  const realAPx = m.realSemiMajorAxisKm / kmPerPx;
+  const compressedAPx = m.a * parent.radiusPx;
+  return realAPx / compressedAPx;
+}
+
+function setMoonScaleReal(parentId, realOn) {
+  for (const m of MOONS) {
+    if (m.parent !== parentId) continue;
+    moonScaleFactors[m.id] = realOn ? computeRealFactor(m) : 1;
   }
 }
 
@@ -75,7 +93,7 @@ function tick() {
   // Rotace planet (V1) — před orbit update, aby matrixWorld planety byl fresh.
   rotateAnchors(anchors, dt);
   // Moon orbit + tidal lock — aktualizuje moon anchors lokálně a propaguje matrixWorld.
-  updateMoonOrbits(elapsed);
+  updateMoonOrbits(elapsed, moonScaleFactors);
 
   // Emise ze Slunce (V1) — běží během planet fází.
   updateSolarWind(pool, elapsed, dt, anchors, imageData);
