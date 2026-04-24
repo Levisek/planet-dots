@@ -142,17 +142,31 @@ function tick() {
   const isMainState = dvState === 'MAIN';
 
   // Rotace planet — v MAIN běží, v DETAIL se zastaví (uživatel si prohlíží tělo staticky).
-  // Měsíčné orbity v DETAIL dál běží (kepler visualization zůstává funkční).
+  // Měsíčné orbity: v planet-detail běží (Kepler viz), v moon-detail se zmrazí (jinak moon
+  // utíká z kamery).
+  const focusId = detailView ? detailView.focusId() : null;
+  const isMoonDetail = focusId && MOONS.some((m) => m.id === focusId);
   if (isMainState) {
     rotateAnchors(anchors, dt);
-  } else {
-    // V DETAIL jen refresh matrixWorld (anchor se nemění ale potřebujeme fresh pro picker/cluster)
+    updateMoonOrbits(elapsed, moonScaleFactors);
+  } else if (isMoonDetail) {
+    // Vše zmrazené — jen refresh matrixWorld. Planety + měsíce drží na místě.
     for (const p of PLANETS) {
       const a = anchors[p.id];
       if (a) a.updateMatrixWorld(true);
     }
+    for (const m of MOONS) {
+      const a = moonAnchors[m.id];
+      if (a) a.updateMatrixWorld(true);
+    }
+  } else {
+    // Planet-detail: planety stojí, měsíce dál obíhají.
+    for (const p of PLANETS) {
+      const a = anchors[p.id];
+      if (a) a.updateMatrixWorld(true);
+    }
+    updateMoonOrbits(elapsed, moonScaleFactors);
   }
-  updateMoonOrbits(elapsed, moonScaleFactors);
 
   // Solar wind + moon wind — pausnu v detail view
   if (isMainState) {

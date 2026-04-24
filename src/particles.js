@@ -34,9 +34,8 @@ void main() {
   vec2 c = gl_PointCoord - vec2(0.5);
   float d = length(c);
   if (d > 0.5) discard;
-  // Ostrý, neprůhledný disk (žádný gradient) — planety/Slunce vypadají solidně.
-  float edge = smoothstep(0.5, 0.45, d); // jen krátký anti-alias na okraji
-  gl_FragColor = vec4(vColor, edge * vAlpha);
+  // Tvrdý okraj (žádný anti-alias) — jinak se small dots rozmazávají a vypadají jako překryv.
+  gl_FragColor = vec4(vColor, vAlpha);
 }
 `;
 

@@ -72,7 +72,20 @@ export function icosphere(minCount, radius) {
     if (faces.length > 1000000) break;
   }
 
-  return vertices.map(([x, y, z]) => [x * radius, y * radius, z * radius]);
+  // Shuffle vrcholy deterministicky — jinak první N vrcholů = původní ikosaedr +
+  // prvních pár úrovní dělení = lokální cluster, který se projeví jako "flek" když
+  // caller použije jen prvních N (label-dots, sunspot seeds, atd.).
+  const out = vertices.map(([x, y, z]) => [x * radius, y * radius, z * radius]);
+  // Deterministický Fisher-Yates s LCG seedem (aby stejný počet dal stejné pořadí).
+  let seed = out.length | 0;
+  for (let i = out.length - 1; i > 0; i--) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const j = seed % (i + 1);
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
+  }
+  return out;
 }
 
 export function ringPoints(count, innerRadius, outerRadius) {
