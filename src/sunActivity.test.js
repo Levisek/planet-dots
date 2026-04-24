@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSunActivity } from './sunActivity.js';
+import { createSunActivity, parabolicArcPos } from './sunActivity.js';
 
 function makeMockPool(count) {
   return {
@@ -51,4 +51,22 @@ test('update: spawnuje nový sunspot po intervalu (low intensity)', () => {
     act.update(pool, t, 1, { intensity: 'low' });
   }
   assert.ok(act._activeSpots().length >= 1, 'po 30s má být alespoň 1 spot');
+});
+
+test('parabolicArcPos: t=0 = A, t=1 = B', () => {
+  const A = { x: 0, y: 0, z: 0 };
+  const B = { x: 10, y: 0, z: 0 };
+  const peak = 2;
+  const p0 = parabolicArcPos(A, B, peak, 0);
+  const p1 = parabolicArcPos(A, B, peak, 1);
+  assert.ok(Math.abs(p0.x - 0) < 0.001);
+  assert.ok(Math.abs(p1.x - 10) < 0.001);
+});
+
+test('parabolicArcPos: max výška při t=0.5', () => {
+  const A = { x: 0, y: 0, z: 0 };
+  const B = { x: 10, y: 0, z: 0 };
+  const peak = 2;
+  const mid = parabolicArcPos(A, B, peak, 0.5);
+  assert.ok(Math.abs(mid.y - peak) < 0.01, `y = ${mid.y}, expected ~${peak}`);
 });
