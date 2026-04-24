@@ -386,8 +386,14 @@ export class ParticlePool {
             this.color[3*i]     = this.postArrivalColor[3*i];
             this.color[3*i + 1] = this.postArrivalColor[3*i + 1];
             this.color[3*i + 2] = this.postArrivalColor[3*i + 2];
-            // snap alpha (Jupiter/Saturn mají postArrivalAlpha < 1 → průhlednější)
-            this.alpha[i] = this.postArrivalAlpha[i];
+            // Hide settled dots on planet/moon surfaces — mesh (body mesh) je "kanonická"
+            // planeta, dots by zbytečně překrývaly/nesedly na barvě. Prstenec (ON_RING)
+            // a měsíce hidden taky (měsíce mají vlastní mesh). ON_MOON → 0.
+            if (this.phase[i] === PHASE.ON_PLANET || this.phase[i] === PHASE.ON_MOON) {
+              this.alpha[i] = 0;
+            } else {
+              this.alpha[i] = this.postArrivalAlpha[i];
+            }
           }
         }
       } else if (ph === PHASE.HOLDING_LABEL) {

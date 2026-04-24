@@ -369,6 +369,15 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         controlsTarget.x = target.x;
         controlsTarget.y = target.y;
         controlsTarget.z = target.z;
+        // Dynamické minDistance: kamera nesmí dovnitř tělesa. Pro Jupiter radius 90 = min 110, pro Sun 995 = 1200.
+        const focusId = detailView.focusId();
+        const p = PLANET_BY_ID[focusId];
+        const m = MOONS.find((mm) => mm.id === focusId);
+        const radius = p ? p.radiusPx : (m ? m.radiusPx : 10);
+        controls.minDistance = radius * 1.2 + 10; // povrch + buffer
+      } else {
+        // MAIN state — reset na default
+        controls.minDistance = 30;
       }
     },
     getBodyPosition: getBodyPos,
