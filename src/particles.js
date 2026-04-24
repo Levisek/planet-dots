@@ -54,6 +54,7 @@ export class ParticlePool {
     this.arrivalTime = new Float32Array(count);      // kdy FLYING tečka dorazí
     this.postArrivalTarget = new Float32Array(count * 3); // kam jít po HOLDING_LABEL (sphere pos)
     this.postArrivalColor = new Float32Array(count * 3);  // barva po HOLDING_LABEL
+    this.postArrivalAlpha = new Float32Array(count);      // alpha po settle (pro Jupiter/Saturn průhlednost)
     this.holdUntil = new Float32Array(count);         // kdy skončí HOLDING_LABEL
     this.phase = new Uint8Array(count);
     this.owner = new Int16Array(count);
@@ -89,6 +90,7 @@ export class ParticlePool {
       this.owner[i] = -1;
       this.size[i] = 5.5;
       this.alpha[i] = 0;
+      this.postArrivalAlpha[i] = 1.0;
     }
     this.flushAll();
   }
@@ -146,6 +148,7 @@ export class ParticlePool {
       this.color[3*i + 1] = data[idx + 1] / 255;
       this.color[3*i + 2] = data[idx + 2] / 255;
       this.alpha[i] = 0; // sun reveal ramp odemkne v sun fázi (1..2s)
+      this.postArrivalAlpha[i] = 1.0;
       this.size[i] = 6.0;
       this.phase[i] = PHASE.ON_SUN;
       this.owner[i] = 0; // Sun = index 0 in PLANETS
@@ -173,7 +176,7 @@ export class ParticlePool {
    */
   spawnFromSun(sourceIdx, sunCenter, sunRadius, finalTarget, finalTargetLocal,
                finalColor, planetOwnerIdx, finalPhase, currentTime, travelTime,
-               labelPos, labelHoldDuration = 0.3) {
+               labelPos, labelHoldDuration = 0.3, finalAlpha = 1.0) {
     const i = sourceIdx;
     // start pozice = random na Sun surface
     const rx = (Math.random() - 0.5) * 2;
@@ -218,6 +221,7 @@ export class ParticlePool {
     this.postArrivalColor[3*i]     = finalColor[0];
     this.postArrivalColor[3*i + 1] = finalColor[1];
     this.postArrivalColor[3*i + 2] = finalColor[2];
+    this.postArrivalAlpha[i] = finalAlpha;
     this.localOffset[3*i]     = finalTargetLocal.x;
     this.localOffset[3*i + 1] = finalTargetLocal.y;
     this.localOffset[3*i + 2] = finalTargetLocal.z;
@@ -284,6 +288,7 @@ export class ParticlePool {
     this.postArrivalColor[3*i]     = moonColor[0];
     this.postArrivalColor[3*i + 1] = moonColor[1];
     this.postArrivalColor[3*i + 2] = moonColor[2];
+    this.postArrivalAlpha[i] = 1.0;
     this.localOffset[3*i]     = moonLocalOffset.x;
     this.localOffset[3*i + 1] = moonLocalOffset.y;
     this.localOffset[3*i + 2] = moonLocalOffset.z;
@@ -337,6 +342,8 @@ export class ParticlePool {
             this.color[3*i]     = this.postArrivalColor[3*i];
             this.color[3*i + 1] = this.postArrivalColor[3*i + 1];
             this.color[3*i + 2] = this.postArrivalColor[3*i + 2];
+            // snap alpha (Jupiter/Saturn mají postArrivalAlpha < 1 → průhlednější)
+            this.alpha[i] = this.postArrivalAlpha[i];
           }
         }
       } else if (ph === PHASE.HOLDING_LABEL) {

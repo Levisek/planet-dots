@@ -13,7 +13,7 @@ export const PLANETS = [
     radiusPx: 995.5,
     texture: 'textures/sun.jpg',
     emissive: true,
-    tickCount: 10000,         // initial fill (nebude dostávat proud)
+    tickCount: 18000,         // initial fill (nebude dostávat proud)
     axialTilt: 7.25,
     rotationPeriod: 250,
     direction: 1,
@@ -27,7 +27,7 @@ export const PLANETS = [
     radiusPx: 3.15,
     texture: 'textures/mercury.jpg',
     emissive: false,
-    tickCount: 500,
+    tickCount: 700,
     axialTilt: 0.03,
     rotationPeriod: 586,
     direction: 1,
@@ -41,7 +41,7 @@ export const PLANETS = [
     radiusPx: 7.8,
     texture: 'textures/venus.jpg',
     emissive: false,
-    tickCount: 1200,
+    tickCount: 1700,
     axialTilt: 177.4,
     rotationPeriod: 2430,
     direction: -1,
@@ -55,7 +55,7 @@ export const PLANETS = [
     radiusPx: 8.2,
     texture: 'textures/earth.jpg',
     emissive: false,
-    tickCount: 1500,
+    tickCount: 2100,
     axialTilt: 23.44,
     rotationPeriod: 10,
     direction: 1,
@@ -69,7 +69,7 @@ export const PLANETS = [
     radiusPx: 4.35,
     texture: 'textures/mars.jpg',
     emissive: false,
-    tickCount: 800,
+    tickCount: 1100,
     axialTilt: 25.19,
     rotationPeriod: 10.25,
     direction: 1,
@@ -83,7 +83,8 @@ export const PLANETS = [
     radiusPx: 90,
     texture: 'textures/jupiter.jpg',
     emissive: false,
-    tickCount: 5500,
+    tickCount: 8000,
+    alpha: 0.72,
     axialTilt: 3.13,
     rotationPeriod: 4.1,
     direction: 1,
@@ -99,9 +100,10 @@ export const PLANETS = [
     ringTexture: 'textures/saturn_ring.png',
     ringInnerRadius: 90,
     ringOuterRadius: 175,
-    ringTickCount: 3500,
+    ringTickCount: 5000,
     emissive: false,
-    tickCount: 4500,
+    tickCount: 6500,
+    alpha: 0.72,
     axialTilt: 26.73,
     rotationPeriod: 4.5,
     direction: 1,
@@ -115,7 +117,7 @@ export const PLANETS = [
     radiusPx: 32.5,
     texture: 'textures/uranus.jpg',
     emissive: false,
-    tickCount: 2300,
+    tickCount: 3000,
     axialTilt: 97.77,
     rotationPeriod: 7.2,
     direction: -1,
@@ -129,7 +131,7 @@ export const PLANETS = [
     radiusPx: 31.5,
     texture: 'textures/neptune.jpg',
     emissive: false,
-    tickCount: 2300,
+    tickCount: 3000,
     axialTilt: 28.32,
     rotationPeriod: 6.7,
     direction: 1,
@@ -141,7 +143,7 @@ export const PLANETS = [
 export const PLANET_BY_ID = Object.fromEntries(PLANETS.map(p => [p.id, p]));
 
 // Celkový pool size pro ParticlePool (sun + planety + ringy + rezerva na labely/in-flight).
-export const POOL_SIZE = 36000;
+export const POOL_SIZE = 55000;
 
 // Kolik teček z proudu každé planety tvoří její label (odbočují nad planetou, drží, pak padnou na surface).
 export const LABEL_TICK_COUNT = 250;
