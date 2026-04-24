@@ -63,6 +63,7 @@ test('MOON_BY_ID obsahuje všech 19', () => {
 
 test('součet moon tickCount + planet ticks se vejde do POOL_SIZE s rezervou', () => {
   const moonSum = MOONS.reduce((s, m) => s + m.tickCount, 0);
-  assert.ok(moonSum > 1000 && moonSum < 3000, `moon ticks = ${moonSum} mimo rozumný rozsah`);
-  assert.ok(POOL_SIZE >= 36000, `POOL_SIZE = ${POOL_SIZE}, musí ≥ 36000`);
+  // všechny měsíce jsou icosphere level 5 (10242), unified density napříč tělesy
+  assert.ok(moonSum > 100000 && moonSum < 250000, `moon ticks = ${moonSum} mimo rozumný rozsah`);
+  assert.ok(POOL_SIZE >= 500000, `POOL_SIZE = ${POOL_SIZE}, musí ≥ 500000`);
 });

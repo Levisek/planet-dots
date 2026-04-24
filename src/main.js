@@ -67,16 +67,18 @@ function initAfterLoad() {
 }
 
 /**
- * factorsByMoon: { [moonId]: number } — multiplier pro orbit semi-major axis (default 1).
- * Pro real-scale toggle obsahuje poměr realAPx / compressedAPx pro každý měsíc rodiče.
+ * factorsByMoon: { [moonId]: { a, period } } — multiplier pro semi-major axis + orbit period.
+ * Pro real-scale toggle: a = realAPx/compressedAPx, period = a^1.5 (Keplerův zákon).
+ * Když chybí klíč, default {a:1, period:1} — compressed scale, compressed time.
  */
 function updateMoonOrbits(t, factorsByMoon = {}) {
   for (const m of MOONS) {
     const parent = PLANET_BY_ID[m.parent];
     const parentRadius = parent.radiusPx;
-    const factor = factorsByMoon[m.id] ?? 1;
-    const aPx = m.a * parentRadius * factor;
-    const { x, z, E } = orbitPosition(t, m.phaseOffset, m.period, aPx, m.e);
+    const entry = factorsByMoon[m.id] || { a: 1, period: 1 };
+    const aPx = m.a * parentRadius * entry.a;
+    const scaledPeriod = m.period * entry.period;
+    const { x, z, E } = orbitPosition(t, m.phaseOffset, scaledPeriod, aPx, m.e);
     const moonAnchor = moonAnchors[m.id];
     if (!moonAnchor) continue;
     moonAnchor.position.set(x, 0, z);
@@ -86,7 +88,7 @@ function updateMoonOrbits(t, factorsByMoon = {}) {
   }
 }
 
-let moonScaleFactors = {}; // { [moonId]: number }, pokud klíč chybí → 1
+let moonScaleFactors = {}; // { [moonId]: { a, period } }, pokud klíč chybí → {a:1, period:1}
 
 function computeRealFactor(m) {
   const parent = PLANET_BY_ID[m.parent];
@@ -100,7 +102,13 @@ function computeRealFactor(m) {
 function setMoonScaleReal(parentId, realOn) {
   for (const m of MOONS) {
     if (m.parent !== parentId) continue;
-    moonScaleFactors[m.id] = realOn ? computeRealFactor(m) : 1;
+    if (realOn) {
+      const aFactor = computeRealFactor(m);
+      // Keplerův zákon: T² ∝ a³ → T = a^1.5. Real scale = real time.
+      moonScaleFactors[m.id] = { a: aFactor, period: Math.pow(aFactor, 1.5) };
+    } else {
+      moonScaleFactors[m.id] = { a: 1, period: 1 };
+    }
   }
 }
 
@@ -291,15 +299,25 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         // Moon detail — nic klikatelného, exit pouze přes ESC/křížek.
         picker.setActiveIds(new Set());
         if (moonLabels) moonLabels.hideAll();
+        // Přepnout vybraný měsíc na detailDotSize
+        const moonIdx = MOONS.findIndex((m) => m.id === id);
+        if (moonIdx >= 0) {
+          const moon = MOONS[moonIdx];
+          if (moon.detailDotSize !== undefined) {
+            pool.setOwnerSize(MOON_OWNER_BASE + moonIdx, moon.detailDotSize);
+          }
+        }
       }
     },
     hidePanel: () => {
       infoPanel.hide();
       picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
-      // Obnovit všechny planet dotSize (pro případ že jsme přišli z detailu).
+      // Obnovit všechny planet i moon dotSize na main-scene hodnoty.
       for (let i = 0; i < PLANETS.length; i++) {
-        const p = PLANETS[i];
-        pool.setOwnerSize(i, p.dotSize ?? 6.0);
+        pool.setOwnerSize(i, PLANETS[i].dotSize ?? 6.0);
+      }
+      for (let i = 0; i < MOONS.length; i++) {
+        pool.setOwnerSize(MOON_OWNER_BASE + i, MOONS[i].dotSize ?? 5.0);
       }
       if (moonLabels) moonLabels.hideAll();
     },

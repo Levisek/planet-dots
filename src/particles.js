@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PHASE, MOON_OWNER_BASE } from './phase.js';
+import { icosphere } from './geometry.js';
 
 export { PHASE };
 
@@ -155,20 +156,13 @@ export class ParticlePool {
     this._sunDotSize = dotSize;
     const { data, width, height } = sunImageData;
     const indices = [];
-    for (let i = 0; i < count; i++) {
+    // Icosphere vrátí vrcholy regular hexagonální mřížky. Vrchol = jednotkový
+    // bod na kouli; vynásobíme poloměrem podle potřeby níže.
+    const unit = icosphere(count, 1);
+    const total = Math.min(count, unit.length);
+    for (let i = 0; i < total; i++) {
       if (i >= this.count) break;
-      // Uniformní random distribuce (Marsaglia) — bez viditelné spirály.
-      let rx, ry, rz, d2;
-      do {
-        rx = 2 * Math.random() - 1;
-        ry = 2 * Math.random() - 1;
-        rz = 2 * Math.random() - 1;
-        d2 = rx * rx + ry * ry + rz * rz;
-      } while (d2 > 1 || d2 < 1e-8);
-      const d = Math.sqrt(d2);
-      const sx = rx / d;
-      const sy = ry / d;
-      const sz = rz / d;
+      const [sx, sy, sz] = unit[i];
       const ox = sx * radius;
       const oy = sy * radius;
       const oz = sz * radius;
@@ -299,7 +293,7 @@ export class ParticlePool {
    * @param {number} travelTime — 0.25–0.35 s
    */
   spawnFromPlanet(sourceIdx, planetCenter, planetRadius, moonOrbitWorld, moonLocalOffset,
-                  planetColor, moonColor, moonOwnerIdx, currentTime, travelTime) {
+                  planetColor, moonColor, moonOwnerIdx, currentTime, travelTime, finalSize = 5.0) {
     const i = sourceIdx;
     // start pozice = random bod na povrchu planety
     const rx = (Math.random() - 0.5) * 2;
@@ -345,7 +339,7 @@ export class ParticlePool {
     this.owner[i] = moonOwnerIdx;
     this.ownerAlpha[i] = this.ownerAlphaMul[moonOwnerIdx];
     this.phase[i] = PHASE.FLYING;
-    this.size[i] = 5.0; // moon size — owner>=9 distinguuje od planety v updateFlight
+    this.size[i] = finalSize; // moon size — owner>=9 distinguuje od planety v updateFlight
   }
 
   /**

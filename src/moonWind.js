@@ -130,6 +130,7 @@ export function updateMoonWind(pool, currentTime, dt, planetAnchors, moonAnchors
     _tmpVec.applyMatrix4(t.moonAnchor.matrixWorld);
     const moonOrbitWorld = { x: _tmpVec.x, y: _tmpVec.y, z: _tmpVec.z };
 
+    const moon = MOONS[t.moonIdx];
     pool.spawnFromPlanet(
       idx,
       planetCenter,
@@ -141,6 +142,7 @@ export function updateMoonWind(pool, currentTime, dt, planetAnchors, moonAnchors
       MOON_OWNER_BASE + t.moonIdx,
       currentTime,
       MOON_TRAVEL_TIME,
+      moon.dotSize ?? 5.0,
     );
   }
   ph._emittedCount += idleIndices.length;

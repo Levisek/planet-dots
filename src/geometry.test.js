@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fibonacciSphere, ringPoints } from './geometry.js';
 
-test('fibonacciSphere vrací správný počet bodů', () => {
+test('fibonacciSphere (icosphere) vrací alespoň požadovaný počet bodů', () => {
+  // Icosphere má fixní počty vrcholů per subdivision level (12, 42, 162, 642, ...)
+  // Request 100 → vrátí 162 (nejbližší vyšší level).
   const pts = fibonacciSphere(100, 10);
-  assert.equal(pts.length, 100);
+  assert.ok(pts.length >= 100, `vrácen počet ${pts.length}, musí být ≥ 100`);
 });
 
 test('fibonacciSphere body leží na povrchu koule o zadaném poloměru', () => {
