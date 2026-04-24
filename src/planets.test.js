@@ -22,7 +22,7 @@ test('každá planeta má povinné atributy', () => {
 
 test('součet tickCount planet + prstence se vejde do POOL_SIZE s rezervou', () => {
   const sum = PLANETS.reduce((s, p) => s + p.tickCount + (p.ringTickCount || 0), 0);
-  assert.ok(sum <= 51000, `součet ticks = ${sum}, musí ≤ 51000 (pool 55000 – moons + in-flight rezerva)`);
+  assert.ok(sum <= 68000, `součet ticks = ${sum}, musí ≤ 68000 (pool 72000 – moons + in-flight rezerva)`);
   assert.ok(sum >= 20000, `součet ticks = ${sum}, musí ≥ 20000 pro hustotu`);
 });
 

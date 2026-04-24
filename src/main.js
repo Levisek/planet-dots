@@ -60,6 +60,7 @@ function initAfterLoad() {
     sun.radiusPx,
     imageData.sun,
     sun.tickCount,
+    sun.dotSize,
   );
 }
 
@@ -274,6 +275,11 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       if (planet) {
         const childMoons = MOONS.filter((m) => m.parent === id).map((m) => m.id);
         picker.setActiveIds(new Set([id, ...childMoons]));
+        // Přepnout na detailDotSize (menší tečky → bez překryvu / "šupin").
+        const ownerIdx = PLANETS.findIndex((p) => p.id === id);
+        if (planet.detailDotSize !== undefined) {
+          pool.setOwnerSize(ownerIdx, planet.detailDotSize);
+        }
       } else {
         // Moon detail — nic klikatelného, exit pouze přes ESC/křížek.
         picker.setActiveIds(new Set());
@@ -282,6 +288,11 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     hidePanel: () => {
       infoPanel.hide();
       picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
+      // Obnovit všechny planet dotSize (pro případ že jsme přišli z detailu).
+      for (let i = 0; i < PLANETS.length; i++) {
+        const p = PLANETS[i];
+        pool.setOwnerSize(i, p.dotSize ?? 6.0);
+      }
     },
     enableOrbit: (enabled, target) => {
       controls.enabled = enabled;

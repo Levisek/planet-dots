@@ -20,7 +20,8 @@ export const PLANETS = [
     xPosition: -1500,
     color: 0xffd966,
     realDistanceFromSunKm: 0,
-    dotSize: 6.0,
+    dotSize: 30,
+    detailDotSize: 50,
   },
   {
     id: 'mercury',
@@ -29,7 +30,7 @@ export const PLANETS = [
     radiusPx: 3.15,
     texture: 'textures/mercury.jpg',
     emissive: false,
-    tickCount: 700,
+    tickCount: 2500,
     axialTilt: 0.03,
     rotationPeriod: 586,
     direction: 1,
@@ -37,6 +38,7 @@ export const PLANETS = [
     color: 0x8c7853,
     realDistanceFromSunKm: 57_909_000,
     dotSize: 2.5,
+    detailDotSize: 0.2,
   },
   {
     id: 'venus',
@@ -45,7 +47,7 @@ export const PLANETS = [
     radiusPx: 7.8,
     texture: 'textures/venus.jpg',
     emissive: false,
-    tickCount: 1700,
+    tickCount: 5000,
     axialTilt: 177.4,
     rotationPeriod: 2430,
     direction: -1,
@@ -53,6 +55,7 @@ export const PLANETS = [
     color: 0xe7c98f,
     realDistanceFromSunKm: 108_209_000,
     dotSize: 2.8,
+    detailDotSize: 0.5,
   },
   {
     id: 'earth',
@@ -61,7 +64,7 @@ export const PLANETS = [
     radiusPx: 8.2,
     texture: 'textures/earth.jpg',
     emissive: false,
-    tickCount: 2100,
+    tickCount: 5500,
     axialTilt: 23.44,
     rotationPeriod: 10,
     direction: 1,
@@ -69,6 +72,7 @@ export const PLANETS = [
     color: 0x3a84d4,
     realDistanceFromSunKm: 149_598_000,
     dotSize: 2.8,
+    detailDotSize: 0.55,
   },
   {
     id: 'mars',
@@ -77,7 +81,7 @@ export const PLANETS = [
     radiusPx: 4.35,
     texture: 'textures/mars.jpg',
     emissive: false,
-    tickCount: 1100,
+    tickCount: 3500,
     axialTilt: 25.19,
     rotationPeriod: 10.25,
     direction: 1,
@@ -85,6 +89,7 @@ export const PLANETS = [
     color: 0xc1440e,
     realDistanceFromSunKm: 227_944_000,
     dotSize: 2.5,
+    detailDotSize: 0.3,
   },
   {
     id: 'jupiter',
@@ -102,6 +107,7 @@ export const PLANETS = [
     color: 0xd8c185,
     realDistanceFromSunKm: 778_340_000,
     dotSize: 6.0,
+    detailDotSize: 4.5,
   },
   {
     id: 'saturn',
@@ -123,6 +129,7 @@ export const PLANETS = [
     color: 0xe3c07a,
     realDistanceFromSunKm: 1_426_666_000,
     dotSize: 5.5,
+    detailDotSize: 3.8,
   },
   {
     id: 'uranus',
@@ -131,7 +138,7 @@ export const PLANETS = [
     radiusPx: 32.5,
     texture: 'textures/uranus.jpg',
     emissive: false,
-    tickCount: 3000,
+    tickCount: 4500,
     axialTilt: 97.77,
     rotationPeriod: 7.2,
     direction: -1,
@@ -139,6 +146,7 @@ export const PLANETS = [
     color: 0x9fd8e3,
     realDistanceFromSunKm: 2_870_658_000,
     dotSize: 4.0,
+    detailDotSize: 1.6,
   },
   {
     id: 'neptune',
@@ -147,7 +155,7 @@ export const PLANETS = [
     radiusPx: 31.5,
     texture: 'textures/neptune.jpg',
     emissive: false,
-    tickCount: 3000,
+    tickCount: 4500,
     axialTilt: 28.32,
     rotationPeriod: 6.7,
     direction: 1,
@@ -155,13 +163,14 @@ export const PLANETS = [
     color: 0x3b5ff7,
     realDistanceFromSunKm: 4_498_396_000,
     dotSize: 4.0,
+    detailDotSize: 1.6,
   },
 ];
 
 export const PLANET_BY_ID = Object.fromEntries(PLANETS.map(p => [p.id, p]));
 
 // Celkový pool size pro ParticlePool (sun + planety + ringy + rezerva na labely/in-flight).
-export const POOL_SIZE = 55000;
+export const POOL_SIZE = 72000;
 
 // Kolik teček z proudu každé planety tvoří její label (odbočují nad planetou, drží, pak padnou na surface).
 export const LABEL_TICK_COUNT = 250;

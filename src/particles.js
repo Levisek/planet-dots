@@ -115,6 +115,19 @@ export class ParticlePool {
     this.ownerAlphaAttr.needsUpdate = true;
   }
 
+  /**
+   * Přepíše size[i] pro všechny tečky daného ownera — kromě ON_RING (ring má
+   * vlastní velikost). Volá se z detail view při vstupu / výstupu.
+   */
+  setOwnerSize(ownerIdx, size) {
+    for (let i = 0; i < this.count; i++) {
+      if (this.owner[i] === ownerIdx && this.phase[i] !== PHASE.ON_RING) {
+        this.size[i] = size;
+      }
+    }
+    this.sizeAttr.needsUpdate = true;
+  }
+
   flushAll() {
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
@@ -138,7 +151,8 @@ export class ParticlePool {
    * @param {number} count — kolik teček naplnit (první v poolu)
    * @returns {number[]} indices — použité indexy
    */
-  initFullSun(center, radius, sunImageData, count) {
+  initFullSun(center, radius, sunImageData, count, dotSize = 6.0) {
+    this._sunDotSize = dotSize;
     const { data, width, height } = sunImageData;
     const phi = Math.PI * (Math.sqrt(5) - 1);
     const indices = [];
@@ -170,7 +184,7 @@ export class ParticlePool {
       this.color[3*i + 2] = data[idx + 2] / 255;
       this.alpha[i] = 0; // sun reveal ramp odemkne v sun fázi (1..2s)
       this.postArrivalAlpha[i] = 1.0;
-      this.size[i] = 6.0;
+      this.size[i] = this._sunDotSize ?? 6.0;
       this.phase[i] = PHASE.ON_SUN;
       this.owner[i] = 0; // Sun = index 0 in PLANETS
       indices.push(i);
