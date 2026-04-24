@@ -15,7 +15,7 @@ export function createScene() {
   const camera = new THREE.PerspectiveCamera(
     45,
     window.innerWidth / window.innerHeight,
-    0.1,
+    1,         // near 1 (místo 0.1) — lepší Z-buffer precision pro vzdálené objekty
     200000,
   );
   camera.position.set(0, 40, 2000);
