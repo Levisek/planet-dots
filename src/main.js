@@ -349,8 +349,8 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         if (!mesh.userData._lambertMaterial) {
           mesh.userData._lambertMaterial = new THREE.MeshLambertMaterial({
             vertexColors: true,
-            transparent: true,
-            opacity: mesh.material.opacity ?? 1,
+            transparent: false,
+            opacity: 1,
           });
         }
         mesh.material = mesh.userData._lambertMaterial;

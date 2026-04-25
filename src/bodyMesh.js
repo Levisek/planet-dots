@@ -68,9 +68,11 @@ export function buildBodyMesh(imageData, radius, minVertices) {
 
   // Default = flat MeshBasicMaterial (ignoruje světlo, plné barvy vždy).
   // Lighting toggle ON přepne material na MeshLambertMaterial v main.js.
+  // transparent: false od začátku — fadeOthers dynamicky zapne přechodně
+  // (jinak vznikají render-order artefakty / "stíny" v MAIN view).
   const material = new THREE.MeshBasicMaterial({
     vertexColors: true,
-    transparent: true,
+    transparent: false,
     opacity: 1.0,
   });
   const mesh = new THREE.Mesh(geometry, material);
