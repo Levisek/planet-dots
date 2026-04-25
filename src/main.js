@@ -8,6 +8,7 @@ import { ParticlePool } from './particles.js';
 import { rotateAnchors, rotateOne } from './rotation.js';
 import { updateSolarWind } from './solarWind.js';
 import { updatePlanetOrbits } from './planetOrbits.js';
+import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
 import { getMoonE, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, MODES } from './simMode.js';
@@ -193,8 +194,9 @@ function tick() {
     updateMoonOrbits(elapsed, moonScaleFactors);
   }
 
-  // Solar wind + moon wind — pausnu v detail view
+  // Formation intro Beat 1+2 (cloud + kolaps), pak solar/moon wind.
   if (isMainState) {
+    updateFormationIntro(pool, elapsed, dt);
     updateSolarWind(pool, elapsed, dt, anchors, imageData);
     updateMoonWind(pool, elapsed, dt, anchors, moonAnchors, imageData, moonImageData);
   }
