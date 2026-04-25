@@ -23,26 +23,26 @@ export function createScene() {
   camera.position.set(0, 3500, 6000);
   camera.lookAt(0, 0, 0);
 
-  // Lighting toggle: default flat (ambient = 1.0, directional intensity = 0).
-  // ON → ambient sníží na 0.15, directional 1.5 od Slunce (origin) → den/noc strana.
-  // setLightingMode(true|false) přepíná intenzity.
+  // Lighting toggle: default flat (ambient 1.0, point 0).
+  // ON → ambient 0.1, point 5 z origin → planety mají den/noc stranu.
+  // PointLight z origin radiuje radiálně — Lambertian shader spočte úhel
+  // mezi normal a směrem ke světlu = den/noc.
   const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambientLight);
-  const sunDirectional = new THREE.DirectionalLight(0xffffff, 0);
-  sunDirectional.position.set(0, 0, 0); // od Slunce — target = body se hýbou
-  scene.add(sunDirectional);
-  // PointLight stínování pomáhá Sun-side jas (z origin) — ponecháno slabě
-  const sunPoint = new THREE.PointLight(0xffffff, 0.3, 12000);
+  // Distance 0 = no falloff (Three.js: distance > 0 enables physical falloff,
+  // 0 = constant intensity). Pro náš případ chceme planety vidět jasně bez ohledu
+  // na vzdálenost — falloff by Neptune (3018 unit) extrémně zatemnil.
+  const sunPoint = new THREE.PointLight(0xffffff, 0, 0);
   sunPoint.position.set(0, 0, 0);
   scene.add(sunPoint);
 
   function setLightingMode(real) {
     if (real) {
-      ambientLight.intensity = 0.15;
-      sunDirectional.intensity = 1.8;
+      ambientLight.intensity = 0.1;
+      sunPoint.intensity = 5.0;
     } else {
       ambientLight.intensity = 1.0;
-      sunDirectional.intensity = 0;
+      sunPoint.intensity = 0;
     }
   }
 
