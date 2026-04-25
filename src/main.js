@@ -15,13 +15,13 @@ import { createInfoPanel } from './infoPanel.js';
 import { createDetailView, STATE as DV_STATE } from './detailView.js';
 import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
-import { buildVoxelTiles, buildSunVoxelTiles } from './voxelTile.js';
+import { buildBodyMesh } from './bodyMesh.js';
 import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
 
-const { renderer, scene, camera, controls, sunUniform } = createScene();
+const { renderer, scene, camera, controls } = createScene();
 createStarfield(scene);
 const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
@@ -184,6 +184,30 @@ function tick() {
   pool.applyClusterRotation(anchorsByIndex);
   const rotEnd = performance.now();
 
+  // Formation gating — mesh tělesa skryté dokud nedosedne ≥95 % teček.
+  // Když ano, mesh se zviditelní (a dotty se postupně schovají alpha=0
+  // přes "settled hide" v particles.js). Vizuálně: tečky letí na prázdné
+  // místo, postupně dosedají, mesh se objeví až je tělo "zformované".
+  // (Měsíce stejně, Saturn ring vázaný na settle Saturnu.)
+  for (let i = 0; i < PLANETS.length; i++) {
+    const id = PLANETS[i].id;
+    const m = bodyMeshes[id];
+    if (!m || m.visible) continue;
+    const { settled, total } = pool.countSettled(i);
+    if (total > 0 && settled / total >= 0.95) m.visible = true;
+  }
+  if (bodyMeshes.saturn_ring && !bodyMeshes.saturn_ring.visible) {
+    const saturnIdx = PLANETS.findIndex((p) => p.id === 'saturn');
+    const { settled, total } = pool.countSettled(saturnIdx);
+    if (total > 0 && settled / total >= 0.95) bodyMeshes.saturn_ring.visible = true;
+  }
+  for (let i = 0; i < MOONS.length; i++) {
+    const m = bodyMeshes[MOONS[i].id];
+    if (!m || m.visible) continue;
+    const { settled, total } = pool.countSettled(MOON_OWNER_BASE + i);
+    if (total > 0 && settled / total >= 0.95) m.visible = true;
+  }
+
   // Picker updatuje mesh pozice (musí po applyClusterRotation)
   if (picker) picker.update();
 
@@ -218,31 +242,30 @@ function tick() {
 Promise.all([loaded, moonsLoaded]).then(() => {
   initAfterLoad();
 
-  // Voxel tile rendering: InstancedMesh hexagonů s Lambertian per-tile lighting
-  // (kromě Sun, který je self-emissive). Tiles vzorkují barvu z textury podle
-  // spherical UV. Saturn dostává navíc real RingGeometry mesh (ne dots).
-  // Density odpovídá původnímu bodyMesh — L5 planety (10242), L4 měsíce (2562),
-  // L6 Sun (40962, stojí jediný takový → unaffected). Hexagon má 6 trianglů
-  // per vertex, takže celk. fillrate je ~6× vyšší než flat icosphere.
-  const voxelUniforms = { uSunPos: sunUniform };
+  // Flat-triangle icosphere mesh per tělo (V3 stylu — žádný shader,
+  // MeshBasicMaterial s vertexColors). Saturnův prsten = real RingGeometry
+  // mesh. Mesh-y jsou skryté (visible=false) dokud nedoletí dost teček —
+  // formation gating řeší tick() níže.
   for (const p of PLANETS) {
     const tex = imageData[p.id];
     if (!tex) continue;
-    const mesh = p.id === 'sun'
-      ? buildSunVoxelTiles(tex, p.radiusPx, 40962)
-      : buildVoxelTiles(tex, p.radiusPx, 10242, voxelUniforms);
+    const mesh = buildBodyMesh(tex, p.radiusPx, 10242);
+    mesh.visible = false; // gated — viditelný až po settle
     anchors[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
 
     if (p.id === 'saturn' && imageData.saturn_ring) {
       const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
+      ring.visible = false; // skrytý do settle Saturnu
       anchors.saturn.add(ring);
+      bodyMeshes['saturn_ring'] = ring;
     }
   }
   for (const m of MOONS) {
     const tex = moonImageData[m.id];
     if (!tex) continue;
-    const mesh = buildVoxelTiles(tex, m.radiusPx, 2562, voxelUniforms);
+    const mesh = buildBodyMesh(tex, m.radiusPx, 2562);
+    mesh.visible = false;
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
   }
@@ -311,14 +334,17 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     }),
     setPaused: () => { /* placeholder — pauza se řídí přes detailView.state() v tick() */ },
     fadeOthers: (focusId, alpha) => {
-      // Voxel ShaderMaterial nepodporuje opacity → binary visible flag.
-      // Měsíce parentu necháme viditelné kvůli Kepler orbitám v detail view.
       for (let i = 0; i < PLANETS.length; i++) {
         const id = PLANETS[i].id;
         const keep = id === focusId;
         pool.setOwnerAlpha(i, keep ? 1 : alpha);
         const mesh = bodyMeshes[id];
-        if (mesh) mesh.visible = keep || alpha > 0.01;
+        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
+      }
+      // Saturn ring fade s parentem
+      if (bodyMeshes.saturn_ring) {
+        const keep = focusId === 'saturn';
+        bodyMeshes.saturn_ring.material.opacity = keep ? 1 : alpha;
       }
       for (let i = 0; i < MOONS.length; i++) {
         const m = MOONS[i];
@@ -326,7 +352,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         const keep = m.id === focusId || m.parent === focusId;
         pool.setOwnerAlpha(ownerIdx, keep ? 1 : alpha);
         const mesh = bodyMeshes[m.id];
-        if (mesh) mesh.visible = keep || alpha > 0.01;
+        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
       }
     },
     showPanel: (id, opts) => {

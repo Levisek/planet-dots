@@ -3,9 +3,16 @@
 // Mesh je child Saturn anchoru → dědí axial tilt automaticky.
 
 import * as THREE from 'three';
-import { sampleRingColor } from './saturnRingMath.js';
 
-export { sampleRingColor };
+// Pure sampler — vrátí [r,g,b,a] 0..1 pro radiální t (0 = inner, 1 = outer).
+// Vzorkuje prostřední řádek (saturn_ring.png je 1D radiální).
+export function sampleRingColor(imageData, t) {
+  const { data, width, height } = imageData;
+  const py = Math.floor(height / 2);
+  const px = Math.min(width - 1, Math.max(0, Math.floor(t * width)));
+  const idx = (py * width + px) * 4;
+  return [data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255, data[idx + 3] / 255];
+}
 
 /**
  * @param {ImageData} ringImageData

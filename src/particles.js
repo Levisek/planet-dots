@@ -445,4 +445,27 @@ export class ParticlePool {
     }
     return out;
   }
+
+  /**
+   * Spočítá kolik teček daného owneru už dosedlo (ON_PLANET/ON_MOON/ON_RING/ON_SUN)
+   * vs. kolik je celkem alokovaných (ne IDLE). Slouží formation gating —
+   * mesh tělesa se zobrazí až když settled/total > threshold.
+   *
+   * @param {number} ownerIdx
+   * @returns {{ settled: number, total: number }}
+   */
+  countSettled(ownerIdx) {
+    let settled = 0;
+    let total = 0;
+    for (let i = 0; i < this.count; i++) {
+      if (this.owner[i] !== ownerIdx) continue;
+      if (this.phase[i] === PHASE.IDLE) continue;
+      total++;
+      const ph = this.phase[i];
+      if (ph === PHASE.ON_PLANET || ph === PHASE.ON_MOON || ph === PHASE.ON_RING || ph === PHASE.ON_SUN) {
+        settled++;
+      }
+    }
+    return { settled, total };
+  }
 }
