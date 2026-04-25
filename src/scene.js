@@ -28,7 +28,11 @@ export function createScene() {
   // Material swap pro planety řídí main.js přes setLightingMode callback.
   const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambientLight);
-  const sunPoint = new THREE.PointLight(0xffffff, 0, 0); // distance 0 = no falloff
+  // PointLight constructor: (color, intensity, distance, decay).
+  // distance=0 → light dosáhne nekonečna. decay=0 → bez inverse-square falloff
+  // (jinak Neptune ve vzdálenosti 3018 dostane ~0 intensity z 1.5).
+  // Lambertian dán direction světla (radial od origin) — den/noc strana funguje.
+  const sunPoint = new THREE.PointLight(0xffffff, 0, 0, 0);
   sunPoint.position.set(0, 0, 0);
   scene.add(sunPoint);
 
