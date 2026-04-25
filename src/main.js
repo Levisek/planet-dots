@@ -221,13 +221,16 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   // Voxel tile rendering: InstancedMesh hexagonů s Lambertian per-tile lighting
   // (kromě Sun, který je self-emissive). Tiles vzorkují barvu z textury podle
   // spherical UV. Saturn dostává navíc real RingGeometry mesh (ne dots).
+  // Density odpovídá původnímu bodyMesh — L5 planety (10242), L4 měsíce (2562),
+  // L6 Sun (40962, stojí jediný takový → unaffected). Hexagon má 6 trianglů
+  // per vertex, takže celk. fillrate je ~6× vyšší než flat icosphere.
   const voxelUniforms = { uSunPos: sunUniform };
   for (const p of PLANETS) {
     const tex = imageData[p.id];
     if (!tex) continue;
     const mesh = p.id === 'sun'
-      ? buildSunVoxelTiles(tex, p.radiusPx, 40962)         // Sun L6
-      : buildVoxelTiles(tex, p.radiusPx, 40962, voxelUniforms); // Planety L6
+      ? buildSunVoxelTiles(tex, p.radiusPx, 40962)
+      : buildVoxelTiles(tex, p.radiusPx, 10242, voxelUniforms);
     anchors[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
 
@@ -239,7 +242,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   for (const m of MOONS) {
     const tex = moonImageData[m.id];
     if (!tex) continue;
-    const mesh = buildVoxelTiles(tex, m.radiusPx, 10242, voxelUniforms); // Měsíce L5
+    const mesh = buildVoxelTiles(tex, m.radiusPx, 2562, voxelUniforms);
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
   }
