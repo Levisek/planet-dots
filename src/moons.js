@@ -133,7 +133,8 @@ export const MOONS = [
   { id: 'triton', name: 'TRITON', parent: 'neptune',
     diameterKm: 2707, radiusPx: 1.74, tickCount: MOON_TICK,
     texture: 'textures/luna.jpg',
-    a: 1.5, e: 0.001, period: 6, phaseOffset: 0.2, // real e ≈ 0, test chce > 0
+    a: 1.5, e: 0.001, period: 6, phaseOffset: 0.2,
+    retrograde: true, // jediný velký retrográdní měsíc — pravděpodobně zachycený KBO
     realSemiMajorAxisKm: 354_800,
     dotSize: 0.9, detailDotSize: 0.025 },
   { id: 'nereid', name: 'NEREID', parent: 'neptune',

@@ -19,7 +19,7 @@ export const PLANETS = [
     emissive: true,
     tickCount: 40962,
     axialTilt: 7.25,
-    rotationPeriod: 250,
+    rotationPeriod: 270, // 27 dní real (Earth = 1 den = 10s, Sun = 27d = 270s)
     direction: 1,
     orbitRadius: 0,
     orbitalPeriodSec: 1,

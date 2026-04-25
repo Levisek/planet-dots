@@ -66,13 +66,15 @@ export function buildBodyMesh(imageData, radius, minVertices) {
   geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
   geometry.computeBoundingSphere();
 
-  // MeshLambertMaterial reaguje na světla. Při default lightingu (vysoký
-  // ambient, žádné directional) vypadá jako flat MeshBasicMaterial. Toggle
-  // na "real lighting" se dělá přes scene lights (lightingMode.js).
-  const material = new THREE.MeshLambertMaterial({
+  // Default = flat MeshBasicMaterial (ignoruje světlo, plné barvy vždy).
+  // Lighting toggle ON přepne material na MeshLambertMaterial v main.js.
+  const material = new THREE.MeshBasicMaterial({
     vertexColors: true,
     transparent: true,
     opacity: 1.0,
   });
-  return new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(geometry, material);
+  // Ulož cached lambert pro toggle (lazy init: vytvoří se při prvním ON).
+  mesh.userData._flatMaterial = material;
+  return mesh;
 }

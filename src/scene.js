@@ -23,28 +23,27 @@ export function createScene() {
   camera.position.set(0, 3500, 6000);
   camera.lookAt(0, 0, 0);
 
-  // Lighting toggle: default flat (ambient 1.0, point 0).
-  // ON → ambient 0.1, point 5 z origin → planety mají den/noc stranu.
-  // PointLight z origin radiuje radiálně — Lambertian shader spočte úhel
-  // mezi normal a směrem ke světlu = den/noc.
+  // Lighting toggle: ON → silný PointLight z origin (Sun) + nízký ambient.
+  // OFF → light intensity 0 (planety jsou flat MeshBasicMaterial, ignorují světla).
+  // Material swap pro planety řídí main.js přes setLightingMode callback.
   const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambientLight);
-  // Distance 0 = no falloff (Three.js: distance > 0 enables physical falloff,
-  // 0 = constant intensity). Pro náš případ chceme planety vidět jasně bez ohledu
-  // na vzdálenost — falloff by Neptune (3018 unit) extrémně zatemnil.
-  const sunPoint = new THREE.PointLight(0xffffff, 0, 0);
+  const sunPoint = new THREE.PointLight(0xffffff, 0, 0); // distance 0 = no falloff
   sunPoint.position.set(0, 0, 0);
   scene.add(sunPoint);
 
+  const _modeListeners = [];
   function setLightingMode(real) {
     if (real) {
-      ambientLight.intensity = 0.1;
-      sunPoint.intensity = 5.0;
+      ambientLight.intensity = 0.18;
+      sunPoint.intensity = 1.5;
     } else {
       ambientLight.intensity = 1.0;
       sunPoint.intensity = 0;
     }
+    for (const cb of _modeListeners) cb(real);
   }
+  function onLightingModeChange(cb) { _modeListeners.push(cb); }
 
   // resize handler
   window.addEventListener('resize', () => {
@@ -60,7 +59,7 @@ export function createScene() {
   controls.minDistance = 30;
   controls.maxDistance = 50000;
 
-  return { renderer, scene, camera, controls, setLightingMode };
+  return { renderer, scene, camera, controls, setLightingMode, onLightingModeChange };
 }
 
 export function createStarfield(scene, count = 1500) {

@@ -24,7 +24,7 @@ import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
 
-const { renderer, scene, camera, controls, setLightingMode } = createScene();
+const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
 createStarfield(scene);
 const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
@@ -91,7 +91,8 @@ function updateMoonOrbits(t, factorsByMoon = {}) {
     const parentRadius = parent.radiusPx;
     const entry = factorsByMoon[m.id] || { a: 1, period: 1 };
     const aPx = m.a * parentRadius * entry.a;
-    const scaledPeriod = m.period * entry.period;
+    // Retrograde moony (Triton) — negative period flipne CCW na CW orbit.
+    const scaledPeriod = m.period * entry.period * (m.retrograde ? -1 : 1);
     const { x, z, E } = orbitPosition(t, m.phaseOffset, scaledPeriod, aPx, m.e);
     const moonAnchor = moonAnchors[m.id];
     if (!moonAnchor) continue;
@@ -335,7 +336,29 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     onClick: (id) => detailView && detailView.enter(id),
   });
 
-  // Lighting toggle button (top center)
+  // Lighting toggle button — přepíná material na všech body mesh-ích:
+  // VYP → MeshBasicMaterial (flat, plné barvy, ignoruje světla).
+  // ZAP → MeshLambertMaterial (Lambertian, den/noc strana podle PointLight z origin).
+  // Sun zůstává vždy MeshBasicMaterial (self-emissive zdroj světla).
+  onLightingModeChange((real) => {
+    for (const id in bodyMeshes) {
+      if (id === 'sun' || id === 'saturn_ring') continue;
+      const mesh = bodyMeshes[id];
+      if (!mesh) continue;
+      if (real) {
+        if (!mesh.userData._lambertMaterial) {
+          mesh.userData._lambertMaterial = new THREE.MeshLambertMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: mesh.material.opacity ?? 1,
+          });
+        }
+        mesh.material = mesh.userData._lambertMaterial;
+      } else {
+        mesh.material = mesh.userData._flatMaterial;
+      }
+    }
+  });
   const lightingBtn = document.getElementById('toggleLighting');
   let _lightingOn = false;
   lightingBtn?.addEventListener('click', () => {
