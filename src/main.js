@@ -11,7 +11,7 @@ import { updatePlanetOrbits } from './planetOrbits.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
-import { getMoonE, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, MODES } from './simMode.js';
+import { getMoonE, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -119,9 +119,8 @@ function computeRealFactor(m) {
   return realAPx / compressedAPx;
 }
 
-function setMoonScaleReal(parentId, realOn) {
+function setAllMoonScaleReal(realOn) {
   for (const m of MOONS) {
-    if (m.parent !== parentId) continue;
     if (realOn) {
       const aFactor = computeRealFactor(m);
       // Keplerův zákon: T² ∝ a³ → T = a^1.5. Real scale = real time.
@@ -388,13 +387,20 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   // Při změně simMode přepocítej kameru — Fyzikální má Neptune ve 4105,
   // default kamera (0,3500,6000) je pak nedostatečná. Auto-zoom out.
   onModeChange((mode) => {
-    if (mode === MODES.FYZIKALNI) {
-      // Neptune at 115571 — kamera musí ukázat celé Neptune orbit ze shora.
-      camera.position.set(0, 90000, 160000);
+    const fyz = mode === MODES.FYZIKALNI;
+    // Real měřítko měsíců — Triton, Iapetus, Nereid uletí daleko od rodiče.
+    setAllMoonScaleReal(fyz);
+    if (detailView && detailView.state() === DV_STATE.DETAIL) {
+      // V detailu jen refresh camera distance, neměnit globální view.
+      detailView.refreshCamera();
     } else {
-      camera.position.set(0, 3500, 6000);
+      if (fyz) {
+        camera.position.set(0, 90000, 160000);
+      } else {
+        camera.position.set(0, 3500, 6000);
+      }
+      camera.lookAt(0, 0, 0);
     }
-    camera.lookAt(0, 0, 0);
   });
 
   // Helper pro body world-position
@@ -546,10 +552,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       return Math.max(baseDist, maxMoonDist * 2.8 + p.radiusPx);
     },
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
-    resetScale: () => {
-      // Vymaž všechny moon scale faktory — každá další planeta začne v compressed scale.
-      for (const k in moonScaleFactors) delete moonScaleFactors[k];
-    },
+    isFyzikalni,
   });
 
   // Picker events
@@ -581,12 +584,6 @@ Promise.all([loaded, moonsLoaded]).then(() => {
 
   // Panel handlers
   infoPanel.onClose(() => detailView.exit());
-  infoPanel.onScaleToggle((on) => {
-    detailView.toggleScale(on);
-    infoPanel.updateScaleState(on);
-    const focusId = detailView.focusId();
-    if (focusId) setMoonScaleReal(focusId, on);
-  });
 
   // ESC handler
   window.addEventListener('keydown', (e) => {

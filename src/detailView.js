@@ -18,13 +18,14 @@ export function createDetailView(deps) {
   let _timer = 0; // sekundy v aktuální transition state
   let _returnPos = null;
   let _returnTarget = null;
-  let _scaleOn = false;
 
   function computeDetailCameraOffset(id) {
     const r = deps.getBodyRadius(id);
     const p = deps.getBodyPosition(id);
+    // Real měřítko měsíců aktivní jen v Fyzikálním simMode (deps.isFyzikalni()).
+    const fyz = deps.isFyzikalni ? deps.isFyzikalni() : false;
     const dist = deps.getCameraDistance
-      ? deps.getCameraDistance(id, _scaleOn)
+      ? deps.getCameraDistance(id, fyz)
       : r * 4.5;
     return {
       pos: { x: p.x, y: p.y + r * 0.6, z: p.z + dist },
@@ -49,9 +50,7 @@ export function createDetailView(deps) {
 
   function enterDetailState() {
     _state = STATE.DETAIL;
-    const kind = deps.getBodyKind(_focusId);
-    const hasScaleToggle = kind === 'planet';
-    deps.showPanel(_focusId, { hasScaleToggle, scaleOn: _scaleOn });
+    deps.showPanel(_focusId);
     const p = deps.getBodyPosition(_focusId);
     deps.enableOrbit(true, p);
   }
@@ -70,8 +69,6 @@ export function createDetailView(deps) {
     _focusId = null;
     _returnPos = null;
     _returnTarget = null;
-    _scaleOn = false;
-    if (deps.resetScale) deps.resetScale();
     deps.setPaused(false);
   }
 
@@ -99,8 +96,8 @@ export function createDetailView(deps) {
       if (_state !== STATE.DETAIL) return;
       startTransitionOut();
     },
-    toggleScale(on) {
-      _scaleOn = on;
+    /** Zavolá main.js po simMode change během DETAIL — re-fly s novým distance. */
+    refreshCamera() {
       if (_state === STATE.DETAIL && _focusId) {
         const { pos, target } = computeDetailCameraOffset(_focusId);
         deps.cameraFlyTo(pos, target, 0.6);
@@ -117,6 +114,5 @@ export function createDetailView(deps) {
     },
     state() { return _state; },
     focusId() { return _focusId; },
-    scaleOn() { return _scaleOn; },
   };
 }

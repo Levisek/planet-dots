@@ -74,12 +74,11 @@ test('panel se zobrazí až po TRANSITION_IN dokončí', () => {
   assert.equal(panelCallsAfter, 1);
 });
 
-test('hasScaleToggle true pro planet, false pro sun', () => {
+test('showPanel je voláno s id po vstupu do detailu', () => {
   const deps = makeMockDeps();
-  deps.getBodyKind = (id) => (id === 'sun' ? 'sun' : 'planet');
   const dv = createDetailView(deps);
-  dv.enter('sun');
+  dv.enter('earth');
   dv.tick(0.9);
   const panelCall = deps.calls.find((c) => c[0] === 'panel');
-  assert.equal(panelCall[2].hasScaleToggle, false);
+  assert.equal(panelCall[1], 'earth');
 });
