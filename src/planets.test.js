@@ -26,11 +26,6 @@ test('součet tickCount planet + prstence se vejde do POOL_SIZE s rezervou', () 
   assert.ok(sum >= 20000, `součet ticks = ${sum}, musí ≥ 20000 pro hustotu`);
 });
 
-test('Saturn má ringTickCount', () => {
-  const saturn = PLANETS.find(p => p.id === 'saturn');
-  assert.ok(saturn.ringTickCount && saturn.ringTickCount > 0, 'Saturn musí mít ringTickCount');
-});
-
 test('proporce radiusPx vůči Jupiteru = 180 px referenční', () => {
   const jupiter = PLANET_BY_ID.jupiter;
   assert.equal(jupiter.radiusPx * 2, 180, 'Jupiter musí mít 180 px průměr');

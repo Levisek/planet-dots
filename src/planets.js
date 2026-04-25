@@ -117,7 +117,6 @@ export const PLANETS = [
     ringTexture: 'textures/saturn_ring.png',
     ringInnerRadius: 90,
     ringOuterRadius: 175,
-    ringTickCount: 6000,
     emissive: false,
     tickCount: 40962,
     axialTilt: 26.73,
