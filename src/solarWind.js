@@ -6,17 +6,14 @@ import { sampleColor, sphericalUV } from './textureUtils.js';
 
 export const TRAVEL_TIME = 0.35;
 
-// Per-planet targets: Fibonacci sphere surface body. Cache per planet.id.
-function buildTargetsForPlanet(planet, anchor, imageData) {
+// Per-planet targets: jen localOffset + color, žádná abs pozice (planety obíhají).
+// Cache je trvalá per planet.id, abs pos se dopočítá v emit loopu z aktuální anchor.position.
+function buildTargetsForPlanet(planet, imageData) {
   const targets = [];
-  const cx = anchor.position.x;
-  const cy = anchor.position.y;
-  const cz = anchor.position.z;
   const surfacePts = fibonacciSphere(planet.tickCount, planet.radiusPx * 1.02);
   for (const off of surfacePts) {
     const [u, v] = sphericalUV(off[0], off[1], off[2], planet.radiusPx * 1.02);
     targets.push({
-      pos: { x: cx + off[0], y: cy + off[1], z: cz + off[2] },
       localOffset: { x: off[0], y: off[1], z: off[2] },
       color: sampleColor(imageData, u, v),
       phase: PHASE.ON_PLANET,
@@ -27,9 +24,9 @@ function buildTargetsForPlanet(planet, anchor, imageData) {
 
 const _cache = new Map();
 
-function getPlanetTargets(planet, anchor, imageData) {
+function getPlanetTargets(planet, imageData) {
   if (_cache.has(planet.id)) return _cache.get(planet.id);
-  const targets = buildTargetsForPlanet(planet, anchor, imageData);
+  const targets = buildTargetsForPlanet(planet, imageData);
   _cache.set(planet.id, targets);
   return targets;
 }
@@ -42,7 +39,6 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
   const ph = phaseAt(currentTime);
   if (!ph) return;
   // Sun fáze (1..2s) — Sun base dotty zůstávají alpha=0, mesh je canonical.
-  // Flares ze sunActivity spawn vlastní visible dotty nezávisle.
   if (ph.id === 'sun' || ph.id === 'init' || ph.id === 'live') return;
   if (!ph.planetId) return;
 
@@ -51,7 +47,7 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
   const tex = imageData[planet.id];
   if (!anchor || !tex) return;
 
-  const targets = getPlanetTargets(planet, anchor, tex);
+  const targets = getPlanetTargets(planet, tex);
 
   const phaseDuration = ph.end - ph.start;
   const progress = Math.min(1, (currentTime - ph.start) / phaseDuration);
@@ -60,18 +56,26 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
   const emitCount = expected - ph._emittedCount;
   if (emitCount <= 0) return;
 
+  // Sun a planet pozice live — anchory se hýbou (Sun v origin, planety obíhají).
   const sunAnchor = anchors.sun;
   const sunCenter = { x: sunAnchor.position.x, y: sunAnchor.position.y, z: sunAnchor.position.z };
   const sunRadius = PLANETS[0].radiusPx;
   const planetIdx = PLANETS.findIndex((p) => p.id === planet.id);
+  const cx = anchor.position.x, cy = anchor.position.y, cz = anchor.position.z;
 
   const idleIndices = pool.takeIdleIndices(emitCount);
   for (let k = 0; k < idleIndices.length; k++) {
     const idx = idleIndices[k];
     const t = targets[ph._emittedCount + k];
     if (!t) break;
+    // Aktuální abs target pos = anchor.position + localOffset (anchor se hýbe).
+    const targetPos = {
+      x: cx + t.localOffset.x,
+      y: cy + t.localOffset.y,
+      z: cz + t.localOffset.z,
+    };
     pool.spawnFromSun(
-      idx, sunCenter, sunRadius, t.pos, t.localOffset, t.color,
+      idx, sunCenter, sunRadius, targetPos, t.localOffset, t.color,
       planetIdx, t.phase, currentTime, TRAVEL_TIME,
       planet.alpha ?? 1.0, planet.dotSize ?? 6.0,
     );

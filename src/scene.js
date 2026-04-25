@@ -18,14 +18,16 @@ export function createScene() {
     1,         // near 1 (místo 0.1) — lepší Z-buffer precision pro vzdálené objekty
     200000,
   );
-  camera.position.set(0, 40, 2000);
+  // Default 3D pohled na celou soustavu — kamera nad orbital rovinou (~30°),
+  // vidí Sun (origin) + Neptune orbit (radius 2197).
+  camera.position.set(0, 2500, 4500);
   camera.lookAt(0, 0, 0);
 
-  // světla — V3 stylu: silný ambient (jasné barvy textur), bodové sluneční
-  // světlo. Žádný den/noc shader — meshe jsou flat MeshBasicMaterial.
+  // světla — silný ambient (jasné barvy textur), bodové sluneční světlo v origin.
+  // Žádný den/noc shader — meshe jsou flat MeshBasicMaterial.
   scene.add(new THREE.AmbientLight(0xffffff, 0.18));
-  const sunLight = new THREE.PointLight(0xffffff, 2.2, 4000);
-  sunLight.position.set(-1500, 0, 0);
+  const sunLight = new THREE.PointLight(0xffffff, 2.2, 8000);
+  sunLight.position.set(0, 0, 0);
   scene.add(sunLight);
 
   // resize handler

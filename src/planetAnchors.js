@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PLANETS } from './planets.js';
+import { orbitalPosition } from './planetOrbits.js';
 
 /**
  * Načte texturu jako HTMLImageElement, vykreslí ji na offscreen canvas
@@ -36,10 +37,11 @@ export function createPlanetAnchors(scene) {
   const loadPromises = [];
 
   for (const p of PLANETS) {
-    // Anchor = prázdný Object3D na pozici planety, s aplikovaným tiltem.
-    // Rotace anchora (během live fáze) řídí rotaci teček kolem ní.
+    // Anchor = prázdný Object3D na pozici planety v 3D soustavě (kruhová orbita
+    // kolem origin, axial tilt aplikovaný). updatePlanetOrbits hýbe pozicí v MAIN.
     const anchor = new THREE.Object3D();
-    anchor.position.set(p.xPosition, 0, 0);
+    const pos = orbitalPosition(p, 0);
+    anchor.position.set(pos.x, pos.y, pos.z);
     anchor.rotation.z = THREE.MathUtils.degToRad(p.axialTilt);
     anchor.userData.planet = p;
     scene.add(anchor);

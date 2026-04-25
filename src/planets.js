@@ -1,9 +1,13 @@
-// PLANETS — data všech 9 těles V1 (solar wind architecture).
+// PLANETS — data všech 9 těles V4.2.
 // Referenční měřítko: Jupiter = 180 px průměr.
 // rotationPeriod v sekundách (reálné poměry, Země = 10 s).
 // direction: 1 = prograde, -1 = retrograde.
-// xPosition = horizontální pozice středu v scene units.
-// tickCount = počet teček na povrchu (solar wind → destination).
+// orbitRadius: vzdálenost od Slunce (= origin) v scene units.
+//   Mapping: auToDisplayRadius(au) = 1100 + 200×sqrt(au).
+// orbitalPeriodSec: kolik sekund trvá jedno obíhání.
+//   Compressed: real_days / 36.5 (Earth = 10s). Outer planety (≥5 AU) navíc /3.
+// initialPhaseRad: počáteční úhel na orbitě (deterministicky rozprostřené).
+// tickCount = počet teček na povrchu (formation → destination).
 
 export const PLANETS = [
   {
@@ -13,11 +17,13 @@ export const PLANETS = [
     radiusPx: 995.5,
     texture: 'textures/sun.jpg',
     emissive: true,
-    tickCount: 40962,       // icosphere level 6
+    tickCount: 40962,
     axialTilt: 7.25,
     rotationPeriod: 250,
     direction: 1,
-    xPosition: -1500,
+    orbitRadius: 0,
+    orbitalPeriodSec: 1,
+    initialPhaseRad: 0,
     color: 0xffd966,
     realDistanceFromSunKm: 0,
     dotSize: 14,
@@ -30,11 +36,13 @@ export const PLANETS = [
     radiusPx: 3.15,
     texture: 'textures/mercury.jpg',
     emissive: false,
-    tickCount: 40962,       // icosphere level 6
+    tickCount: 40962,
     axialTilt: 0.03,
     rotationPeriod: 586,
     direction: 1,
-    xPosition: -390,
+    orbitRadius: 1225,
+    orbitalPeriodSec: 2.41,
+    initialPhaseRad: 0.0,
     color: 0x8c7853,
     realDistanceFromSunKm: 57_909_000,
     dotSize: 0.5,
@@ -51,7 +59,9 @@ export const PLANETS = [
     axialTilt: 177.4,
     rotationPeriod: 2430,
     direction: -1,
-    xPosition: -340,
+    orbitRadius: 1270,
+    orbitalPeriodSec: 6.16,
+    initialPhaseRad: 0.785, // π/4
     color: 0xe7c98f,
     realDistanceFromSunKm: 108_209_000,
     dotSize: 0.7,
@@ -68,7 +78,9 @@ export const PLANETS = [
     axialTilt: 23.44,
     rotationPeriod: 10,
     direction: 1,
-    xPosition: -290,
+    orbitRadius: 1300,
+    orbitalPeriodSec: 10.0,
+    initialPhaseRad: 1.571, // π/2
     color: 0x3a84d4,
     realDistanceFromSunKm: 149_598_000,
     dotSize: 0.7,
@@ -85,7 +97,9 @@ export const PLANETS = [
     axialTilt: 25.19,
     rotationPeriod: 10.25,
     direction: 1,
-    xPosition: -245,
+    orbitRadius: 1347,
+    orbitalPeriodSec: 18.82,
+    initialPhaseRad: 2.356, // 3π/4
     color: 0xc1440e,
     realDistanceFromSunKm: 227_944_000,
     dotSize: 0.55,
@@ -102,7 +116,9 @@ export const PLANETS = [
     axialTilt: 3.13,
     rotationPeriod: 4.1,
     direction: 1,
-    xPosition: -100,
+    orbitRadius: 1556,
+    orbitalPeriodSec: 39.6, // outer /3 boost
+    initialPhaseRad: 3.142, // π
     color: 0xd8c185,
     realDistanceFromSunKm: 778_340_000,
     dotSize: 1.8,
@@ -122,7 +138,9 @@ export const PLANETS = [
     axialTilt: 26.73,
     rotationPeriod: 4.5,
     direction: 1,
-    xPosition: 180,
+    orbitRadius: 1718,
+    orbitalPeriodSec: 98.3,
+    initialPhaseRad: 3.927, // 5π/4
     color: 0xe3c07a,
     realDistanceFromSunKm: 1_426_666_000,
     dotSize: 1.6,
@@ -139,7 +157,9 @@ export const PLANETS = [
     axialTilt: 97.77,
     rotationPeriod: 7.2,
     direction: -1,
-    xPosition: 470,
+    orbitRadius: 1977,
+    orbitalPeriodSec: 280.2,
+    initialPhaseRad: 4.712, // 3π/2
     color: 0x9fd8e3,
     realDistanceFromSunKm: 2_870_658_000,
     dotSize: 1.1,
@@ -156,7 +176,9 @@ export const PLANETS = [
     axialTilt: 28.32,
     rotationPeriod: 6.7,
     direction: 1,
-    xPosition: 570,
+    orbitRadius: 2197,
+    orbitalPeriodSec: 549.7,
+    initialPhaseRad: 5.498, // 7π/4
     color: 0x3b5ff7,
     realDistanceFromSunKm: 4_498_396_000,
     dotSize: 1.1,
@@ -166,6 +188,6 @@ export const PLANETS = [
 
 export const PLANET_BY_ID = Object.fromEntries(PLANETS.map(p => [p.id, p]));
 
-// Celkový pool size pro ParticlePool (sun + planety + ringy + rezerva na labely/in-flight).
+// Celkový pool size pro ParticlePool (sun + planety + ringy + rezerva na in-flight).
 // 9 planet × 40962 (icosphere L6) + 22 moons × 10242 (icosphere L5) + ring + buffer
 export const POOL_SIZE = 600000;

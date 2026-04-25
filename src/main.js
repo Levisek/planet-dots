@@ -7,6 +7,7 @@ import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
 import { rotateAnchors } from './rotation.js';
 import { updateSolarWind } from './solarWind.js';
+import { updatePlanetOrbits } from './planetOrbits.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
 import { createPicker } from './picking.js';
@@ -153,6 +154,7 @@ function tick() {
   const focusId = detailView ? detailView.focusId() : null;
   const isMoonDetail = focusId && MOONS.some((m) => m.id === focusId);
   if (isMainState) {
+    updatePlanetOrbits(anchors, PLANETS, elapsed);
     rotateAnchors(anchors, dt);
     updateMoonOrbits(elapsed, moonScaleFactors);
   } else if (isMoonDetail) {
