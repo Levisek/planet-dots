@@ -32,6 +32,7 @@ export function createPicker({ scene, camera, canvas }) {
     const geom = new THREE.SphereGeometry(radius, 12, 10);
     const mesh = new THREE.Mesh(geom, invisibleMat);
     mesh.userData.bodyId = id;
+    mesh.layers.set(1); // Picker only — kamera renderuje Layer 0, raycaster vidí 0+1
     scene.add(mesh);
     bodies.push({ id, mesh, getPosition, radius });
   }
@@ -52,6 +53,8 @@ export function createPicker({ scene, camera, canvas }) {
     mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
+    raycaster.layers.enable(0);
+    raycaster.layers.enable(1); // vidět picker meshes na Layer 1
     const meshes = bodies
       .filter((b) => activeIds === null || activeIds.has(b.id))
       .map((b) => b.mesh);
