@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { MOONS, MOON_BY_ID, MOONS_BY_PARENT } from './moons.js';
 import { PLANET_BY_ID, POOL_SIZE } from './planets.js';
 
-test('MOONS má přesně 19 měsíců', () => {
-  assert.equal(MOONS.length, 19);
+test('MOONS má přesně 22 měsíců (19 V2 + 3 Neptune)', () => {
+  assert.equal(MOONS.length, 22);
 });
 
 test('každý měsíc má povinné atributy', () => {
@@ -37,7 +37,7 @@ test('period, a, tickCount, radiusPx jsou kladné', () => {
   }
 });
 
-test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 7, Uranus 5', () => {
+test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 7, Uranus 5, Neptune 3', () => {
   const byParent = MOONS.reduce((acc, m) => {
     acc[m.parent] = (acc[m.parent] || 0) + 1;
     return acc;
@@ -47,6 +47,7 @@ test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 7, Uranus 5', () => 
   assert.equal(byParent.jupiter, 4);
   assert.equal(byParent.saturn, 7);
   assert.equal(byParent.uranus, 5);
+  assert.equal(byParent.neptune, 3);
 });
 
 test('MOONS_BY_PARENT je správně seskupený', () => {
@@ -55,7 +56,7 @@ test('MOONS_BY_PARENT je správně seskupený', () => {
   assert.equal(MOONS_BY_PARENT.saturn.length, 7);
 });
 
-test('MOON_BY_ID obsahuje všech 19', () => {
+test('MOON_BY_ID obsahuje všech 22', () => {
   for (const m of MOONS) {
     assert.equal(MOON_BY_ID[m.id], m);
   }

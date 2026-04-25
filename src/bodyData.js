@@ -506,4 +506,56 @@ export const BODY_DATA = {
     ],
     funFact: 'Na Oberonu byly nalezeny tmavé skvrny neznámého původu — možná stopy dopadů s vysokým obsahem uhlíku.',
   },
+
+  triton: {
+    name: 'Triton',
+    kind: 'moon',
+    tagline: 'Největší Neptunův měsíc — jediný velký měsíc s retrográdní orbitou.',
+    fields: [
+      { label: 'Průměr', value: '2 707 km' },
+      { label: 'Hmota', value: '2,14×10²² kg' },
+      { label: 'Den', value: '5,88 dne (tidálně zamčeno)' },
+      { label: 'Vzdálenost od Neptunu', value: '354 800 km' },
+      { label: 'Atmosféra', value: 'řídká dusíková (1,4 Pa)' },
+      { label: 'Povrchová teplota', value: '−235 °C (jeden z nejstudenějších objektů)' },
+      { label: 'Gravitace', value: '0,78 m/s²' },
+      { label: 'Mateřská planeta', value: 'Neptun' },
+      { label: 'Objevitel', value: 'William Lassell, 1846 (17 dní po objevu Neptunu)' },
+    ],
+    funFact: 'Triton obíhá retrográdně — opačně, než Neptun rotuje. Pravděpodobně jde o zachycený objekt z Kuiperova pásu, podobný Plutu. Postupně padá na Neptun a za ~3,6 mld let se roztrhá v prstenec.',
+  },
+
+  nereid: {
+    name: 'Nereid',
+    kind: 'moon',
+    tagline: 'Měsíc s nejvíce protáhlou orbitou ve sluneční soustavě.',
+    fields: [
+      { label: 'Průměr', value: '340 km' },
+      { label: 'Hmota', value: '~3×10¹⁹ kg' },
+      { label: 'Den', value: '~11,5 hodiny' },
+      { label: 'Vzdálenost od Neptunu', value: '5 513 400 km (max), 1 372 000 km (min)' },
+      { label: 'Excentricita orbity', value: '0,75 (extrém!)' },
+      { label: 'Atmosféra', value: 'žádná' },
+      { label: 'Mateřská planeta', value: 'Neptun' },
+      { label: 'Objevitel', value: 'Gerard Kuiper, 1949' },
+    ],
+    funFact: 'Nereid se k Neptunu přibližuje na 1,4 mil. km a vzdaluje na 9,7 mil. km — extrémně eliptická dráha. Pravděpodobně byla deformována během zachycení Tritonu.',
+  },
+
+  proteus: {
+    name: 'Proteus',
+    kind: 'moon',
+    tagline: 'Druhý největší Neptunův měsíc — temný a nepravidelný.',
+    fields: [
+      { label: 'Průměr', value: '420 km (nepravidelný tvar)' },
+      { label: 'Hmota', value: '~5×10¹⁹ kg' },
+      { label: 'Den', value: '1,12 dne (tidálně zamčeno)' },
+      { label: 'Vzdálenost od Neptunu', value: '117 647 km' },
+      { label: 'Atmosféra', value: 'žádná' },
+      { label: 'Albedo', value: '0,096 (jeden z nejtmavších objektů)' },
+      { label: 'Mateřská planeta', value: 'Neptun' },
+      { label: 'Objevitel', value: 'Voyager 2, 1989' },
+    ],
+    funFact: 'Proteus byl objeven až sondou Voyager 2 v roce 1989 — z domova nešel pozorovat, je tmavý jako asfalt a blízko Neptunu. Je téměř na hranici, kdy gravitace tělesa stačí ho stáhnout do koule.',
+  },
 };

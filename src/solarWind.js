@@ -1,6 +1,5 @@
-import { PLANETS, PLANET_BY_ID, LABEL_TICK_COUNT } from './planets.js';
+import { PLANETS, PLANET_BY_ID } from './planets.js';
 import { fibonacciSphere } from './geometry.js';
-import { textToPoints } from './label.js';
 import { phaseAt } from './animation.js';
 import { PHASE } from './phase.js';
 import { sampleColor, sphericalUV } from './textureUtils.js';
@@ -18,32 +17,9 @@ function buildTargetsForPlanet(planet, anchor, imageData, ringImageData) {
   const centerY = anchor.position.y;
   const centerZ = anchor.position.z;
 
-  // 1. Label pozice (LABEL_TICK_COUNT bodů) — nad planetou a mírně vpředu.
-  const labelPts = textToPoints(planet.name, LABEL_TICK_COUNT);
-  const labelCenterY = centerY + Math.max(180, planet.radiusPx * 1.5);
-  const labelCenterZ = centerZ + 80;
-
-  // 2. Surface Fibonacci points — první LABEL_TICK_COUNT z nich slouží jako cíle pro label tečky (po hold spadnou sem).
+  // Surface Fibonacci points — všechny dotty jdou přímo na povrch (žádné labely).
   const surfacePts = fibonacciSphere(planet.tickCount, planet.radiusPx * 1.02);
-
-  // Label entries first — jejich labelFallTarget = surfacePts[k]
-  for (let k = 0; k < labelPts.length && k < LABEL_TICK_COUNT; k++) {
-    const lp = labelPts[k];
-    const surfOffset = surfacePts[k];
-    const [u, v] = sphericalUV(surfOffset[0], surfOffset[1], surfOffset[2], planet.radiusPx * 1.02);
-    const color = sampleColor(imageData, u, v);
-    targets.push({
-      pos: { x: centerX + lp[0] * 0.8, y: labelCenterY + lp[1] * 0.8, z: labelCenterZ },
-      localOffset: { x: surfOffset[0], y: surfOffset[1], z: surfOffset[2] },
-      color,
-      phase: PHASE.ON_PLANET,
-      isLabel: true,
-      labelFallTarget: { x: centerX + surfOffset[0], y: centerY + surfOffset[1], z: centerZ + surfOffset[2] },
-    });
-  }
-
-  // Surface-only (zbytek Fibonacci — přeskoč prvních LABEL_TICK_COUNT, už je použito pro labely)
-  for (let k = LABEL_TICK_COUNT; k < surfacePts.length; k++) {
+  for (let k = 0; k < surfacePts.length; k++) {
     const off = surfacePts[k];
     const [u, v] = sphericalUV(off[0], off[1], off[2], planet.radiusPx * 1.02);
     const color = sampleColor(imageData, u, v);
