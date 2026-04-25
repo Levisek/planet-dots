@@ -15,8 +15,8 @@ export function createScene() {
   const camera = new THREE.PerspectiveCamera(
     45,
     window.innerWidth / window.innerHeight,
-    1,         // near 1 (místo 0.1) — lepší Z-buffer precision pro vzdálené objekty
-    200000,
+    1,
+    2000000, // far plane — pokrýt Fyzikální Neptune (115K) + stars (900K).
   );
   // Default 3D pohled na celou soustavu — kamera nad orbital rovinou (~30°),
   // vidí Sun (origin) + Neptune orbit (radius 3018).
@@ -63,7 +63,7 @@ export function createScene() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.minDistance = 30;
-  controls.maxDistance = 50000;
+  controls.maxDistance = 500000; // Fyzikální mode: Neptune at 115K, kamera musí umět odzoom out
 
   return { renderer, scene, camera, controls, setLightingMode, onLightingModeChange };
 }
@@ -72,11 +72,11 @@ export function createStarfield(scene, count = 1500) {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    // Hvězdy daleko (r = 80k..120k) aby při přeletu kamery na libovolnou planetu
-    // nedocházelo k viditelnému parallaxu (hvězdy musí vypadat jako v nekonečnu).
+    // Hvězdy v dostatečné vzdálenosti aby vypadaly jako v nekonečnu i v
+    // Fyzikálním mode (Neptune orbit 115K). r = 600K..900K.
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
-    const r = 80000 + Math.random() * 40000;
+    const r = 600000 + Math.random() * 300000;
     positions[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
     positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
     positions[i * 3 + 2] = r * Math.cos(phi);
@@ -84,7 +84,7 @@ export function createStarfield(scene, count = 1500) {
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const material = new THREE.PointsMaterial({
     color: 0xffffff,
-    size: 80,
+    size: 600, // proportional ke star distance 600-900K
     sizeAttenuation: true,
     transparent: true,
     opacity: 0.85,

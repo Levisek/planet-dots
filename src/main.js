@@ -19,6 +19,7 @@ import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
 import { createPlanetLabels } from './planetLabels.js';
 import { createBodyList } from './bodyList.js';
+import { createOrbitLines } from './orbitLines.js';
 import { buildBodyMesh } from './bodyMesh.js';
 import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
@@ -292,7 +293,8 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     const m = MOONS[i];
     const tex = moonImageData[m.id];
     if (!tex) continue;
-    const mesh = buildBodyMesh(tex, m.radiusPx, 2562);
+    // L5 (10242 verts) — L4 dělalo facety viditelné v detail view (Titan, Luna).
+    const mesh = buildBodyMesh(tex, m.radiusPx, 10242);
     mesh.visible = false;
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
@@ -338,6 +340,7 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   const bodyList = createBodyList({
     onClick: (id) => detailView && detailView.enter(id),
   });
+  const orbitLines = createOrbitLines(scene);
 
   // Lighting toggle button — přepíná material na všech body mesh-ích:
   // VYP → MeshBasicMaterial (flat, plné barvy, ignoruje světla).
@@ -384,7 +387,8 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   // default kamera (0,3500,6000) je pak nedostatečná. Auto-zoom out.
   onModeChange((mode) => {
     if (mode === MODES.FYZIKALNI) {
-      camera.position.set(0, 5000, 9000);
+      // Neptune at 115571 — kamera musí ukázat celé Neptune orbit ze shora.
+      camera.position.set(0, 90000, 160000);
     } else {
       camera.position.set(0, 3500, 6000);
     }

@@ -41,9 +41,9 @@ export const PLANETS = [
     rotationPeriod: 586,
     direction: 1,
     orbitRadius: 1318,
-    orbitRadiusReal: 1139,    // real linear: 1100 + 100×0.39
+    orbitRadiusReal: 1500,     // 0.39 AU × 3846 (real ratio Mercury:Neptune = 1:77)
     orbitalPeriodSec: 2.41,
-    orbitalPeriodSecReal: 2.41, // 88d / 36.5
+    orbitalPeriodSecReal: 2.41,
     initialPhaseRad: 0.0,
     color: 0x8c7853,
     realDistanceFromSunKm: 57_909_000,
@@ -62,7 +62,7 @@ export const PLANETS = [
     rotationPeriod: 2430,
     direction: -1,
     orbitRadius: 1397,
-    orbitRadiusReal: 1172,
+    orbitRadiusReal: 2769,     // 0.72 AU × 3846
     orbitalPeriodSec: 6.16,
     orbitalPeriodSecReal: 6.16,
     initialPhaseRad: 0.785, // π/4
@@ -83,7 +83,7 @@ export const PLANETS = [
     rotationPeriod: 10,
     direction: 1,
     orbitRadius: 1450,
-    orbitRadiusReal: 1200,
+    orbitRadiusReal: 3846,     // 1.00 AU × 3846
     orbitalPeriodSec: 10.0,
     orbitalPeriodSecReal: 10.0,
     initialPhaseRad: 1.571, // π/2
@@ -104,7 +104,7 @@ export const PLANETS = [
     rotationPeriod: 10.25,
     direction: 1,
     orbitRadius: 1532,
-    orbitRadiusReal: 1252,
+    orbitRadiusReal: 5846,     // 1.52 AU × 3846
     orbitalPeriodSec: 18.82,
     orbitalPeriodSecReal: 18.82,
     initialPhaseRad: 2.356, // 3π/4
@@ -125,9 +125,9 @@ export const PLANETS = [
     rotationPeriod: 4.1,
     direction: 1,
     orbitRadius: 1898,
-    orbitRadiusReal: 1620,
-    orbitalPeriodSec: 39.6,        // pochopení: outer /3 boost
-    orbitalPeriodSecReal: 118.7,   // fyzikální: 4333d / 36.5
+    orbitRadiusReal: 20000,    // 5.20 AU × 3846
+    orbitalPeriodSec: 39.6,
+    orbitalPeriodSecReal: 118.7,
     initialPhaseRad: 3.142, // π
     color: 0xd8c185,
     realDistanceFromSunKm: 778_340_000,
@@ -149,7 +149,7 @@ export const PLANETS = [
     rotationPeriod: 4.5,
     direction: 1,
     orbitRadius: 2182,
-    orbitRadiusReal: 2055,
+    orbitRadiusReal: 36730,    // 9.55 AU × 3846
     orbitalPeriodSec: 98.3,
     orbitalPeriodSecReal: 294.8,
     initialPhaseRad: 3.927, // 5π/4
@@ -170,7 +170,7 @@ export const PLANETS = [
     rotationPeriod: 7.2,
     direction: -1,
     orbitRadius: 2635,
-    orbitRadiusReal: 3020,
+    orbitRadiusReal: 73843,    // 19.20 AU × 3846
     orbitalPeriodSec: 280.2,
     orbitalPeriodSecReal: 840.7,
     initialPhaseRad: 4.712, // 3π/2
@@ -191,7 +191,7 @@ export const PLANETS = [
     rotationPeriod: 6.7,
     direction: 1,
     orbitRadius: 3018,
-    orbitRadiusReal: 4105,
+    orbitRadiusReal: 115571,   // 30.05 AU × 3846 (real Mercury:Neptune = 1:77)
     orbitalPeriodSec: 549.7,
     orbitalPeriodSecReal: 1648.4,
     initialPhaseRad: 5.498, // 7π/4
