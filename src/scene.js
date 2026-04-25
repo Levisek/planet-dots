@@ -21,11 +21,17 @@ export function createScene() {
   camera.position.set(0, 40, 2000);
   camera.lookAt(0, 0, 0);
 
-  // světla
-  scene.add(new THREE.AmbientLight(0xffffff, 0.18));
-  const sunLight = new THREE.PointLight(0xffffff, 2.2, 4000);
-  sunLight.position.set(-1500, 0, 0); // pozice Slunce
+  // světla — DirectionalLight pro voxel shader Lambertian (paralelní paprsky
+  // od Slunce, planety jsou daleko ⇒ aproximace bezpečná). AmbientLight slabý
+  // ať noční strana není úplně černá. sunUniform sdílíme do voxel shaderů.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.08));
+  const sunPos = new THREE.Vector3(-1500, 0, 0); // pozice Slunce
+  const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+  sunLight.position.copy(sunPos);
+  sunLight.target.position.set(0, 0, 0);
   scene.add(sunLight);
+  scene.add(sunLight.target);
+  const sunUniform = { value: sunPos.clone() };
 
   // resize handler
   window.addEventListener('resize', () => {
@@ -41,7 +47,7 @@ export function createScene() {
   controls.minDistance = 30;
   controls.maxDistance = 50000;
 
-  return { renderer, scene, camera, controls };
+  return { renderer, scene, camera, controls, sunUniform };
 }
 
 export function createStarfield(scene, count = 1500) {

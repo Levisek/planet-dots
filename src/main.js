@@ -20,7 +20,7 @@ import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
 
-const { renderer, scene, camera, controls } = createScene();
+const { renderer, scene, camera, controls, sunUniform } = createScene();
 createStarfield(scene);
 const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
