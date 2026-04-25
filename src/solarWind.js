@@ -92,16 +92,10 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
   const ph = phaseAt(currentTime);
   if (!ph) return;
 
-  // Sun fáze (1..2s) — odemykej alpha tečkám na Slunci postupně, ať se Slunce rozsvěcuje.
-  if (ph.id === 'sun') {
-    const sunCount = PLANETS[0].tickCount;
-    const progress = Math.min(1, (currentTime - ph.start) / (ph.end - ph.start));
-    const revealed = Math.floor(progress * sunCount);
-    for (let i = 0; i < revealed; i++) pool.alpha[i] = 1;
-    return;
-  }
-
-  if (ph.id === 'init' || ph.id === 'live') return;
+  // Sun fáze (1..2s) — Sun base dotty zůstávají alpha=0 (mesh je canonical
+  // od ihned). Flares (prominences/CME) ze sunActivity spawn vlastní visible
+  // dotty a fungují nezávisle.
+  if (ph.id === 'sun' || ph.id === 'init' || ph.id === 'live') return;
   if (!ph.planetId) return;
 
   const planet = PLANET_BY_ID[ph.planetId];
