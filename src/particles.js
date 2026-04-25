@@ -62,6 +62,7 @@ export class ParticlePool {
     this.postArrivalAlpha = new Float32Array(count);      // alpha po settle (pro Jupiter/Saturn průhlednost)
     this.holdUntil = new Float32Array(count);         // kdy skončí HOLDING_LABEL
     this.phase = new Uint8Array(count);
+    this.finalPhase = new Uint8Array(count); // cílový phase po příletu (ON_PLANET / ON_RING / ON_MOON)
     this.owner = new Int16Array(count);
 
     const geometry = new THREE.BufferGeometry();
@@ -260,9 +261,7 @@ export class ParticlePool {
     this.owner[i] = planetOwnerIdx;
     this.ownerAlpha[i] = this.ownerAlphaMul[planetOwnerIdx];
     this.phase[i] = PHASE.FLYING;
-    // finalPhase uložíme v odhadnutém místě: (hack — postArrivalColor[3] není, musíme někam jinam)
-    // Řešení: používáme size[i] > 3 = ON_PLANET, size[i] <= 3 = ON_RING — simple discrimination
-    // Nebo: použijeme owner znaménko nebo jiný bit. Nejjednodušší: size signals ring.
+    this.finalPhase[i] = finalPhase; // ON_PLANET nebo ON_RING — ukládáme explicitně
     if (finalSize !== null) {
       this.size[i] = finalSize;
     } else {
@@ -333,7 +332,8 @@ export class ParticlePool {
     this.owner[i] = moonOwnerIdx;
     this.ownerAlpha[i] = this.ownerAlphaMul[moonOwnerIdx];
     this.phase[i] = PHASE.FLYING;
-    this.size[i] = finalSize; // moon size — owner>=9 distinguuje od planety v updateFlight
+    this.finalPhase[i] = PHASE.ON_MOON;
+    this.size[i] = finalSize;
   }
 
   /**
@@ -365,22 +365,14 @@ export class ParticlePool {
           if (this.holdUntil[i] > currentTime) {
             this.phase[i] = PHASE.HOLDING_LABEL;
           } else {
-            // settle to final phase (ON_PLANET or ON_RING based on size)
-            // owner >= 9 = moon, size < 5 = ring, else planet
-            if (this.owner[i] >= MOON_OWNER_BASE) {
-              this.phase[i] = PHASE.ON_MOON;
-            } else if (this.size[i] < 5.0) {
-              this.phase[i] = PHASE.ON_RING;
-            } else {
-              this.phase[i] = PHASE.ON_PLANET;
-            }
+            // settle to final phase — použij explicitně uložený finalPhase (nikoliv size hack)
+            this.phase[i] = this.finalPhase[i] || PHASE.ON_PLANET;
             // snap color to final
             this.color[3*i]     = this.postArrivalColor[3*i];
             this.color[3*i + 1] = this.postArrivalColor[3*i + 1];
             this.color[3*i + 2] = this.postArrivalColor[3*i + 2];
             // Hide settled dots on planet/moon surfaces — mesh (body mesh) je "kanonická"
-            // planeta, dots by zbytečně překrývaly/nesedly na barvě. Prstenec (ON_RING)
-            // a měsíce hidden taky (měsíce mají vlastní mesh). ON_MOON → 0.
+            // planeta, dots by zbytečně překrývaly/nesedly na barvě. ON_RING je viditelný.
             if (this.phase[i] === PHASE.ON_PLANET || this.phase[i] === PHASE.ON_MOON) {
               this.alpha[i] = 0;
             } else {
@@ -423,6 +415,9 @@ export class ParticlePool {
     for (let i = 0; i < this.count; i++) {
       const ph = this.phase[i];
       if (ph !== PHASE.ON_PLANET && ph !== PHASE.ON_RING && ph !== PHASE.ON_SUN && ph !== PHASE.ON_MOON) continue;
+      // Přeskočit neviditelné tečky (ownerAlpha=0 → vAlpha=0 → GPU je discarduje).
+      // Šetří ~90 % matrixWorld výpočtů v detail view kde fadeOthers = 0 pro ostatní.
+      if (this.ownerAlpha[i] === 0) continue;
       const oi = this.owner[i];
       if (oi < 0) continue;
       const anchor = anchorsByIndex[oi];

@@ -2,3 +2,7 @@
 node_modules/
 .DS_Store
 *.log
+.audit/bodies/
+.audit/screenshots/
+.audit/meta.json
+VISUAL-AUDIT.md

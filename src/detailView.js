@@ -77,9 +77,11 @@ export function createDetailView(deps) {
 
   return {
     enter(id) {
-      if (_state === STATE.TRANSITION_IN || _state === STATE.TRANSITION_OUT) return;
+      if (_state === STATE.TRANSITION_IN) return;
       if (id === _focusId) return;
-      if (_state === STATE.MAIN) {
+      if (_state === STATE.MAIN || _state === STATE.TRANSITION_OUT) {
+        // TRANSITION_OUT: přeruš return tween a přejdi rovnou na nový cíl.
+        // (cameraFlyTo přepíše _activeCameraTween v main.js)
         startTransitionIn(id);
         return;
       }

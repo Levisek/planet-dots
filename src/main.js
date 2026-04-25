@@ -401,8 +401,10 @@ Promise.all([loaded, moonsLoaded]).then(() => {
         const moonDist = m.a * p.radiusPx * factor;
         if (moonDist > maxMoonDist) maxMoonDist = moonDist;
       }
-      // Camera musí být dál než nejvzdálenější měsíc (s rezervou 1.3×).
-      return Math.max(baseDist, maxMoonDist * 1.3 + p.radiusPx);
+      // Camera musí být dál než nejvzdálenější měsíc a celý orbit musí být ve viewportu.
+      // FOV=45° → half_angle=22.5° → tan(22.5°)≈0.414. S 15% safety marginem:
+      // cameraDist = maxMoonDist / tan(22.5°) * 1.15 ≈ maxMoonDist * 2.78
+      return Math.max(baseDist, maxMoonDist * 2.8 + p.radiusPx);
     },
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
     resetScale: () => {
@@ -434,6 +436,8 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       planets: PLANETS.map((p) => p.id),
       moons: MOONS.map((m) => m.id),
     };
+    window.__pool = pool;
+    window.__debug = { pool, anchors, moonAnchors };
   }
 
   // Panel handlers
