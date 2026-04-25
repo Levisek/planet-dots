@@ -39,8 +39,10 @@ export function createScene() {
   const _modeListeners = [];
   function setLightingMode(real) {
     if (real) {
-      ambientLight.intensity = 0.18;
-      sunPoint.intensity = 1.5;
+      // Sun side full saturate (color × 4 → clamped na 1.0 = plné barvy).
+      // Ambient 0.3 ať noční strana není uplně černá ale je výrazně tmavší.
+      ambientLight.intensity = 0.3;
+      sunPoint.intensity = 4.0;
     } else {
       ambientLight.intensity = 1.0;
       sunPoint.intensity = 0;
