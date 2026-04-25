@@ -16,6 +16,8 @@ import { createInfoPanel } from './infoPanel.js';
 import { createDetailView, STATE as DV_STATE } from './detailView.js';
 import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
+import { createPlanetLabels } from './planetLabels.js';
+import { createBodyList } from './bodyList.js';
 import { buildBodyMesh } from './bodyMesh.js';
 import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
@@ -45,6 +47,7 @@ let infoPanel = null;
 let detailView = null;
 let sunActivity = null;
 let moonLabels = null;
+let planetLabels = null;
 const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo (+ 'saturn_ring')
 let _activeCameraTween = null;
 const controlsTarget = { x: 0, y: 0, z: 0 };
@@ -225,6 +228,7 @@ function tick() {
   if (tooltip) tooltip.update();
   // Moon labels (viditelné v planet-detail)
   if (moonLabels) moonLabels.update();
+  if (planetLabels) planetLabels.update();
 
   renderer.render(scene, camera);
 
@@ -315,6 +319,15 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   infoPanel = createInfoPanel();
   sunActivity = createSunActivity({ sunOwner: 0, sunRadius: PLANETS[0].radiusPx });
   moonLabels = createMoonLabels({ camera, canvas: renderer.domElement, moonAnchors });
+  planetLabels = createPlanetLabels({
+    camera,
+    canvas: renderer.domElement,
+    anchors,
+    onClick: (id) => detailView && detailView.enter(id),
+  });
+  const bodyList = createBodyList({
+    onClick: (id) => detailView && detailView.enter(id),
+  });
 
   // Helper pro body world-position
   function getBodyPos(id) {
@@ -349,16 +362,23 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     }),
     setPaused: () => { /* placeholder — pauza se řídí přes detailView.state() v tick() */ },
     fadeOthers: (focusId, alpha) => {
-      // alpha < 1 = detail focus (ostatní úplně skrýt, ne průhledné — žádní duchové).
-      // alpha = 1 = MAIN (vše vidět). Visible = keep && settled (formation gating).
-      // Měsíce focused planety necháme viditelné kvůli orbitám.
-      const hideOthers = alpha < 1;
+      // alpha < 1 = detail focus, alpha = 1 = MAIN view.
+      // Ostatní planety zůstávají viditelné v detail (kvůli orientaci v soustavě),
+      // ale dim — fade alpha 0.3, mesh stále render (ne skryt).
+      const isDetail = alpha < 1;
+      const dimAlpha = 0.3;
       for (const g of gatedMeshes) {
         const isFocus = g.key === focusId || (g.parentId && g.parentId === focusId);
-        const keep = isFocus || !hideOthers;
-        if (g.isPlanet || g.isMoon) pool.setOwnerAlpha(g.ownerIdx, keep ? 1 : 0);
+        const ownerA = isDetail ? (isFocus ? 1 : dimAlpha) : 1;
+        if (g.isPlanet || g.isMoon) pool.setOwnerAlpha(g.ownerIdx, ownerA);
         const mesh = bodyMeshes[g.key];
-        if (mesh) mesh.visible = keep && !!mesh.userData.settled;
+        if (!mesh) continue;
+        // Mesh visible vždy (po settle), opacity dim pro non-focus v detail.
+        mesh.visible = !!mesh.userData.settled;
+        if (mesh.material) {
+          mesh.material.transparent = isDetail && !isFocus;
+          mesh.material.opacity = isDetail && !isFocus ? dimAlpha : 1;
+        }
       }
     },
     showPanel: (id, opts) => {
@@ -367,19 +387,25 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       // Cizí planety nejsou klikatelné (exit přes ESC/křížek pro návrat do MAIN).
       const planet = PLANET_BY_ID[id];
       if (planet) {
-        const childMoons = MOONS.filter((m) => m.parent === id).map((m) => m.id);
-        picker.setActiveIds(new Set([id, ...childMoons]));
+        // V detail view klikatelné všechna tělesa (re-focus na jinou planetu).
+        const allIds = [...PLANETS.map((p) => p.id), ...MOONS.map((m) => m.id)];
+        picker.setActiveIds(new Set(allIds));
         // Přepnout na detailDotSize (menší tečky → bez překryvu / "šupin").
         const ownerIdx = PLANETS.findIndex((p) => p.id === id);
         if (planet.detailDotSize !== undefined) {
           pool.setOwnerSize(ownerIdx, planet.detailDotSize);
         }
-        // Zobraz labely pro měsíce této planety
+        // Zobraz labely pro měsíce této planety; planet labely skryt (focus jeden)
         if (moonLabels) moonLabels.showForParent(id);
+        if (planetLabels) planetLabels.setVisible(false);
+        bodyList.setActive(id);
       } else {
-        // Moon detail — nic klikatelného, exit pouze přes ESC/křížek.
-        picker.setActiveIds(new Set());
+        // Moon detail — všechna tělesa klikatelná pro re-focus.
+        const allIds = [...PLANETS.map((p) => p.id), ...MOONS.map((m) => m.id)];
+        picker.setActiveIds(new Set(allIds));
         if (moonLabels) moonLabels.hideAll();
+        if (planetLabels) planetLabels.setVisible(false);
+        bodyList.setActive(id);
         // Přepnout vybraný měsíc na detailDotSize
         const moonIdx = MOONS.findIndex((m) => m.id === id);
         if (moonIdx >= 0) {
@@ -393,6 +419,8 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     hidePanel: () => {
       infoPanel.hide();
       picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
+      if (planetLabels) planetLabels.setVisible(true);
+      bodyList.setActive(null);
       // Obnovit všechny planet i moon dotSize na main-scene hodnoty.
       for (let i = 0; i < PLANETS.length; i++) {
         pool.setOwnerSize(i, PLANETS[i].dotSize ?? 6.0);
