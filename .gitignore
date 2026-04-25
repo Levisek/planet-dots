@@ -4,3 +4,4 @@ node_modules/
 *.log
 .audit/
 VISUAL-AUDIT.md
+v41-diff.txt
