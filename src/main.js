@@ -15,7 +15,8 @@ import { createInfoPanel } from './infoPanel.js';
 import { createDetailView, STATE as DV_STATE } from './detailView.js';
 import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
-import { buildBodyMesh } from './bodyMesh.js';
+import { buildVoxelTiles, buildSunVoxelTiles } from './voxelTile.js';
+import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
@@ -217,22 +218,28 @@ function tick() {
 Promise.all([loaded, moonsLoaded]).then(() => {
   initAfterLoad();
 
-  // Postavit pevné mesh-y pro všechna tělesa: icosphere s per-face barvami
-  // sampled z textury ve středu trojúhelníku. Flat shading = pravé minecraft
-  // plochy, žádné mezery ani překryv.
+  // Voxel tile rendering: InstancedMesh hexagonů s Lambertian per-tile lighting
+  // (kromě Sun, který je self-emissive). Tiles vzorkují barvu z textury podle
+  // spherical UV. Saturn dostává navíc real RingGeometry mesh (ne dots).
+  const voxelUniforms = { uSunPos: sunUniform };
   for (const p of PLANETS) {
     const tex = imageData[p.id];
     if (!tex) continue;
-    // Level 5 = 20480 trojúhelníků. Detaily na planetách ~~ 30-60 tri napříč sférou na obrazovce.
-    const mesh = buildBodyMesh(tex, p.radiusPx, 10242);
+    const mesh = p.id === 'sun'
+      ? buildSunVoxelTiles(tex, p.radiusPx, 40962)         // Sun L6
+      : buildVoxelTiles(tex, p.radiusPx, 40962, voxelUniforms); // Planety L6
     anchors[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
+
+    if (p.id === 'saturn' && imageData.saturn_ring) {
+      const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
+      anchors.saturn.add(ring);
+    }
   }
   for (const m of MOONS) {
     const tex = moonImageData[m.id];
     if (!tex) continue;
-    // Level 4 = 5120 trojúhelníků pro měsíce (menší, dost tiles pro tvar)
-    const mesh = buildBodyMesh(tex, m.radiusPx, 2562);
+    const mesh = buildVoxelTiles(tex, m.radiusPx, 10242, voxelUniforms); // Měsíce L5
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
   }
@@ -301,21 +308,22 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     }),
     setPaused: () => { /* placeholder — pauza se řídí přes detailView.state() v tick() */ },
     fadeOthers: (focusId, alpha) => {
+      // Voxel ShaderMaterial nepodporuje opacity → binary visible flag.
+      // Měsíce parentu necháme viditelné kvůli Kepler orbitám v detail view.
       for (let i = 0; i < PLANETS.length; i++) {
         const id = PLANETS[i].id;
         const keep = id === focusId;
         pool.setOwnerAlpha(i, keep ? 1 : alpha);
         const mesh = bodyMeshes[id];
-        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
+        if (mesh) mesh.visible = keep || alpha > 0.01;
       }
       for (let i = 0; i < MOONS.length; i++) {
         const m = MOONS[i];
         const ownerIdx = MOON_OWNER_BASE + i;
-        // V planet-detail chceme vidět i měsíce dané planety (orbity Kepler).
         const keep = m.id === focusId || m.parent === focusId;
         pool.setOwnerAlpha(ownerIdx, keep ? 1 : alpha);
         const mesh = bodyMeshes[m.id];
-        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
+        if (mesh) mesh.visible = keep || alpha > 0.01;
       }
     },
     showPanel: (id, opts) => {
