@@ -7,8 +7,9 @@ Edukativně-hravá vizualizace sluneční soustavy z 1500 teček.
 - **V1** (hotová): Slunce + 8 planet, animace sesypání z teček, labely česky, reálné axial tilts a rotace kolem os.
 - **V2** (hotová): 19 měsíců s Keplerovou orbitální mechanikou.
 - **V3** (hotová): Click → detail view s info panelem, reálné měřítko toggle, drag-to-orbit kamera, živé Slunce (sunspoty + erupce).
-- V4: Asteroidový pás, Kuiperův pás, Oortův oblak.
-- V5: Komety s ohony z teček.
+- **V4.1** (hotová): Voxel tile rendering — `InstancedMesh` hexagonů s Lambertian per-tile lighting (`DirectionalLight` od Slunce), Saturnův prsten jako real `RingGeometry` v ekvatoriální rovině, picker meshes na Layer 1.
+- V4.2: Asteroidový pás, Kuiperův pás, Oortův oblak, komety s ohony.
+- V4.3: Formation intro, pixel UI, 4-mode sim switcher.
 
 ## Spuštění
 
