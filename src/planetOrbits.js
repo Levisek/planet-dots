@@ -14,19 +14,22 @@ export function auToDisplayRadius(au) {
   return 1100 + 350 * Math.sqrt(au);
 }
 
+import { getOrbitRadius, getOrbitalPeriod } from './simMode.js';
+
 /**
  * Pozice planety v čase elapsed (s). Kruhová orbita v XZ rovině.
- * @param {{ orbitRadius: number, orbitalPeriodSec: number, initialPhaseRad: number }} planet
- * @param {number} elapsed
+ * Bere aktuální orbitRadius/period podle simMode (Pochopení/Fyzikální).
  */
 export function orbitalPosition(planet, elapsed) {
-  if (planet.orbitRadius === 0) return { x: 0, y: 0, z: 0 };
-  const omega = (2 * Math.PI) / planet.orbitalPeriodSec;
+  const r = getOrbitRadius(planet);
+  if (r === 0) return { x: 0, y: 0, z: 0 };
+  const period = getOrbitalPeriod(planet);
+  const omega = (2 * Math.PI) / period;
   const theta = planet.initialPhaseRad + omega * elapsed;
   return {
-    x: planet.orbitRadius * Math.cos(theta),
+    x: r * Math.cos(theta),
     y: 0,
-    z: planet.orbitRadius * Math.sin(theta),
+    z: r * Math.sin(theta),
   };
 }
 

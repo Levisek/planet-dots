@@ -10,6 +10,7 @@ import { updateSolarWind } from './solarWind.js';
 import { updatePlanetOrbits } from './planetOrbits.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
+import { getMoonE, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, MODES } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -91,13 +92,15 @@ function updateMoonOrbits(t, factorsByMoon = {}) {
     const parentRadius = parent.radiusPx;
     const entry = factorsByMoon[m.id] || { a: 1, period: 1 };
     const aPx = m.a * parentRadius * entry.a;
-    // Retrograde moony (Triton) — negative period flipne CCW na CW orbit.
-    const scaledPeriod = m.period * entry.period * (m.retrograde ? -1 : 1);
-    const { x, z, E } = orbitPosition(t, m.phaseOffset, scaledPeriod, aPx, m.e);
+    const e = getMoonE(m);
+    const basePeriod = getMoonPeriod(m);
+    // Retrograde (Triton) — negative period flipne CCW na CW orbit.
+    const scaledPeriod = basePeriod * entry.period * (m.retrograde ? -1 : 1);
+    const { x, z, E } = orbitPosition(t, m.phaseOffset, scaledPeriod, aPx, e);
     const moonAnchor = moonAnchors[m.id];
     if (!moonAnchor) continue;
     moonAnchor.position.set(x, 0, z);
-    const nu = trueAnomaly(E, m.e);
+    const nu = trueAnomaly(E, e);
     moonAnchor.rotation.y = nu + Math.PI;
     moonAnchor.updateMatrixWorld(true);
   }
@@ -366,6 +369,26 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     setLightingMode(_lightingOn);
     lightingBtn.textContent = _lightingOn ? 'STÍNY: ZAP' : 'STÍNY: VYP';
     lightingBtn.classList.toggle('active', _lightingOn);
+  });
+
+  // simMode buttons (Pochopení / Fyzikální)
+  const modeButtons = document.querySelectorAll('#topToggles button[data-mode]');
+  modeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.mode;
+      setSimMode(id);
+      modeButtons.forEach((b) => b.classList.toggle('active', b.dataset.mode === id));
+    });
+  });
+  // Při změně simMode přepocítej kameru — Fyzikální má Neptune ve 4105,
+  // default kamera (0,3500,6000) je pak nedostatečná. Auto-zoom out.
+  onModeChange((mode) => {
+    if (mode === MODES.FYZIKALNI) {
+      camera.position.set(0, 5000, 9000);
+    } else {
+      camera.position.set(0, 3500, 6000);
+    }
+    camera.lookAt(0, 0, 0);
   });
 
   // Helper pro body world-position

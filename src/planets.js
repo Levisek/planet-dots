@@ -41,7 +41,9 @@ export const PLANETS = [
     rotationPeriod: 586,
     direction: 1,
     orbitRadius: 1318,
+    orbitRadiusReal: 1139,    // real linear: 1100 + 100×0.39
     orbitalPeriodSec: 2.41,
+    orbitalPeriodSecReal: 2.41, // 88d / 36.5
     initialPhaseRad: 0.0,
     color: 0x8c7853,
     realDistanceFromSunKm: 57_909_000,
@@ -60,7 +62,9 @@ export const PLANETS = [
     rotationPeriod: 2430,
     direction: -1,
     orbitRadius: 1397,
+    orbitRadiusReal: 1172,
     orbitalPeriodSec: 6.16,
+    orbitalPeriodSecReal: 6.16,
     initialPhaseRad: 0.785, // π/4
     color: 0xe7c98f,
     realDistanceFromSunKm: 108_209_000,
@@ -79,7 +83,9 @@ export const PLANETS = [
     rotationPeriod: 10,
     direction: 1,
     orbitRadius: 1450,
+    orbitRadiusReal: 1200,
     orbitalPeriodSec: 10.0,
+    orbitalPeriodSecReal: 10.0,
     initialPhaseRad: 1.571, // π/2
     color: 0x3a84d4,
     realDistanceFromSunKm: 149_598_000,
@@ -98,7 +104,9 @@ export const PLANETS = [
     rotationPeriod: 10.25,
     direction: 1,
     orbitRadius: 1532,
+    orbitRadiusReal: 1252,
     orbitalPeriodSec: 18.82,
+    orbitalPeriodSecReal: 18.82,
     initialPhaseRad: 2.356, // 3π/4
     color: 0xc1440e,
     realDistanceFromSunKm: 227_944_000,
@@ -117,7 +125,9 @@ export const PLANETS = [
     rotationPeriod: 4.1,
     direction: 1,
     orbitRadius: 1898,
-    orbitalPeriodSec: 39.6, // outer /3 boost
+    orbitRadiusReal: 1620,
+    orbitalPeriodSec: 39.6,        // pochopení: outer /3 boost
+    orbitalPeriodSecReal: 118.7,   // fyzikální: 4333d / 36.5
     initialPhaseRad: 3.142, // π
     color: 0xd8c185,
     realDistanceFromSunKm: 778_340_000,
@@ -139,7 +149,9 @@ export const PLANETS = [
     rotationPeriod: 4.5,
     direction: 1,
     orbitRadius: 2182,
+    orbitRadiusReal: 2055,
     orbitalPeriodSec: 98.3,
+    orbitalPeriodSecReal: 294.8,
     initialPhaseRad: 3.927, // 5π/4
     color: 0xe3c07a,
     realDistanceFromSunKm: 1_426_666_000,
@@ -158,7 +170,9 @@ export const PLANETS = [
     rotationPeriod: 7.2,
     direction: -1,
     orbitRadius: 2635,
+    orbitRadiusReal: 3020,
     orbitalPeriodSec: 280.2,
+    orbitalPeriodSecReal: 840.7,
     initialPhaseRad: 4.712, // 3π/2
     color: 0x9fd8e3,
     realDistanceFromSunKm: 2_870_658_000,
@@ -177,7 +191,9 @@ export const PLANETS = [
     rotationPeriod: 6.7,
     direction: 1,
     orbitRadius: 3018,
+    orbitRadiusReal: 4105,
     orbitalPeriodSec: 549.7,
+    orbitalPeriodSecReal: 1648.4,
     initialPhaseRad: 5.498, // 7π/4
     color: 0x3b5ff7,
     realDistanceFromSunKm: 4_498_396_000,
