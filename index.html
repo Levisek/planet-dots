@@ -153,6 +153,17 @@
   <div id="tooltip"></div>
   <div id="infoPanel"></div>
   <div id="moonLabels"></div>
+  <div id="topToggles" style="position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:11;">
+    <button id="toggleLighting" class="topBtn" title="Přepne realistické osvětlení (den/noc strana)">STÍNY: VYP</button>
+  </div>
+  <style>
+    .topBtn {
+      background:rgba(0,0,0,0.7); color:#aaa; border:1px solid #444; padding:6px 10px;
+      cursor:pointer; font-family: 'Press Start 2P', monospace; font-size: 8px; letter-spacing: 0.05em;
+    }
+    .topBtn:hover { color:#fff; border-color:#888; }
+    .topBtn.active { color:#ffc850; border-color:#ffc850; background:rgba(255,200,80,0.12); }
+  </style>
   <script type="importmap">
     {
       "imports": {

@@ -24,7 +24,7 @@ import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
 
-const { renderer, scene, camera, controls } = createScene();
+const { renderer, scene, camera, controls, setLightingMode } = createScene();
 createStarfield(scene);
 const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
@@ -265,6 +265,12 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     // jinak vidíš low-poly facety. L6 (40962 verts = 81920 trianglů).
     const subdiv = p.id === 'sun' ? 40962 : 10242;
     const mesh = buildBodyMesh(tex, p.radiusPx, subdiv);
+    // Sun je zdroj světla (ne příjemce) — flat MeshBasicMaterial vždy plné jasné.
+    if (p.id === 'sun') {
+      mesh.material = new THREE.MeshBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 1.0,
+      });
+    }
     mesh.visible = false;
     anchors[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
@@ -327,6 +333,16 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   });
   const bodyList = createBodyList({
     onClick: (id) => detailView && detailView.enter(id),
+  });
+
+  // Lighting toggle button (top center)
+  const lightingBtn = document.getElementById('toggleLighting');
+  let _lightingOn = false;
+  lightingBtn?.addEventListener('click', () => {
+    _lightingOn = !_lightingOn;
+    setLightingMode(_lightingOn);
+    lightingBtn.textContent = _lightingOn ? 'STÍNY: ZAP' : 'STÍNY: VYP';
+    lightingBtn.classList.toggle('active', _lightingOn);
   });
 
   // Helper pro body world-position

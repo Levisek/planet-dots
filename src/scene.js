@@ -23,12 +23,28 @@ export function createScene() {
   camera.position.set(0, 3500, 6000);
   camera.lookAt(0, 0, 0);
 
-  // světla — silný ambient (jasné barvy textur), bodové sluneční světlo v origin.
-  // Žádný den/noc shader — meshe jsou flat MeshBasicMaterial.
-  scene.add(new THREE.AmbientLight(0xffffff, 0.18));
-  const sunLight = new THREE.PointLight(0xffffff, 2.2, 8000);
-  sunLight.position.set(0, 0, 0);
-  scene.add(sunLight);
+  // Lighting toggle: default flat (ambient = 1.0, directional intensity = 0).
+  // ON → ambient sníží na 0.15, directional 1.5 od Slunce (origin) → den/noc strana.
+  // setLightingMode(true|false) přepíná intenzity.
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+  scene.add(ambientLight);
+  const sunDirectional = new THREE.DirectionalLight(0xffffff, 0);
+  sunDirectional.position.set(0, 0, 0); // od Slunce — target = body se hýbou
+  scene.add(sunDirectional);
+  // PointLight stínování pomáhá Sun-side jas (z origin) — ponecháno slabě
+  const sunPoint = new THREE.PointLight(0xffffff, 0.3, 12000);
+  sunPoint.position.set(0, 0, 0);
+  scene.add(sunPoint);
+
+  function setLightingMode(real) {
+    if (real) {
+      ambientLight.intensity = 0.15;
+      sunDirectional.intensity = 1.8;
+    } else {
+      ambientLight.intensity = 1.0;
+      sunDirectional.intensity = 0;
+    }
+  }
 
   // resize handler
   window.addEventListener('resize', () => {
@@ -44,7 +60,7 @@ export function createScene() {
   controls.minDistance = 30;
   controls.maxDistance = 50000;
 
-  return { renderer, scene, camera, controls };
+  return { renderer, scene, camera, controls, setLightingMode };
 }
 
 export function createStarfield(scene, count = 1500) {

@@ -18,6 +18,7 @@ export function buildBodyMesh(imageData, radius, minVertices) {
   const numTris = faces.length;
   const posArray = new Float32Array(numTris * 3 * 3);
   const colorArray = new Float32Array(numTris * 3 * 3);
+  const normalArray = new Float32Array(numTris * 3 * 3);
 
   for (let i = 0; i < numTris; i++) {
     const [a, b, c] = faces[i];
@@ -25,7 +26,7 @@ export function buildBodyMesh(imageData, radius, minVertices) {
     const vb = vertices[b];
     const vc = vertices[c];
 
-    // Centroid pro UV sampling
+    // Centroid pro UV sampling + face normal (radial = normalized centroid).
     const cx = (va[0] + vb[0] + vc[0]) / 3;
     const cy = (va[1] + vb[1] + vc[1]) / 3;
     const cz = (va[2] + vb[2] + vc[2]) / 3;
@@ -37,7 +38,6 @@ export function buildBodyMesh(imageData, radius, minVertices) {
     const [u, v] = sphericalUV(nx, ny, nz, 1);
     const [cr, cg, cb] = sampleColorPoleSafe(imageData, u, v);
 
-    // 3 verts × 3 souřadnice (non-shared pro flat shading)
     const base = i * 9;
     posArray[base + 0] = va[0] * radius;
     posArray[base + 1] = va[1] * radius;
@@ -53,15 +53,23 @@ export function buildBodyMesh(imageData, radius, minVertices) {
       colorArray[base + k * 3 + 0] = cr;
       colorArray[base + k * 3 + 1] = cg;
       colorArray[base + k * 3 + 2] = cb;
+      // Flat shading: všechny 3 vrcholy trojúhelníku sdílí stejnou face normal.
+      normalArray[base + k * 3 + 0] = nx;
+      normalArray[base + k * 3 + 1] = ny;
+      normalArray[base + k * 3 + 2] = nz;
     }
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
   geometry.computeBoundingSphere();
 
-  const material = new THREE.MeshBasicMaterial({
+  // MeshLambertMaterial reaguje na světla. Při default lightingu (vysoký
+  // ambient, žádné directional) vypadá jako flat MeshBasicMaterial. Toggle
+  // na "real lighting" se dělá přes scene lights (lightingMode.js).
+  const material = new THREE.MeshLambertMaterial({
     vertexColors: true,
     transparent: true,
     opacity: 1.0,
