@@ -2,12 +2,16 @@
 // Slunce je v origin (0,0,0), planety obíhají v XZ rovině (Y=0).
 // Žádný eccentricity (kruhové orbity pro V4.2 — eccentricity přijde s V4.3).
 
-// Real AU vzdálenosti: Mercury 0.39 · Venus 0.72 · Earth 1.00 · Mars 1.52
-//                      Jupiter 5.20 · Saturn 9.55 · Uranus 19.20 · Neptune 30.05
-// displayR = 1100 + 200×sqrt(au) — Sun radius 995, buffer 230 u Mercuru,
-// outer planety stále viditelně dál bez extrémní compresse.
+// Real AU: Mercury 0.39 · Venus 0.72 · Earth 1.00 · Mars 1.52
+//          Jupiter 5.20 · Saturn 9.55 · Uranus 19.20 · Neptune 30.05
+// displayR = 1100 + 350×sqrt(au) — Sun radius 995, buffer ~324 u Mercuru,
+// vnitřní planety čitelně oddělené od Slunce, outer roztaženy ale ne extrém.
+//   Mercury 0.39 → 1318  · Venus 1.0  → 1397
+//   Earth   1.0  → 1450  · Mars  1.52 → 1532
+//   Jupiter 5.2  → 1898  · Saturn 9.55 → 2182
+//   Uranus 19.2 → 2635   · Neptune 30 → 3018
 export function auToDisplayRadius(au) {
-  return 1100 + 200 * Math.sqrt(au);
+  return 1100 + 350 * Math.sqrt(au);
 }
 
 /**

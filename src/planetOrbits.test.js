@@ -2,18 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { auToDisplayRadius, orbitalPosition } from './planetOrbits.js';
 
-test('auToDisplayRadius: Mercury (0.39 AU) → ~1225', () => {
+test('auToDisplayRadius: Mercury (0.39 AU) → ~1318', () => {
   const r = auToDisplayRadius(0.39);
-  assert.ok(Math.abs(r - 1225) < 5, `r=${r}`);
+  assert.ok(Math.abs(r - 1318) < 5, `r=${r}`);
 });
 
-test('auToDisplayRadius: Earth (1.0) → 1300', () => {
-  assert.equal(auToDisplayRadius(1.0), 1300);
+test('auToDisplayRadius: Earth (1.0) → 1450', () => {
+  assert.equal(auToDisplayRadius(1.0), 1450);
 });
 
-test('auToDisplayRadius: Neptune (30.05) → ~2197', () => {
+test('auToDisplayRadius: Neptune (30.05) → ~3018', () => {
   const r = auToDisplayRadius(30.05);
-  assert.ok(Math.abs(r - 2197) < 5);
+  assert.ok(Math.abs(r - 3018) < 5);
 });
 
 test('orbitalPosition: t=0 + initialPhase=0 → x=r, z=0', () => {

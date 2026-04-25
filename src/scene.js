@@ -19,8 +19,8 @@ export function createScene() {
     200000,
   );
   // Default 3D pohled na celou soustavu — kamera nad orbital rovinou (~30°),
-  // vidí Sun (origin) + Neptune orbit (radius 2197).
-  camera.position.set(0, 2500, 4500);
+  // vidí Sun (origin) + Neptune orbit (radius 3018).
+  camera.position.set(0, 3500, 6000);
   camera.lookAt(0, 0, 0);
 
   // světla — silný ambient (jasné barvy textur), bodové sluneční světlo v origin.

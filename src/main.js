@@ -5,7 +5,7 @@ import { createScene, createStarfield } from './scene.js';
 import { createPlanetAnchors } from './planetAnchors.js';
 import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
-import { rotateAnchors } from './rotation.js';
+import { rotateAnchors, rotateOne } from './rotation.js';
 import { updateSolarWind } from './solarWind.js';
 import { updatePlanetOrbits } from './planetOrbits.js';
 import { updateMoonWind } from './moonWind.js';
@@ -148,9 +148,8 @@ function tick() {
   const dvState = detailView ? detailView.state() : 'MAIN';
   const isMainState = dvState === 'MAIN';
 
-  // Rotace planet — v MAIN běží, v DETAIL se zastaví (uživatel si prohlíží tělo staticky).
-  // Měsíčné orbity: v planet-detail běží (Kepler viz), v moon-detail se zmrazí (jinak moon
-  // utíká z kamery).
+  // Rotace v MAIN: všechny planety. V DETAIL: jen focus body (planeta nebo měsíc) —
+  // user si prohlíží jak se točí. Cizí tělesa stojí (matrixWorld stále refresh).
   const focusId = detailView ? detailView.focusId() : null;
   const isMoonDetail = focusId && MOONS.some((m) => m.id === focusId);
   if (isMainState) {
@@ -158,20 +157,30 @@ function tick() {
     rotateAnchors(anchors, dt);
     updateMoonOrbits(elapsed, moonScaleFactors);
   } else if (isMoonDetail) {
-    // Vše zmrazené — jen refresh matrixWorld. Planety + měsíce drží na místě.
+    // Moon-detail: focus měsíc rotuje, ostatní stojí.
     for (const p of PLANETS) {
       const a = anchors[p.id];
       if (a) a.updateMatrixWorld(true);
     }
     for (const m of MOONS) {
       const a = moonAnchors[m.id];
-      if (a) a.updateMatrixWorld(true);
+      if (!a) continue;
+      if (m.id === focusId) {
+        rotateOne(a, { rotationPeriod: m.period ?? 10, direction: m.retrograde ? -1 : 1 }, dt);
+      } else {
+        a.updateMatrixWorld(true);
+      }
     }
   } else {
-    // Planet-detail: planety stojí, měsíce dál obíhají.
+    // Planet-detail: focus planeta rotuje, ostatní planety stojí, měsíce focused planety obíhají.
     for (const p of PLANETS) {
       const a = anchors[p.id];
-      if (a) a.updateMatrixWorld(true);
+      if (!a) continue;
+      if (p.id === focusId) {
+        rotateOne(a, p, dt);
+      } else {
+        a.updateMatrixWorld(true);
+      }
     }
     updateMoonOrbits(elapsed, moonScaleFactors);
   }
