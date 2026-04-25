@@ -5,75 +5,31 @@ import { PHASE } from './phase.js';
 import { sampleColor, sphericalUV } from './textureUtils.js';
 
 export const TRAVEL_TIME = 0.35;
-export const LABEL_HOLD = 0.3;
 
-/**
- * Per-planet targets: label pozice + Fibonacci sphere surface + (pro Saturn) ring.
- * Vrací pole objektů { pos, localOffset, color, phase, isLabel, labelFallTarget }.
- */
-function buildTargetsForPlanet(planet, anchor, imageData, ringImageData) {
+// Per-planet targets: Fibonacci sphere surface body. Cache per planet.id.
+function buildTargetsForPlanet(planet, anchor, imageData) {
   const targets = [];
-  const centerX = anchor.position.x;
-  const centerY = anchor.position.y;
-  const centerZ = anchor.position.z;
-
-  // Surface Fibonacci points — všechny dotty jdou přímo na povrch (žádné labely).
+  const cx = anchor.position.x;
+  const cy = anchor.position.y;
+  const cz = anchor.position.z;
   const surfacePts = fibonacciSphere(planet.tickCount, planet.radiusPx * 1.02);
-  for (let k = 0; k < surfacePts.length; k++) {
-    const off = surfacePts[k];
+  for (const off of surfacePts) {
     const [u, v] = sphericalUV(off[0], off[1], off[2], planet.radiusPx * 1.02);
-    const color = sampleColor(imageData, u, v);
     targets.push({
-      pos: { x: centerX + off[0], y: centerY + off[1], z: centerZ + off[2] },
+      pos: { x: cx + off[0], y: cy + off[1], z: cz + off[2] },
       localOffset: { x: off[0], y: off[1], z: off[2] },
-      color,
+      color: sampleColor(imageData, u, v),
       phase: PHASE.ON_PLANET,
-      isLabel: false,
-      labelFallTarget: null,
     });
   }
-
-  // 3. Saturn ring
-  if (planet.ringTexture && planet.ringTickCount && ringImageData) {
-    const tilt = planet.axialTilt * Math.PI / 180;
-    const cosT = Math.cos(tilt);
-    const sinT = Math.sin(tilt);
-    const { data, width, height } = ringImageData;
-    const py = Math.floor(0.5 * height);
-    for (let k = 0; k < planet.ringTickCount; k++) {
-      const t = Math.random();
-      const r = Math.sqrt(planet.ringInnerRadius ** 2 + t * (planet.ringOuterRadius ** 2 - planet.ringInnerRadius ** 2));
-      const theta = Math.random() * Math.PI * 2;
-      const lx = Math.cos(theta) * r;
-      const ly = 0;
-      const lz = Math.sin(theta) * r;
-      // apply axial tilt (rotace kolem Z)
-      const ox = lx;
-      const oy = ly * cosT - lz * sinT;
-      const oz = ly * sinT + lz * cosT;
-      const px = Math.min(width - 1, Math.max(0, Math.floor(t * width)));
-      const idx = (py * width + px) * 4;
-      const alpha = data[idx + 3] / 255;
-      targets.push({
-        pos: { x: centerX + ox, y: centerY + oy, z: centerZ + oz },
-        localOffset: { x: ox, y: oy, z: oz },
-        color: [data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255],
-        phase: PHASE.ON_RING,
-        isLabel: false,
-        labelFallTarget: null,
-        ringAlpha: alpha,
-      });
-    }
-  }
-
   return targets;
 }
 
 const _cache = new Map();
 
-function getPlanetTargets(planet, anchor, imageData, ringImageData) {
+function getPlanetTargets(planet, anchor, imageData) {
   if (_cache.has(planet.id)) return _cache.get(planet.id);
-  const targets = buildTargetsForPlanet(planet, anchor, imageData, ringImageData);
+  const targets = buildTargetsForPlanet(planet, anchor, imageData);
   _cache.set(planet.id, targets);
   return targets;
 }
@@ -81,20 +37,12 @@ function getPlanetTargets(planet, anchor, imageData, ringImageData) {
 /**
  * Per-phase controller: tracks progress a emituje správný počet teček.
  * Stav (emittedCount) se ukládá přímo do phase objektu (mutation).
- *
- * @param {ParticlePool} pool
- * @param {number} currentTime
- * @param {number} dt
- * @param {Object} anchors — { [planetId]: Object3D }
- * @param {Object} imageData — { [planetId]: ImageData, [planetId+"_ring"]: ImageData }
  */
 export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
   const ph = phaseAt(currentTime);
   if (!ph) return;
-
-  // Sun fáze (1..2s) — Sun base dotty zůstávají alpha=0 (mesh je canonical
-  // od ihned). Flares (prominences/CME) ze sunActivity spawn vlastní visible
-  // dotty a fungují nezávisle.
+  // Sun fáze (1..2s) — Sun base dotty zůstávají alpha=0, mesh je canonical.
+  // Flares ze sunActivity spawn vlastní visible dotty nezávisle.
   if (ph.id === 'sun' || ph.id === 'init' || ph.id === 'live') return;
   if (!ph.planetId) return;
 
@@ -103,63 +51,31 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
   const tex = imageData[planet.id];
   if (!anchor || !tex) return;
 
-  const ringTex = planet.ringTexture ? imageData[`${planet.id}_ring`] : null;
-  const targets = getPlanetTargets(planet, anchor, tex, ringTex);
+  const targets = getPlanetTargets(planet, anchor, tex);
 
-  // Progress uvnitř fáze → očekávaný počet emisí.
   const phaseDuration = ph.end - ph.start;
   const progress = Math.min(1, (currentTime - ph.start) / phaseDuration);
   const expected = Math.floor(progress * targets.length);
-
   if (ph._emittedCount === undefined) ph._emittedCount = 0;
-
   const emitCount = expected - ph._emittedCount;
   if (emitCount <= 0) return;
 
-  // Sun center (PLANETS[0] = sun) — zdroj proudu.
   const sunAnchor = anchors.sun;
   const sunCenter = { x: sunAnchor.position.x, y: sunAnchor.position.y, z: sunAnchor.position.z };
   const sunRadius = PLANETS[0].radiusPx;
-  const planetIdx = PLANETS.findIndex(p => p.id === planet.id);
+  const planetIdx = PLANETS.findIndex((p) => p.id === planet.id);
 
   const idleIndices = pool.takeIdleIndices(emitCount);
-
   for (let k = 0; k < idleIndices.length; k++) {
     const idx = idleIndices[k];
-    const targetIdx = ph._emittedCount + k;
-    const t = targets[targetIdx];
+    const t = targets[ph._emittedCount + k];
     if (!t) break;
-
     pool.spawnFromSun(
-      idx,
-      sunCenter,
-      sunRadius,
-      t.pos,
-      t.localOffset,
-      t.color,
-      planetIdx,
-      t.phase,
-      currentTime,
-      TRAVEL_TIME,
-      t.isLabel ? t.pos : null,
-      LABEL_HOLD,
-      planet.alpha ?? 1.0,
-      t.phase === PHASE.ON_RING ? null : (planet.dotSize ?? 6.0),
+      idx, sunCenter, sunRadius, t.pos, t.localOffset, t.color,
+      planetIdx, t.phase, currentTime, TRAVEL_TIME,
+      planet.alpha ?? 1.0, planet.dotSize ?? 6.0,
     );
-
-    // Pro label: postArrivalTarget musí být labelFallTarget (povrch), ne label pozice.
-    if (t.isLabel && t.labelFallTarget) {
-      pool.postArrivalTarget[3 * idx]     = t.labelFallTarget.x;
-      pool.postArrivalTarget[3 * idx + 1] = t.labelFallTarget.y;
-      pool.postArrivalTarget[3 * idx + 2] = t.labelFallTarget.z;
-    }
-
-    // Ring alpha korekce velikosti — zachovat minimum viditelnosti.
-    if (t.ringAlpha !== undefined) {
-      pool.size[idx] = 4.5 * Math.max(0.6, t.ringAlpha);
-    }
   }
-
   ph._emittedCount += idleIndices.length;
 }
 

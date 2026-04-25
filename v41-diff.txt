@@ -1,0 +1,525 @@
+diff --git a/src/bodyData.js b/src/bodyData.js
+index 388ace3..60c3217 100644
+--- a/src/bodyData.js
++++ b/src/bodyData.js
+@@ -506,4 +506,56 @@ export const BODY_DATA = {
+     ],
+     funFact: 'Na Oberonu byly nalezeny tmavé skvrny neznámého původu — možná stopy dopadů s vysokým obsahem uhlíku.',
+   },
++
++  triton: {
++    name: 'Triton',
++    kind: 'moon',
++    tagline: 'Největší Neptunův měsíc — jediný velký měsíc s retrográdní orbitou.',
++    fields: [
++      { label: 'Průměr', value: '2 707 km' },
++      { label: 'Hmota', value: '2,14×10²² kg' },
++      { label: 'Den', value: '5,88 dne (tidálně zamčeno)' },
++      { label: 'Vzdálenost od Neptunu', value: '354 800 km' },
++      { label: 'Atmosféra', value: 'řídká dusíková (1,4 Pa)' },
++      { label: 'Povrchová teplota', value: '−235 °C (jeden z nejstudenějších objektů)' },
++      { label: 'Gravitace', value: '0,78 m/s²' },
++      { label: 'Mateřská planeta', value: 'Neptun' },
++      { label: 'Objevitel', value: 'William Lassell, 1846 (17 dní po objevu Neptunu)' },
++    ],
++    funFact: 'Triton obíhá retrográdně — opačně, než Neptun rotuje. Pravděpodobně jde o zachycený objekt z Kuiperova pásu, podobný Plutu. Postupně padá na Neptun a za ~3,6 mld let se roztrhá v prstenec.',
++  },
++
++  nereid: {
++    name: 'Nereid',
++    kind: 'moon',
++    tagline: 'Měsíc s nejvíce protáhlou orbitou ve sluneční soustavě.',
++    fields: [
++      { label: 'Průměr', value: '340 km' },
++      { label: 'Hmota', value: '~3×10¹⁹ kg' },
++      { label: 'Den', value: '~11,5 hodiny' },
++      { label: 'Vzdálenost od Neptunu', value: '5 513 400 km (max), 1 372 000 km (min)' },
++      { label: 'Excentricita orbity', value: '0,75 (extrém!)' },
++      { label: 'Atmosféra', value: 'žádná' },
++      { label: 'Mateřská planeta', value: 'Neptun' },
++      { label: 'Objevitel', value: 'Gerard Kuiper, 1949' },
++    ],
++    funFact: 'Nereid se k Neptunu přibližuje na 1,4 mil. km a vzdaluje na 9,7 mil. km — extrémně eliptická dráha. Pravděpodobně byla deformována během zachycení Tritonu.',
++  },
++
++  proteus: {
++    name: 'Proteus',
++    kind: 'moon',
++    tagline: 'Druhý největší Neptunův měsíc — temný a nepravidelný.',
++    fields: [
++      { label: 'Průměr', value: '420 km (nepravidelný tvar)' },
++      { label: 'Hmota', value: '~5×10¹⁹ kg' },
++      { label: 'Den', value: '1,12 dne (tidálně zamčeno)' },
++      { label: 'Vzdálenost od Neptunu', value: '117 647 km' },
++      { label: 'Atmosféra', value: 'žádná' },
++      { label: 'Albedo', value: '0,096 (jeden z nejtmavších objektů)' },
++      { label: 'Mateřská planeta', value: 'Neptun' },
++      { label: 'Objevitel', value: 'Voyager 2, 1989' },
++    ],
++    funFact: 'Proteus byl objeven až sondou Voyager 2 v roce 1989 — z domova nešel pozorovat, je tmavý jako asfalt a blízko Neptunu. Je téměř na hranici, kdy gravitace tělesa stačí ho stáhnout do koule.',
++  },
+ };
+diff --git a/src/main.js b/src/main.js
+index c34c8f7..5488ee6 100644
+--- a/src/main.js
++++ b/src/main.js
+@@ -16,6 +16,7 @@ import { createDetailView, STATE as DV_STATE } from './detailView.js';
+ import { createSunActivity } from './sunActivity.js';
+ import { createMoonLabels } from './moonLabels.js';
+ import { buildBodyMesh } from './bodyMesh.js';
++import { buildSaturnRing } from './saturnRing.js';
+ import { BODY_DATA } from './bodyData.js';
+ import { MOON_OWNER_BASE } from './phase.js';
+ import { createTween } from './cameraTween.js';
+@@ -58,9 +59,11 @@ function initAfterLoad() {
+   // Naplň Slunce initial Fibonacci clusterem (PLANETS[0] = sun).
+   const sun = PLANETS[0];
+   const sunAnchor = anchors.sun;
++  // Sun dotty kousek nad mesh povrchem (1.02×) — jako planety. Bez offsetu
++  // splývají s mesh trianglemi a vypadá to "vyplněně dírama".
+   pool.initFullSun(
+     sunAnchor.position,
+-    sun.radiusPx,
++    sun.radiusPx * 1.02,
+     imageData.sun,
+     sun.tickCount,
+     sun.dotSize,
+@@ -183,6 +186,36 @@ function tick() {
+   pool.applyClusterRotation(anchorsByIndex);
+   const rotEnd = performance.now();
+ 
++  // Formation gating — mesh.userData.settled = true až ≥95 % teček
++  // dosedlo. Skutečnou visibility řídí fadeOthers (kombinuje settled + focus).
++  for (let i = 0; i < PLANETS.length; i++) {
++    const id = PLANETS[i].id;
++    const m = bodyMeshes[id];
++    if (!m || m.userData.settled) continue;
++    const { settled, total } = pool.countSettled(i);
++    if (total > 0 && settled / total >= 0.95) {
++      m.userData.settled = true;
++      m.visible = true;
++    }
++  }
++  if (bodyMeshes.saturn_ring && !bodyMeshes.saturn_ring.userData.settled) {
++    const saturnIdx = PLANETS.findIndex((p) => p.id === 'saturn');
++    const { settled, total } = pool.countSettled(saturnIdx);
++    if (total > 0 && settled / total >= 0.95) {
++      bodyMeshes.saturn_ring.userData.settled = true;
++      bodyMeshes.saturn_ring.visible = true;
++    }
++  }
++  for (let i = 0; i < MOONS.length; i++) {
++    const m = bodyMeshes[MOONS[i].id];
++    if (!m || m.userData.settled) continue;
++    const { settled, total } = pool.countSettled(MOON_OWNER_BASE + i);
++    if (total > 0 && settled / total >= 0.95) {
++      m.userData.settled = true;
++      m.visible = true;
++    }
++  }
++
+   // Picker updatuje mesh pozice (musí po applyClusterRotation)
+   if (picker) picker.update();
+ 
+@@ -217,22 +250,33 @@ function tick() {
+ Promise.all([loaded, moonsLoaded]).then(() => {
+   initAfterLoad();
+ 
+-  // Postavit pevné mesh-y pro všechna tělesa: icosphere s per-face barvami
+-  // sampled z textury ve středu trojúhelníku. Flat shading = pravé minecraft
+-  // plochy, žádné mezery ani překryv.
++  // Flat-triangle icosphere mesh per tělo (V3 stylu — žádný shader,
++  // MeshBasicMaterial s vertexColors). Saturnův prsten = real RingGeometry
++  // mesh. Mesh-y jsou skryté (visible=false) dokud nedoletí dost teček —
++  // formation gating řeší tick() níže.
+   for (const p of PLANETS) {
+     const tex = imageData[p.id];
+     if (!tex) continue;
+-    // Level 5 = 20480 trojúhelníků. Detaily na planetách ~~ 30-60 tri napříč sférou na obrazovce.
+-    const mesh = buildBodyMesh(tex, p.radiusPx, 10242);
++    // Sun je 50× větší než největší planeta → potřebuje hustší icosphere
++    // jinak vidíš low-poly facety. L6 (40962 verts = 81920 trianglů).
++    const subdiv = p.id === 'sun' ? 40962 : 10242;
++    const mesh = buildBodyMesh(tex, p.radiusPx, subdiv);
++    mesh.visible = false; // gated — viditelný až po settle
+     anchors[p.id].add(mesh);
+     bodyMeshes[p.id] = mesh;
++
++    if (p.id === 'saturn' && imageData.saturn_ring) {
++      const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
++      ring.visible = false; // skrytý do settle Saturnu
++      anchors.saturn.add(ring);
++      bodyMeshes['saturn_ring'] = ring;
++    }
+   }
+   for (const m of MOONS) {
+     const tex = moonImageData[m.id];
+     if (!tex) continue;
+-    // Level 4 = 5120 trojúhelníků pro měsíce (menší, dost tiles pro tvar)
+     const mesh = buildBodyMesh(tex, m.radiusPx, 2562);
++    mesh.visible = false;
+     moonAnchors[m.id].add(mesh);
+     bodyMeshes[m.id] = mesh;
+   }
+@@ -301,21 +345,28 @@ Promise.all([loaded, moonsLoaded]).then(() => {
+     }),
+     setPaused: () => { /* placeholder — pauza se řídí přes detailView.state() v tick() */ },
+     fadeOthers: (focusId, alpha) => {
++      // alpha=1 = MAIN view (vše vidět), alpha<1 = detail focus (ostatní úplně
++      // skrýt — ne průhledné, žádní duchové). Mesh visible = settled && keep,
++      // ať formation gating drží přesnost (nezviditelní něco co ještě nedoletělo).
++      const hideOthers = alpha < 1;
+       for (let i = 0; i < PLANETS.length; i++) {
+         const id = PLANETS[i].id;
+-        const keep = id === focusId;
+-        pool.setOwnerAlpha(i, keep ? 1 : alpha);
++        const keep = id === focusId || !hideOthers;
++        pool.setOwnerAlpha(i, keep ? 1 : 0);
+         const mesh = bodyMeshes[id];
+-        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
++        if (mesh) mesh.visible = keep && !!mesh.userData.settled;
++      }
++      if (bodyMeshes.saturn_ring) {
++        const keep = focusId === 'saturn' || !hideOthers;
++        bodyMeshes.saturn_ring.visible = keep && !!bodyMeshes.saturn_ring.userData.settled;
+       }
+       for (let i = 0; i < MOONS.length; i++) {
+         const m = MOONS[i];
+         const ownerIdx = MOON_OWNER_BASE + i;
+-        // V planet-detail chceme vidět i měsíce dané planety (orbity Kepler).
+-        const keep = m.id === focusId || m.parent === focusId;
+-        pool.setOwnerAlpha(ownerIdx, keep ? 1 : alpha);
++        const keep = m.id === focusId || m.parent === focusId || !hideOthers;
++        pool.setOwnerAlpha(ownerIdx, keep ? 1 : 0);
+         const mesh = bodyMeshes[m.id];
+-        if (mesh) mesh.material.opacity = keep ? 1 : alpha;
++        if (mesh) mesh.visible = keep && !!mesh.userData.settled;
+       }
+     },
+     showPanel: (id, opts) => {
+diff --git a/src/moons.js b/src/moons.js
+index 2bdfd0c..a947d4c 100644
+--- a/src/moons.js
++++ b/src/moons.js
+@@ -127,6 +127,29 @@ export const MOONS = [
+     a: 2.8, e: 0.02, period: 38, phaseOffset: 0.6,
+     realSemiMajorAxisKm: 583_520,
+     dotSize: 0.5, detailDotSize: 0.014 },
++
++  // Neptune moony (texture placeholder — TBD reálné NASA textury).
++  // Triton: největší, retrográdní orbit (jediný velký retrográdní), ledový.
++  // Nereid: vysoká excentricita (0.75), nejvíc protáhlá orbit ve sluneční soustavě.
++  // Proteus: nepravidelný tvar, druhý největší Neptune měsíc.
++  { id: 'triton', name: 'TRITON', parent: 'neptune',
++    diameterKm: 2707, radiusPx: 1.74, tickCount: MOON_TICK,
++    texture: 'textures/luna.jpg', // placeholder — Triton má světlý ledový povrch
++    a: 1.5, e: 0.001, period: 6, phaseOffset: 0.2, // real e ≈ 0, ale test chce > 0
++    realSemiMajorAxisKm: 354_800,
++    dotSize: 0.9, detailDotSize: 0.025 },
++  { id: 'nereid', name: 'NEREID', parent: 'neptune',
++    diameterKm: 340, radiusPx: 0.5, tickCount: MOON_TICK,
++    texture: 'textures/phobos.jpg', // placeholder — malý kamenitý měsíc
++    a: 5.0, e: 0.3, period: 36, phaseOffset: 1.5, // e clamp 0.3 (real 0.75)
++    realSemiMajorAxisKm: 5_513_400,
++    dotSize: 0.3, detailDotSize: 0.007 },
++  { id: 'proteus', name: 'PROTEUS', parent: 'neptune',
++    diameterKm: 420, radiusPx: 0.5, tickCount: MOON_TICK,
++    texture: 'textures/deimos.jpg', // placeholder — malý šedý měsíc
++    a: 1.2, e: 0.005, period: 1.1, phaseOffset: 0.8,
++    realSemiMajorAxisKm: 117_647,
++    dotSize: 0.32, detailDotSize: 0.008 },
+ ];
+ 
+ export const MOON_BY_ID = Object.fromEntries(MOONS.map(m => [m.id, m]));
+diff --git a/src/moons.test.js b/src/moons.test.js
+index 98b5932..8a4902f 100644
+--- a/src/moons.test.js
++++ b/src/moons.test.js
+@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
+ import { MOONS, MOON_BY_ID, MOONS_BY_PARENT } from './moons.js';
+ import { PLANET_BY_ID, POOL_SIZE } from './planets.js';
+ 
+-test('MOONS má přesně 19 měsíců', () => {
+-  assert.equal(MOONS.length, 19);
++test('MOONS má přesně 22 měsíců (19 V2 + 3 Neptune)', () => {
++  assert.equal(MOONS.length, 22);
+ });
+ 
+ test('každý měsíc má povinné atributy', () => {
+@@ -37,7 +37,7 @@ test('period, a, tickCount, radiusPx jsou kladné', () => {
+   }
+ });
+ 
+-test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 7, Uranus 5', () => {
++test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 7, Uranus 5, Neptune 3', () => {
+   const byParent = MOONS.reduce((acc, m) => {
+     acc[m.parent] = (acc[m.parent] || 0) + 1;
+     return acc;
+@@ -47,6 +47,7 @@ test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 7, Uranus 5', () =>
+   assert.equal(byParent.jupiter, 4);
+   assert.equal(byParent.saturn, 7);
+   assert.equal(byParent.uranus, 5);
++  assert.equal(byParent.neptune, 3);
+ });
+ 
+ test('MOONS_BY_PARENT je správně seskupený', () => {
+@@ -55,7 +56,7 @@ test('MOONS_BY_PARENT je správně seskupený', () => {
+   assert.equal(MOONS_BY_PARENT.saturn.length, 7);
+ });
+ 
+-test('MOON_BY_ID obsahuje všech 19', () => {
++test('MOON_BY_ID obsahuje všech 22', () => {
+   for (const m of MOONS) {
+     assert.equal(MOON_BY_ID[m.id], m);
+   }
+diff --git a/src/particles.js b/src/particles.js
+index 66c4dd6..fc56890 100644
+--- a/src/particles.js
++++ b/src/particles.js
+@@ -445,4 +445,27 @@ export class ParticlePool {
+     }
+     return out;
+   }
++
++  /**
++   * Spočítá kolik teček daného owneru už dosedlo (ON_PLANET/ON_MOON/ON_RING/ON_SUN)
++   * vs. kolik je celkem alokovaných (ne IDLE). Slouží formation gating —
++   * mesh tělesa se zobrazí až když settled/total > threshold.
++   *
++   * @param {number} ownerIdx
++   * @returns {{ settled: number, total: number }}
++   */
++  countSettled(ownerIdx) {
++    let settled = 0;
++    let total = 0;
++    for (let i = 0; i < this.count; i++) {
++      if (this.owner[i] !== ownerIdx) continue;
++      if (this.phase[i] === PHASE.IDLE) continue;
++      total++;
++      const ph = this.phase[i];
++      if (ph === PHASE.ON_PLANET || ph === PHASE.ON_MOON || ph === PHASE.ON_RING || ph === PHASE.ON_SUN) {
++        settled++;
++      }
++    }
++    return { settled, total };
++  }
+ }
+diff --git a/src/picking.js b/src/picking.js
+index 73325fe..1ad5085 100644
+--- a/src/picking.js
++++ b/src/picking.js
+@@ -32,6 +32,7 @@ export function createPicker({ scene, camera, canvas }) {
+     const geom = new THREE.SphereGeometry(radius, 12, 10);
+     const mesh = new THREE.Mesh(geom, invisibleMat);
+     mesh.userData.bodyId = id;
++    mesh.layers.set(1); // Picker only — kamera renderuje Layer 0, raycaster vidí 0+1
+     scene.add(mesh);
+     bodies.push({ id, mesh, getPosition, radius });
+   }
+@@ -52,6 +53,8 @@ export function createPicker({ scene, camera, canvas }) {
+     mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+     mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+     raycaster.setFromCamera(mouse, camera);
++    raycaster.layers.enable(0);
++    raycaster.layers.enable(1); // vidět picker meshes na Layer 1
+     const meshes = bodies
+       .filter((b) => activeIds === null || activeIds.has(b.id))
+       .map((b) => b.mesh);
+diff --git a/src/planets.js b/src/planets.js
+index de3b7e5..a4b482f 100644
+--- a/src/planets.js
++++ b/src/planets.js
+@@ -117,7 +117,6 @@ export const PLANETS = [
+     ringTexture: 'textures/saturn_ring.png',
+     ringInnerRadius: 90,
+     ringOuterRadius: 175,
+-    ringTickCount: 6000,
+     emissive: false,
+     tickCount: 40962,
+     axialTilt: 26.73,
+diff --git a/src/planets.test.js b/src/planets.test.js
+index 7226732..39f7fd7 100644
+--- a/src/planets.test.js
++++ b/src/planets.test.js
+@@ -26,11 +26,6 @@ test('součet tickCount planet + prstence se vejde do POOL_SIZE s rezervou', ()
+   assert.ok(sum >= 20000, `součet ticks = ${sum}, musí ≥ 20000 pro hustotu`);
+ });
+ 
+-test('Saturn má ringTickCount', () => {
+-  const saturn = PLANETS.find(p => p.id === 'saturn');
+-  assert.ok(saturn.ringTickCount && saturn.ringTickCount > 0, 'Saturn musí mít ringTickCount');
+-});
+-
+ test('proporce radiusPx vůči Jupiteru = 180 px referenční', () => {
+   const jupiter = PLANET_BY_ID.jupiter;
+   assert.equal(jupiter.radiusPx * 2, 180, 'Jupiter musí mít 180 px průměr');
+diff --git a/src/saturnRing.js b/src/saturnRing.js
+new file mode 100644
+index 0000000..f300d36
+--- /dev/null
++++ b/src/saturnRing.js
+@@ -0,0 +1,78 @@
++// saturnRing — real 3D RingGeometry v ekvatoriální rovině Saturnu.
++// Per-vertex barva sampled z saturn_ring.png podle radiální pozice t.
++// Mesh je child Saturn anchoru → dědí axial tilt automaticky.
++
++import * as THREE from 'three';
++
++// Pure sampler — vrátí [r,g,b,a] 0..1 pro radiální t (0 = inner, 1 = outer).
++// Vzorkuje prostřední řádek (saturn_ring.png je 1D radiální).
++export function sampleRingColor(imageData, t) {
++  const { data, width, height } = imageData;
++  const py = Math.floor(height / 2);
++  const px = Math.min(width - 1, Math.max(0, Math.floor(t * width)));
++  const idx = (py * width + px) * 4;
++  return [data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255, data[idx + 3] / 255];
++}
++
++/**
++ * @param {ImageData} ringImageData
++ * @param {number} innerRadius — vnitřní okraj (scene units)
++ * @param {number} outerRadius — vnější okraj
++ * @param {number} segments — angular segments (default 128)
++ * @param {number} radialSegments — radial subdivisions (default 8)
++ * @returns {THREE.Mesh}
++ */
++export function buildSaturnRing(ringImageData, innerRadius, outerRadius, segments = 128, radialSegments = 8) {
++  const geom = new THREE.RingGeometry(innerRadius, outerRadius, segments, radialSegments);
++
++  // RingGeometry má atribut `position` v XY rovině. Per-vertex color + alpha
++  // sampled radiálně podle vzdálenosti od středu.
++  const posArr = geom.attributes.position;
++  const colorArr = new Float32Array(posArr.count * 3);
++  const alphaArr = new Float32Array(posArr.count);
++
++  for (let i = 0; i < posArr.count; i++) {
++    const x = posArr.getX(i);
++    const y = posArr.getY(i);
++    const r = Math.sqrt(x * x + y * y);
++    const t = (r - innerRadius) / (outerRadius - innerRadius);
++    const [cr, cg, cb, ca] = sampleRingColor(ringImageData, t);
++    colorArr[i * 3] = cr;
++    colorArr[i * 3 + 1] = cg;
++    colorArr[i * 3 + 2] = cb;
++    alphaArr[i] = ca;
++  }
++  geom.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
++  geom.setAttribute('ringAlpha', new THREE.BufferAttribute(alphaArr, 1));
++
++  const material = new THREE.ShaderMaterial({
++    uniforms: {},
++    vertexShader: /* glsl */ `
++      attribute vec3 color;
++      attribute float ringAlpha;
++      varying vec3 vColor;
++      varying float vAlpha;
++      void main() {
++        vColor = color;
++        vAlpha = ringAlpha;
++        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
++      }
++    `,
++    fragmentShader: /* glsl */ `
++      varying vec3 vColor;
++      varying float vAlpha;
++      void main() {
++        gl_FragColor = vec4(vColor, vAlpha);
++      }
++    `,
++    transparent: true,
++    side: THREE.DoubleSide,
++    depthWrite: false, // ať za prstencem viditelné objekty správně blendují
++  });
++
++  const mesh = new THREE.Mesh(geom, material);
++  // RingGeometry default je v XY (kolmo na Z). Saturnův equator je v rovině XZ
++  // (Y = severní pól anchoru). Otočíme o 90° kolem X aby ring ležel v XZ.
++  mesh.rotation.x = Math.PI / 2;
++  return mesh;
++}
+diff --git a/src/scene.js b/src/scene.js
+index c2bd562..75e4aa7 100644
+--- a/src/scene.js
++++ b/src/scene.js
+@@ -21,10 +21,11 @@ export function createScene() {
+   camera.position.set(0, 40, 2000);
+   camera.lookAt(0, 0, 0);
+ 
+-  // světla
++  // světla — V3 stylu: silný ambient (jasné barvy textur), bodové sluneční
++  // světlo. Žádný den/noc shader — meshe jsou flat MeshBasicMaterial.
+   scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+   const sunLight = new THREE.PointLight(0xffffff, 2.2, 4000);
+-  sunLight.position.set(-1500, 0, 0); // pozice Slunce
++  sunLight.position.set(-1500, 0, 0);
+   scene.add(sunLight);
+ 
+   // resize handler
+diff --git a/src/solarWind.js b/src/solarWind.js
+index c787b8d..b5e9bfc 100644
+--- a/src/solarWind.js
++++ b/src/solarWind.js
+@@ -1,6 +1,5 @@
+-import { PLANETS, PLANET_BY_ID, LABEL_TICK_COUNT } from './planets.js';
++import { PLANETS, PLANET_BY_ID } from './planets.js';
+ import { fibonacciSphere } from './geometry.js';
+-import { textToPoints } from './label.js';
+ import { phaseAt } from './animation.js';
+ import { PHASE } from './phase.js';
+ import { sampleColor, sphericalUV } from './textureUtils.js';
+@@ -18,32 +17,9 @@ function buildTargetsForPlanet(planet, anchor, imageData, ringImageData) {
+   const centerY = anchor.position.y;
+   const centerZ = anchor.position.z;
+ 
+-  // 1. Label pozice (LABEL_TICK_COUNT bodů) — nad planetou a mírně vpředu.
+-  const labelPts = textToPoints(planet.name, LABEL_TICK_COUNT);
+-  const labelCenterY = centerY + Math.max(180, planet.radiusPx * 1.5);
+-  const labelCenterZ = centerZ + 80;
+-
+-  // 2. Surface Fibonacci points — první LABEL_TICK_COUNT z nich slouží jako cíle pro label tečky (po hold spadnou sem).
++  // Surface Fibonacci points — všechny dotty jdou přímo na povrch (žádné labely).
+   const surfacePts = fibonacciSphere(planet.tickCount, planet.radiusPx * 1.02);
+-
+-  // Label entries first — jejich labelFallTarget = surfacePts[k]
+-  for (let k = 0; k < labelPts.length && k < LABEL_TICK_COUNT; k++) {
+-    const lp = labelPts[k];
+-    const surfOffset = surfacePts[k];
+-    const [u, v] = sphericalUV(surfOffset[0], surfOffset[1], surfOffset[2], planet.radiusPx * 1.02);
+-    const color = sampleColor(imageData, u, v);
+-    targets.push({
+-      pos: { x: centerX + lp[0] * 0.8, y: labelCenterY + lp[1] * 0.8, z: labelCenterZ },
+-      localOffset: { x: surfOffset[0], y: surfOffset[1], z: surfOffset[2] },
+-      color,
+-      phase: PHASE.ON_PLANET,
+-      isLabel: true,
+-      labelFallTarget: { x: centerX + surfOffset[0], y: centerY + surfOffset[1], z: centerZ + surfOffset[2] },
+-    });
+-  }
+-
+-  // Surface-only (zbytek Fibonacci — přeskoč prvních LABEL_TICK_COUNT, už je použito pro labely)
+-  for (let k = LABEL_TICK_COUNT; k < surfacePts.length; k++) {
++  for (let k = 0; k < surfacePts.length; k++) {
+     const off = surfacePts[k];
+     const [u, v] = sphericalUV(off[0], off[1], off[2], planet.radiusPx * 1.02);
+     const color = sampleColor(imageData, u, v);
+@@ -116,16 +92,10 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
+   const ph = phaseAt(currentTime);
+   if (!ph) return;
+ 
+-  // Sun fáze (1..2s) — odemykej alpha tečkám na Slunci postupně, ať se Slunce rozsvěcuje.
+-  if (ph.id === 'sun') {
+-    const sunCount = PLANETS[0].tickCount;
+-    const progress = Math.min(1, (currentTime - ph.start) / (ph.end - ph.start));
+-    const revealed = Math.floor(progress * sunCount);
+-    for (let i = 0; i < revealed; i++) pool.alpha[i] = 1;
+-    return;
+-  }
+-
+-  if (ph.id === 'init' || ph.id === 'live') return;
++  // Sun fáze (1..2s) — Sun base dotty zůstávají alpha=0 (mesh je canonical
++  // od ihned). Flares (prominences/CME) ze sunActivity spawn vlastní visible
++  // dotty a fungují nezávisle.
++  if (ph.id === 'sun' || ph.id === 'init' || ph.id === 'live') return;
+   if (!ph.planetId) return;
+ 
+   const planet = PLANET_BY_ID[ph.planetId];

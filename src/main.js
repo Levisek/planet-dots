@@ -44,9 +44,15 @@ let infoPanel = null;
 let detailView = null;
 let sunActivity = null;
 let moonLabels = null;
-const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo
+const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo (+ 'saturn_ring')
 let _activeCameraTween = null;
 const controlsTarget = { x: 0, y: 0, z: 0 };
+
+// Unified mesh ↔ owner mapping pro formation gating + fadeOthers loops.
+// Postaveno v initAfterLoad po build mesh-ů.
+const SATURN_IDX = PLANETS.findIndex((p) => p.id === 'saturn');
+/** @type {Array<{ key: string, ownerIdx: number, isPlanet: boolean, isMoon: boolean, parentId?: string }>} */
+const gatedMeshes = [];
 
 // ——— Perf diag ———
 const statsEl = document.getElementById('stats');
@@ -186,30 +192,12 @@ function tick() {
   pool.applyClusterRotation(anchorsByIndex);
   const rotEnd = performance.now();
 
-  // Formation gating — mesh.userData.settled = true až ≥95 % teček
-  // dosedlo. Skutečnou visibility řídí fadeOthers (kombinuje settled + focus).
-  for (let i = 0; i < PLANETS.length; i++) {
-    const id = PLANETS[i].id;
-    const m = bodyMeshes[id];
+  // Formation gating — mesh.userData.settled = true až ≥95 % teček dosedlo.
+  // Skutečnou visibility řídí fadeOthers (kombinuje settled + focus).
+  for (const g of gatedMeshes) {
+    const m = bodyMeshes[g.key];
     if (!m || m.userData.settled) continue;
-    const { settled, total } = pool.countSettled(i);
-    if (total > 0 && settled / total >= 0.95) {
-      m.userData.settled = true;
-      m.visible = true;
-    }
-  }
-  if (bodyMeshes.saturn_ring && !bodyMeshes.saturn_ring.userData.settled) {
-    const saturnIdx = PLANETS.findIndex((p) => p.id === 'saturn');
-    const { settled, total } = pool.countSettled(saturnIdx);
-    if (total > 0 && settled / total >= 0.95) {
-      bodyMeshes.saturn_ring.userData.settled = true;
-      bodyMeshes.saturn_ring.visible = true;
-    }
-  }
-  for (let i = 0; i < MOONS.length; i++) {
-    const m = bodyMeshes[MOONS[i].id];
-    if (!m || m.userData.settled) continue;
-    const { settled, total } = pool.countSettled(MOON_OWNER_BASE + i);
+    const { settled, total } = pool.countSettled(g.ownerIdx);
     if (total > 0 && settled / total >= 0.95) {
       m.userData.settled = true;
       m.visible = true;
@@ -254,31 +242,36 @@ Promise.all([loaded, moonsLoaded]).then(() => {
   // MeshBasicMaterial s vertexColors). Saturnův prsten = real RingGeometry
   // mesh. Mesh-y jsou skryté (visible=false) dokud nedoletí dost teček —
   // formation gating řeší tick() níže.
-  for (const p of PLANETS) {
+  for (let i = 0; i < PLANETS.length; i++) {
+    const p = PLANETS[i];
     const tex = imageData[p.id];
     if (!tex) continue;
     // Sun je 50× větší než největší planeta → potřebuje hustší icosphere
     // jinak vidíš low-poly facety. L6 (40962 verts = 81920 trianglů).
     const subdiv = p.id === 'sun' ? 40962 : 10242;
     const mesh = buildBodyMesh(tex, p.radiusPx, subdiv);
-    mesh.visible = false; // gated — viditelný až po settle
+    mesh.visible = false;
     anchors[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
+    gatedMeshes.push({ key: p.id, ownerIdx: i, isPlanet: true, isMoon: false });
 
     if (p.id === 'saturn' && imageData.saturn_ring) {
       const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
-      ring.visible = false; // skrytý do settle Saturnu
+      ring.visible = false;
       anchors.saturn.add(ring);
       bodyMeshes['saturn_ring'] = ring;
+      gatedMeshes.push({ key: 'saturn_ring', ownerIdx: SATURN_IDX, isPlanet: false, isMoon: false, parentId: 'saturn' });
     }
   }
-  for (const m of MOONS) {
+  for (let i = 0; i < MOONS.length; i++) {
+    const m = MOONS[i];
     const tex = moonImageData[m.id];
     if (!tex) continue;
     const mesh = buildBodyMesh(tex, m.radiusPx, 2562);
     mesh.visible = false;
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
+    gatedMeshes.push({ key: m.id, ownerIdx: MOON_OWNER_BASE + i, isPlanet: false, isMoon: true, parentId: m.parent });
   }
 
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
@@ -345,27 +338,15 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     }),
     setPaused: () => { /* placeholder — pauza se řídí přes detailView.state() v tick() */ },
     fadeOthers: (focusId, alpha) => {
-      // alpha=1 = MAIN view (vše vidět), alpha<1 = detail focus (ostatní úplně
-      // skrýt — ne průhledné, žádní duchové). Mesh visible = settled && keep,
-      // ať formation gating drží přesnost (nezviditelní něco co ještě nedoletělo).
+      // alpha < 1 = detail focus (ostatní úplně skrýt, ne průhledné — žádní duchové).
+      // alpha = 1 = MAIN (vše vidět). Visible = keep && settled (formation gating).
+      // Měsíce focused planety necháme viditelné kvůli orbitám.
       const hideOthers = alpha < 1;
-      for (let i = 0; i < PLANETS.length; i++) {
-        const id = PLANETS[i].id;
-        const keep = id === focusId || !hideOthers;
-        pool.setOwnerAlpha(i, keep ? 1 : 0);
-        const mesh = bodyMeshes[id];
-        if (mesh) mesh.visible = keep && !!mesh.userData.settled;
-      }
-      if (bodyMeshes.saturn_ring) {
-        const keep = focusId === 'saturn' || !hideOthers;
-        bodyMeshes.saturn_ring.visible = keep && !!bodyMeshes.saturn_ring.userData.settled;
-      }
-      for (let i = 0; i < MOONS.length; i++) {
-        const m = MOONS[i];
-        const ownerIdx = MOON_OWNER_BASE + i;
-        const keep = m.id === focusId || m.parent === focusId || !hideOthers;
-        pool.setOwnerAlpha(ownerIdx, keep ? 1 : 0);
-        const mesh = bodyMeshes[m.id];
+      for (const g of gatedMeshes) {
+        const isFocus = g.key === focusId || (g.parentId && g.parentId === focusId);
+        const keep = isFocus || !hideOthers;
+        if (g.isPlanet || g.isMoon) pool.setOwnerAlpha(g.ownerIdx, keep ? 1 : 0);
+        const mesh = bodyMeshes[g.key];
         if (mesh) mesh.visible = keep && !!mesh.userData.settled;
       }
     },

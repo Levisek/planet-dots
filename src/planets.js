@@ -167,8 +167,5 @@ export const PLANETS = [
 export const PLANET_BY_ID = Object.fromEntries(PLANETS.map(p => [p.id, p]));
 
 // Celkový pool size pro ParticlePool (sun + planety + ringy + rezerva na labely/in-flight).
-// 9 planet × 40962 (icosphere L6) + 19 moons × 10242 (icosphere L5) + ring + buffer
+// 9 planet × 40962 (icosphere L6) + 22 moons × 10242 (icosphere L5) + ring + buffer
 export const POOL_SIZE = 600000;
-
-// Kolik teček z proudu každé planety tvoří její label (odbočují nad planetou, drží, pak padnou na surface).
-export const LABEL_TICK_COUNT = 250;

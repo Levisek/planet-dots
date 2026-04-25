@@ -4,8 +4,8 @@
 export const PHASE = Object.freeze({
   IDLE: 0,            // neemitovaná, čeká
   ON_SUN: 1,          // statická tečka na Slunci (initial fill)
-  FLYING: 2,          // letí k cíli (ať už label nebo surface)
-  HOLDING_LABEL: 3,   // dorazila k label pozici, drží
+  FLYING: 2,          // letí k cíli
+  // 3 reserved (dříve HOLDING_LABEL — zrušeno, label dotty z formace pryč)
   ON_PLANET: 4,       // usazená na povrchu planety
   ON_RING: 5,         // usazená na prstenci
   ON_MOON: 6,         // usazená na povrchu měsíce

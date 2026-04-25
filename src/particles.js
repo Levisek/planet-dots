@@ -57,10 +57,9 @@ export class ParticlePool {
     this.velocity = new Float32Array(count * 3);    // pro FLYING tečky (world-space units/sec)
     this.localOffset = new Float32Array(count * 3); // relative to owner anchor — pro cluster rotaci
     this.arrivalTime = new Float32Array(count);      // kdy FLYING tečka dorazí
-    this.postArrivalTarget = new Float32Array(count * 3); // kam jít po HOLDING_LABEL (sphere pos)
-    this.postArrivalColor = new Float32Array(count * 3);  // barva po HOLDING_LABEL
-    this.postArrivalAlpha = new Float32Array(count);      // alpha po settle (pro Jupiter/Saturn průhlednost)
-    this.holdUntil = new Float32Array(count);         // kdy skončí HOLDING_LABEL
+    this.postArrivalTarget = new Float32Array(count * 3); // kam jít po settle (final surface pos)
+    this.postArrivalColor = new Float32Array(count * 3);  // barva po settle (sampled z textury)
+    this.postArrivalAlpha = new Float32Array(count);      // alpha po settle (Jupiter/Saturn průhlednost)
     this.phase = new Uint8Array(count);
     this.finalPhase = new Uint8Array(count); // cílový phase po příletu (ON_PLANET / ON_RING / ON_MOON)
     this.owner = new Int16Array(count);
@@ -202,12 +201,10 @@ export class ParticlePool {
    * @param {number} finalPhase — PHASE.ON_PLANET nebo PHASE.ON_RING po příletu
    * @param {number} currentTime — čas v sekundách
    * @param {number} travelTime — jak dlouho letět
-   * @param {{x,y,z}=} labelPos — pokud je dané, tečka nejdřív letí sem (hold 0.3s), pak finalTarget
-   * @param {number=} labelHoldDuration
    */
   spawnFromSun(sourceIdx, sunCenter, sunRadius, finalTarget, finalTargetLocal,
                finalColor, planetOwnerIdx, finalPhase, currentTime, travelTime,
-               labelPos, labelHoldDuration = 0.3, finalAlpha = 1.0, finalSize = null) {
+               finalAlpha = 1.0, finalSize = null) {
     const i = sourceIdx;
     // start pozice = random na Sun surface
     const rx = (Math.random() - 0.5) * 2;
@@ -220,32 +217,20 @@ export class ParticlePool {
     this.position[3*i]     = sx;
     this.position[3*i + 1] = sy;
     this.position[3*i + 2] = sz;
-    // Final color = cílová barva (barva v průběhu letu se lerpne)
-    // Barva při emit = bílá/sluneční (zažehnutá z povrchu Slunce)
+    // Barva při emit = bílá/sluneční (zažehnutá z povrchu), final color se lerpne během letu.
     this.color[3*i]     = 1;
     this.color[3*i + 1] = 0.95;
     this.color[3*i + 2] = 0.7;
     this.alpha[i] = 1.0;
 
-    // Target: buď label pos (pokud předán) nebo final target
-    let tx, ty, tz;
-    if (labelPos) {
-      tx = labelPos.x; ty = labelPos.y; tz = labelPos.z;
-      this.holdUntil[i] = currentTime + travelTime + labelHoldDuration;
-    } else {
-      tx = finalTarget.x; ty = finalTarget.y; tz = finalTarget.z;
-      this.holdUntil[i] = 0; // no hold
-    }
+    const tx = finalTarget.x, ty = finalTarget.y, tz = finalTarget.z;
     this.target[3*i]     = tx;
     this.target[3*i + 1] = ty;
     this.target[3*i + 2] = tz;
-
-    // Velocity = (target - start) / travelTime (linear flight)
     this.velocity[3*i]     = (tx - sx) / travelTime;
     this.velocity[3*i + 1] = (ty - sy) / travelTime;
     this.velocity[3*i + 2] = (tz - sz) / travelTime;
 
-    // Post-arrival (po HOLDING_LABEL nebo rovnou settled)
     this.postArrivalTarget[3*i]     = finalTarget.x;
     this.postArrivalTarget[3*i + 1] = finalTarget.y;
     this.postArrivalTarget[3*i + 2] = finalTarget.z;
@@ -328,7 +313,6 @@ export class ParticlePool {
     this.localOffset[3*i + 2] = moonLocalOffset.z;
 
     this.arrivalTime[i] = currentTime + travelTime;
-    this.holdUntil[i] = 0; // no label hold
     this.owner[i] = moonOwnerIdx;
     this.ownerAlpha[i] = this.ownerAlphaMul[moonOwnerIdx];
     this.phase[i] = PHASE.FLYING;
@@ -338,67 +322,31 @@ export class ParticlePool {
 
   /**
    * Update tečky pro daný frame:
-   *  - FLYING: position += velocity * dt; if time >= arrivalTime → snap to target, transition.
-   *  - HOLDING_LABEL: drží, if time >= holdUntil → re-target na postArrivalTarget (velocity = ?).
+   *  - FLYING: position += velocity * dt; if time >= arrivalTime → snap to target, settle.
    *  - Lerp color from current to postArrivalColor during FLYING.
+   *  - Settled (ON_PLANET / ON_MOON) → mesh canonical, alpha = 0. ON_RING zůstává visible.
    */
   updateFlight(currentTime, dt) {
     for (let i = 0; i < this.count; i++) {
-      const ph = this.phase[i];
-      if (ph === PHASE.FLYING) {
-        // move
-        this.position[3*i]     += this.velocity[3*i]     * dt;
-        this.position[3*i + 1] += this.velocity[3*i + 1] * dt;
-        this.position[3*i + 2] += this.velocity[3*i + 2] * dt;
-        // lerp color toward post-arrival
-        const k = 0.04;
-        this.color[3*i]     += (this.postArrivalColor[3*i]     - this.color[3*i])     * k;
-        this.color[3*i + 1] += (this.postArrivalColor[3*i + 1] - this.color[3*i + 1]) * k;
-        this.color[3*i + 2] += (this.postArrivalColor[3*i + 2] - this.color[3*i + 2]) * k;
-        // arrival?
-        if (currentTime >= this.arrivalTime[i]) {
-          // snap to target
-          this.position[3*i]     = this.target[3*i];
-          this.position[3*i + 1] = this.target[3*i + 1];
-          this.position[3*i + 2] = this.target[3*i + 2];
-          // if holdUntil > 0 → hold label; else settle
-          if (this.holdUntil[i] > currentTime) {
-            this.phase[i] = PHASE.HOLDING_LABEL;
-          } else {
-            // settle to final phase — použij explicitně uložený finalPhase (nikoliv size hack)
-            this.phase[i] = this.finalPhase[i] || PHASE.ON_PLANET;
-            // snap color to final
-            this.color[3*i]     = this.postArrivalColor[3*i];
-            this.color[3*i + 1] = this.postArrivalColor[3*i + 1];
-            this.color[3*i + 2] = this.postArrivalColor[3*i + 2];
-            // Hide settled dots on planet/moon surfaces — mesh (body mesh) je "kanonická"
-            // planeta, dots by zbytečně překrývaly/nesedly na barvě. ON_RING je viditelný.
-            if (this.phase[i] === PHASE.ON_PLANET || this.phase[i] === PHASE.ON_MOON) {
-              this.alpha[i] = 0;
-            } else {
-              this.alpha[i] = this.postArrivalAlpha[i];
-            }
-          }
-        }
-      } else if (ph === PHASE.HOLDING_LABEL) {
-        // check if hold is over
-        if (currentTime >= this.holdUntil[i]) {
-          // re-target to postArrivalTarget (surface)
-          const dx = this.postArrivalTarget[3*i]     - this.position[3*i];
-          const dy = this.postArrivalTarget[3*i + 1] - this.position[3*i + 1];
-          const dz = this.postArrivalTarget[3*i + 2] - this.position[3*i + 2];
-          const flyTime = 0.5; // fall from label to surface
-          this.velocity[3*i]     = dx / flyTime;
-          this.velocity[3*i + 1] = dy / flyTime;
-          this.velocity[3*i + 2] = dz / flyTime;
-          this.target[3*i]     = this.postArrivalTarget[3*i];
-          this.target[3*i + 1] = this.postArrivalTarget[3*i + 1];
-          this.target[3*i + 2] = this.postArrivalTarget[3*i + 2];
-          this.arrivalTime[i] = currentTime + flyTime;
-          this.holdUntil[i] = 0; // won't hold again
-          this.phase[i] = PHASE.FLYING;
-        }
-      }
+      if (this.phase[i] !== PHASE.FLYING) continue;
+      this.position[3*i]     += this.velocity[3*i]     * dt;
+      this.position[3*i + 1] += this.velocity[3*i + 1] * dt;
+      this.position[3*i + 2] += this.velocity[3*i + 2] * dt;
+      const k = 0.04;
+      this.color[3*i]     += (this.postArrivalColor[3*i]     - this.color[3*i])     * k;
+      this.color[3*i + 1] += (this.postArrivalColor[3*i + 1] - this.color[3*i + 1]) * k;
+      this.color[3*i + 2] += (this.postArrivalColor[3*i + 2] - this.color[3*i + 2]) * k;
+      if (currentTime < this.arrivalTime[i]) continue;
+      // arrival — snap + settle
+      this.position[3*i]     = this.target[3*i];
+      this.position[3*i + 1] = this.target[3*i + 1];
+      this.position[3*i + 2] = this.target[3*i + 2];
+      const fp = this.finalPhase[i] || PHASE.ON_PLANET;
+      this.phase[i] = fp;
+      this.color[3*i]     = this.postArrivalColor[3*i];
+      this.color[3*i + 1] = this.postArrivalColor[3*i + 1];
+      this.color[3*i + 2] = this.postArrivalColor[3*i + 2];
+      this.alpha[i] = (fp === PHASE.ON_PLANET || fp === PHASE.ON_MOON) ? 0 : this.postArrivalAlpha[i];
     }
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;

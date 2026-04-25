@@ -128,25 +128,23 @@ export const MOONS = [
     realSemiMajorAxisKm: 583_520,
     dotSize: 0.5, detailDotSize: 0.014 },
 
-  // Neptune moony (texture placeholder — TBD reálné NASA textury).
-  // Triton: největší, retrográdní orbit (jediný velký retrográdní), ledový.
-  // Nereid: vysoká excentricita (0.75), nejvíc protáhlá orbit ve sluneční soustavě.
-  // Proteus: nepravidelný tvar, druhý největší Neptune měsíc.
+  // Neptune moony — placeholder textury (luna/phobos/deimos) než budou
+  // real NASA textury triton/nereid/proteus.jpg.
   { id: 'triton', name: 'TRITON', parent: 'neptune',
     diameterKm: 2707, radiusPx: 1.74, tickCount: MOON_TICK,
-    texture: 'textures/luna.jpg', // placeholder — Triton má světlý ledový povrch
-    a: 1.5, e: 0.001, period: 6, phaseOffset: 0.2, // real e ≈ 0, ale test chce > 0
+    texture: 'textures/luna.jpg',
+    a: 1.5, e: 0.001, period: 6, phaseOffset: 0.2, // real e ≈ 0, test chce > 0
     realSemiMajorAxisKm: 354_800,
     dotSize: 0.9, detailDotSize: 0.025 },
   { id: 'nereid', name: 'NEREID', parent: 'neptune',
     diameterKm: 340, radiusPx: 0.5, tickCount: MOON_TICK,
-    texture: 'textures/phobos.jpg', // placeholder — malý kamenitý měsíc
+    texture: 'textures/phobos.jpg',
     a: 5.0, e: 0.3, period: 36, phaseOffset: 1.5, // e clamp 0.3 (real 0.75)
     realSemiMajorAxisKm: 5_513_400,
     dotSize: 0.3, detailDotSize: 0.007 },
   { id: 'proteus', name: 'PROTEUS', parent: 'neptune',
     diameterKm: 420, radiusPx: 0.5, tickCount: MOON_TICK,
-    texture: 'textures/deimos.jpg', // placeholder — malý šedý měsíc
+    texture: 'textures/deimos.jpg',
     a: 1.2, e: 0.005, period: 1.1, phaseOffset: 0.8,
     realSemiMajorAxisKm: 117_647,
     dotSize: 0.32, detailDotSize: 0.008 },
