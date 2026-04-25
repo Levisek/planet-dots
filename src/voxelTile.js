@@ -81,10 +81,12 @@ function buildInstanceBuffers(imageData, radius, minVertices) {
   const { vertices } = icosphereRaw(minVertices);
   const tileCount = vertices.length;
 
-  // Tile circumradius — pokrýt sférický povrch hexy bez velkých mezer/překryvů.
-  // Pro icosphere: mean nearest-neighbor distance ≈ 2*radius / sqrt(N/c), kde c je
-  // konstanta dle topologie. Empiricky: 0.58 × r / sqrt(N/40000) sedí pro L5/L6.
-  const tileRadius = (radius * 0.58) / Math.sqrt(tileCount / 40000);
+  // Tile circumradius — hexy musí pokrýt sférický povrch bez velkých mezer.
+  // Mean spacing mezi sousedními vrcholy icosphere ≈ 2/sqrt(N) na jednotce,
+  // tj. radius × 2/sqrt(N) na našem tělese. Hex circumradius (vzdálenost
+  // od středu k rohu) musí být alespoň polovina toho, +overlap pro zatáčky:
+  //   tileRadius = (radius / sqrt(N)) × 1.15
+  const tileRadius = (radius / Math.sqrt(tileCount)) * 1.15;
 
   const instPos = new Float32Array(tileCount * 3);
   const instNormal = new Float32Array(tileCount * 3);
