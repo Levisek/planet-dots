@@ -20,8 +20,12 @@ export function sphericalUV(x, y, z, radius) {
 /**
  * Sampling s ochranou proti pólové artefakty — equirectangular textury mívají
  * tmavý horní/dolní pixel, který by způsobil černý pól. Clamp v na [0.03, 0.97].
+ * Stejný problém je i na meridianu (u≈0/1) u Wikimedia měsíčních map: krajní
+ * sloupec je často tmavý / nesouvislý → svislá černá čára přes celý měsíc.
+ * Clamp u na [0.005, 0.995] posune sampling o ~1 px od okraje.
  */
 export function sampleColorPoleSafe(imageData, u, v) {
   const vSafe = Math.max(0.03, Math.min(0.97, v));
-  return sampleColor(imageData, u, vSafe);
+  const uSafe = Math.max(0.005, Math.min(0.995, u));
+  return sampleColor(imageData, uSafe, vSafe);
 }

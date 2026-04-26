@@ -127,23 +127,23 @@ export const MOONS = [
     realSemiMajorAxisKm: 583_520,
     dotSize: 0.5, detailDotSize: 0.014 },
 
-  // Neptune moony — placeholder textury.
+  // Neptune moony.
   { id: 'triton', name: 'TRITON', parent: 'neptune',
     diameterKm: 2707, radiusPx: 1.74, tickCount: MOON_TICK,
-    texture: 'textures/luna.jpg',
+    texture: 'textures/triton.jpg',
     a: 1.5, e: 0.001, eReal: 0.000016, period: 6, periodReal: 6, phaseOffset: 0.2,
     retrograde: true, // jediný velký retrográdní měsíc — pravděpodobně zachycený KBO
     realSemiMajorAxisKm: 354_800,
     dotSize: 0.9, detailDotSize: 0.025 },
   { id: 'nereid', name: 'NEREID', parent: 'neptune',
     diameterKm: 340, radiusPx: 0.5, tickCount: MOON_TICK,
-    texture: 'textures/phobos.jpg',
+    texture: 'textures/nereid.jpg',
     a: 5.0, e: 0.3, eReal: 0.7507, period: 36, periodReal: 367.7, phaseOffset: 1.5,
     realSemiMajorAxisKm: 5_513_400,
     dotSize: 0.3, detailDotSize: 0.007 },
   { id: 'proteus', name: 'PROTEUS', parent: 'neptune',
     diameterKm: 420, radiusPx: 0.5, tickCount: MOON_TICK,
-    texture: 'textures/deimos.jpg',
+    texture: 'textures/proteus.jpg',
     a: 1.2, e: 0.005, eReal: 0.000534, period: 1.1, periodReal: 1.15, phaseOffset: 0.8,
     realSemiMajorAxisKm: 117_647,
     dotSize: 0.32, detailDotSize: 0.008 },

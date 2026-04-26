@@ -26,16 +26,12 @@ export function buildBodyMesh(imageData, radius, minVertices) {
     const vb = vertices[b];
     const vc = vertices[c];
 
-    // Centroid pro UV sampling + face normal (radial = normalized centroid).
+    // Centroid jen pro UV sampling (jedna barva per face → vintage flat-triangle look).
     const cx = (va[0] + vb[0] + vc[0]) / 3;
     const cy = (va[1] + vb[1] + vc[1]) / 3;
     const cz = (va[2] + vb[2] + vc[2]) / 3;
     const clen = Math.sqrt(cx * cx + cy * cy + cz * cz) || 1;
-    const nx = cx / clen;
-    const ny = cy / clen;
-    const nz = cz / clen;
-
-    const [u, v] = sphericalUV(nx, ny, nz, 1);
+    const [u, v] = sphericalUV(cx / clen, cy / clen, cz / clen, 1);
     const [cr, cg, cb] = sampleColorPoleSafe(imageData, u, v);
 
     const base = i * 9;
@@ -49,15 +45,20 @@ export function buildBodyMesh(imageData, radius, minVertices) {
     posArray[base + 7] = vc[1] * radius;
     posArray[base + 8] = vc[2] * radius;
 
+    // Per-face flat color (všechny 3 vrcholy stejná barva = vintage flat tri).
+    // Per-vertex SMOOTH normals (radial = vrchol sám, už unit). Gouraud pak
+    // interpoluje Lambertian přes face boundary → terminator je gradient,
+    // ne ostrá černá čára (ta vznikala s per-face flat normals tam, kde
+    // n·L překlopil znaménko mezi sousedními face — dříve viditelné jako
+    // svislý černý pruh uprostřed sféry při bočním osvětlení).
     for (let k = 0; k < 3; k++) {
       colorArray[base + k * 3 + 0] = cr;
       colorArray[base + k * 3 + 1] = cg;
       colorArray[base + k * 3 + 2] = cb;
-      // Flat shading: všechny 3 vrcholy trojúhelníku sdílí stejnou face normal.
-      normalArray[base + k * 3 + 0] = nx;
-      normalArray[base + k * 3 + 1] = ny;
-      normalArray[base + k * 3 + 2] = nz;
     }
+    normalArray[base + 0] = va[0]; normalArray[base + 1] = va[1]; normalArray[base + 2] = va[2];
+    normalArray[base + 3] = vb[0]; normalArray[base + 4] = vb[1]; normalArray[base + 5] = vb[2];
+    normalArray[base + 6] = vc[0]; normalArray[base + 7] = vc[1]; normalArray[base + 8] = vc[2];
   }
 
   const geometry = new THREE.BufferGeometry();
