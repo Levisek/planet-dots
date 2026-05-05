@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { solveKepler, orbitPosition, trueAnomaly, applyInclination } from './orbit.js';
+import { setMode, MODES, getInclination } from './simMode.js';
 
 test('solveKepler(0, e) = 0', () => {
   for (const e of [0, 0.1, 0.3]) {
@@ -105,4 +106,15 @@ test('solveKepler konverguje pro e=0.97 (Halley-like)', () => {
   const e = 0.97;
   const E = solveKepler(M, e);
   assert.ok(Math.abs(E - e * Math.sin(E) - M) < 1e-5);
+});
+
+test('Triton 157° inc + Pochopení mode → vidíme retrograde flip', () => {
+  setMode(MODES.POCHOPENI);
+  const triton = {
+    inclinationDeg: 157,
+    category: 'irregular',
+  };
+  const inc = getInclination(triton);
+  // Plný 157° zachován díky suplementární logice (effective 23 < 30)
+  assert.equal(inc, 157);
 });

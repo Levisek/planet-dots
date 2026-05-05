@@ -11,7 +11,7 @@ import { updatePlanetOrbits } from './planetOrbits.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
-import { getMoonE, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale } from './simMode.js';
+import { getEccentricity, getInclination, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -100,14 +100,14 @@ function updateMoonOrbits(t, factorsByMoon = {}) {
     const parentRadius = parent.radiusPx;
     const entry = factorsByMoon[m.id] || { a: 1, period: 1 };
     const aPx = m.a * parentRadius * entry.a;
-    const e = getMoonE(m);
+    const e = getEccentricity(m);
     const basePeriod = getMoonPeriod(m);
-    // Retrograde (Triton) — negative period flipne CCW na CW orbit.
-    const scaledPeriod = basePeriod * entry.period * (m.retrograde ? -1 : 1);
-    const { x, z, E } = orbitPosition(t, m.phaseOffset, scaledPeriod, aPx, e);
+    const inc = getInclination(m);
+    const scaledPeriod = basePeriod * entry.period;
+    const { x, y, z, E } = orbitPosition(t, m.phaseOffset, scaledPeriod, aPx, e, inc);
     const moonAnchor = moonAnchors[m.id];
     if (!moonAnchor) continue;
-    moonAnchor.position.set(x, 0, z);
+    moonAnchor.position.set(x, y, z);
     const nu = trueAnomaly(E, e);
     moonAnchor.rotation.y = nu + Math.PI;
     moonAnchor.updateMatrixWorld(true);
