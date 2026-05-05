@@ -70,12 +70,12 @@ const URLS = {
   hyperion:  [wm('Hyperion_PIA07740.jpg')], // orthographic Cassini
   phoebe:    [wm('Phoebe_cassini_full.jpg'), wm('Phoebe_cassini.jpg')], // orthographic Cassini
 
-  // URANUS MOONS — Wikimedia (USGS Voyager)
-  miranda: [wm('Miranda_map_JPL_USGS.jpg'), wm('Miranda_map.jpg')],
-  ariel:   [wm('Ariel_map_JPL_USGS.jpg')],
-  umbriel: [wm('Umbriel_map_JPL_USGS.jpg')],
-  titania: [wm('Titania_map_JPL_USGS.jpg')],
-  oberon:  [wm('Oberon_map_JPL_USGS.jpg')],
+  // URANUS MOONS — Wikimedia (USGS Voyager + 2009 reprocessed s lepším pokrytím)
+  miranda: [wm('Miranda_albedo.jpg'), wm('Map_of_Miranda.jpg'), wm('Miranda_map_JPL_USGS.jpg'), wm('Miranda_map.jpg')],
+  ariel:   [wm('Ariel_map_USGS.jpg'), wm('Ariel_albedo.jpg'), wm('Ariel_map_JPL_USGS.jpg')],
+  umbriel: [wm('Umbriel_map_USGS_(2009).jpg'), wm('Umbriel_albedo.jpg'), wm('Umbriel_map_JPL_USGS.jpg')],
+  titania: [wm('Titania_map_USGS_(2009).jpg'), wm('Titania_albedo.jpg'), wm('Titania_map_JPL_USGS.jpg')],
+  oberon:  [wm('Oberon_map_USGS_(2009).jpg'), wm('Oberon_albedo.jpg'), wm('Oberon_map_JPL_USGS.jpg')],
 
   // MARS MOONS
   phobos: [wm('Phobos_map_by_Askaniy.png')],
@@ -106,8 +106,12 @@ async function fetchBuffer(url) {
 }
 
 /**
- * Pokud texture má >40 % dark pixelů (RGB sum < 120), vyplní chybějící část
- * mirror + Gaussian blur z existing hemisféry.
+ * Pokud texture má >30 % dark pixelů (RGB sum < 120), vyplní chybějící část
+ * solidní průměrnou barvou světlé hemisféry + mírný šum (bez falešných zrcadlových vzorů).
+ *
+ * Místo mirror+blur (který způsoboval vlnité symetrické artefakty a černé póly)
+ * detekujeme průměrnou barvu jasných pixelů a tmavé oblasti vyplníme touto barvou
+ * s malým pseudo-náhodným šumem → čistý "nemáme data" výsledek.
  *
  * @param {Buffer} buf — original image buffer
  * @returns {Promise<{buf: Buffer, completed: boolean, darkRatio: number}>}
@@ -117,10 +121,16 @@ async function maybeCompleteHemisphere(buf) {
   const { width, height } = await img.metadata();
   const raw = await img.raw().toBuffer();
 
-  // Detekuj dark pixely (RGB sum < 120)
-  let darkCount = 0;
+  // 1. Detekuj dark pixely + spočítej průměrnou barvu jasných pixelů
+  let sumR = 0, sumG = 0, sumB = 0, brightCount = 0, darkCount = 0;
   for (let i = 0; i < raw.length; i += 3) {
-    if (raw[i] + raw[i+1] + raw[i+2] < 120) darkCount++;
+    const lum = raw[i] + raw[i+1] + raw[i+2];
+    if (lum >= 120) {
+      sumR += raw[i]; sumG += raw[i+1]; sumB += raw[i+2];
+      brightCount++;
+    } else {
+      darkCount++;
+    }
   }
   const darkRatio = darkCount / (width * height);
 
@@ -128,29 +138,34 @@ async function maybeCompleteHemisphere(buf) {
     return { buf, completed: false, darkRatio };
   }
 
-  // Vertikální flip (north/south swap) + Gaussian blur — Uranus měsíce mají
-  // tmavou severní polokouli (Voyager pokryl jen jih), takže flip() vyplní sever jihem.
-  const mirrorV = await sharp(buf, { failOn: 'none' })
-    .flip()
-    .blur(20)
+  // 2. Průměrná barva jasné hemisféry (fallback šedá pokud žádné jasné pixely)
+  const avgR = brightCount > 0 ? sumR / brightCount : 80;
+  const avgG = brightCount > 0 ? sumG / brightCount : 80;
+  const avgB = brightCount > 0 ? sumB / brightCount : 80;
+
+  // 3. Vyplň tmavé oblasti průměrnou barvou + mírný pseudo-náhodný šum
+  //    Šum závisí na pozici → nevznikají viditelné pattern artefakty
+  const out = Buffer.from(raw);
+  for (let i = 0; i < raw.length; i += 3) {
+    const lum = raw[i] + raw[i+1] + raw[i+2];
+    if (lum < 120) {
+      const idx = i / 3;
+      // Lehký pseudo-náhodný šum v rozsahu ±8 (~3% z 255)
+      const noise = ((idx * 2654435761 >>> 0) % 17) - 8;
+      out[i]   = Math.max(0, Math.min(255, avgR + noise));
+      out[i+1] = Math.max(0, Math.min(255, avgG + noise));
+      out[i+2] = Math.max(0, Math.min(255, avgB + noise));
+    }
+  }
+
+  // 4. Jemný blur na hranicích tmavé/jasné oblasti (pouze 2px — ne 20px jako dřív)
+  //    Přechod bude hladký ale nezdeformuje jasnou hemisféru
+  const result = await sharp(out, { raw: { width, height, channels: 3 } })
+    .blur(2)
+    .jpeg({ quality: 88 })
     .toBuffer();
 
-  // Horizontální flip jako záloha pro jiné geometrie
-  const mirrorH = await sharp(buf, { failOn: 'none' })
-    .flop()
-    .blur(20)
-    .toBuffer();
-
-  // Lighten blend: vezme max(original, mirror) per pixel → tmavé oblasti dostanou obsah z mirroru
-  const step1 = await sharp(buf, { failOn: 'none' })
-    .composite([{ input: mirrorV, blend: 'lighten' }])
-    .toBuffer();
-
-  const blended = await sharp(step1, { failOn: 'none' })
-    .composite([{ input: mirrorH, blend: 'lighten' }])
-    .toBuffer();
-
-  return { buf: blended, completed: true, darkRatio };
+  return { buf: result, completed: true, darkRatio };
 }
 
 async function saveImage(buf, out, keepAlpha) {

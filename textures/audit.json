@@ -2,7 +2,7 @@
   "ariel": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.16791377314814815,
+    "darkRatio": 0,
     "status": "ok"
   },
   "callisto": {
@@ -104,7 +104,7 @@
   "miranda": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.10470293209876544,
+    "darkRatio": 0,
     "status": "ok"
   },
   "neptune": {
@@ -122,7 +122,7 @@
   "oberon": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.17582561728395063,
+    "darkRatio": 0.0000019290123456790124,
     "status": "ok"
   },
   "phobos": {
@@ -176,7 +176,7 @@
   "titania": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.1964891975308642,
+    "darkRatio": 0,
     "status": "ok"
   },
   "triton": {
@@ -188,7 +188,7 @@
   "umbriel": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.11917438271604938,
+    "darkRatio": 0,
     "status": "ok"
   },
   "uranus": {
