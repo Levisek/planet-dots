@@ -14,21 +14,23 @@ export function solveKepler(M, e, iterations = 5) {
 }
 
 /**
- * Pozice na eliptické orbitě v lokálním frame (X-Z rovina, Y=0).
+ * Pozice na eliptické orbitě v lokálním frame (X-Z rovina, Y=0, aplikováno sklon).
  * Focus v originu, periapsis na +X ose.
  * @param {number} t — absolutní čas (sec)
  * @param {number} phaseOffset — fázový offset (rad)
  * @param {number} period — perioda oběhu (sec)
  * @param {number} a — semi-major axis (px)
  * @param {number} e — eccentricity
+ * @param {number} [incDeg=0] — sklonění orbity (stupně, rotace kolem X-osy)
  * @returns {{x:number, y:number, z:number, E:number}}
  */
-export function orbitPosition(t, phaseOffset, period, a, e) {
+export function orbitPosition(t, phaseOffset, period, a, e, incDeg = 0) {
   const M = (2 * Math.PI * t) / period + phaseOffset;
   const E = solveKepler(M, e);
   const x = a * (Math.cos(E) - e);
   const z = a * Math.sqrt(1 - e * e) * Math.sin(E);
-  return { x, y: 0, z, E };
+  const inclined = applyInclination({ x, y: 0, z }, incDeg);
+  return { x: inclined.x, y: inclined.y, z: inclined.z, E };
 }
 
 /**

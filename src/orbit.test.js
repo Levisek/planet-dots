@@ -75,3 +75,19 @@ test('applyInclination — inc=180 zachová X, flip Z znaménko', () => {
   assert.ok(Math.abs(result.y) < 1e-10);
   assert.ok(Math.abs(result.z - (-50)) < 1e-10);
 });
+
+test('orbitPosition s inc=15° vrátí Y≠0', () => {
+  const { x, y, z } = orbitPosition(2.5, 0, 10, 100, 0.1, 15);
+  assert.notEqual(y, 0);
+  // X-Z magnitude zhruba zachována
+  const mag = Math.sqrt(x*x + y*y + z*z);
+  assert.ok(mag > 80 && mag < 120);
+});
+
+test('orbitPosition s inc=0 zachová původní behavior', () => {
+  const noInc = orbitPosition(2.5, 0, 10, 100, 0.1);
+  const explicit = orbitPosition(2.5, 0, 10, 100, 0.1, 0);
+  assert.equal(noInc.x, explicit.x);
+  assert.equal(noInc.y, explicit.y);
+  assert.equal(noInc.z, explicit.z);
+});
