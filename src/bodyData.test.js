@@ -87,3 +87,11 @@ test('žádný moon nemá retrograde flag (zrušeno v V4.3)', () => {
       `Moon ${m.id} má zastaralý retrograde flag`);
   }
 });
+
+test('Hyperion existuje v MOONS', () => {
+  const hyperion = MOONS.find(m => m.id === 'hyperion');
+  assert.ok(hyperion, 'Hyperion missing');
+  assert.equal(hyperion.parent, 'saturn');
+  assert.equal(hyperion.category, 'irregular');
+  assert.equal(hyperion.chaoticRotation, true);
+});

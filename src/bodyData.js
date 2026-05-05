@@ -417,6 +417,24 @@ export const BODY_DATA = {
     funFact: 'Kráter Herschel zabírá třetinu průměru Mimasu a dává mu vzhled jako Death Star ze Star Wars.',
   },
 
+  hyperion: {
+    name: 'Hyperion',
+    kind: 'moon',
+    tagline: 'Saturnův měsíc s chaotickou rotací.',
+    fields: [
+      { label: 'Průměr', value: '270 km (nepravidelný tvar)' },
+      { label: 'Hmota', value: '~3,73×10¹⁹ kg' },
+      { label: 'Den', value: 'chaotická (~21 dní průměrně)' },
+      { label: 'Vzdálenost od Saturnu', value: '1 481 010 km' },
+      { label: 'Atmosféra', value: 'žádná' },
+      { label: 'Povrchová teplota', value: '−143 °C' },
+      { label: 'Gravitace', value: '~0,002 m/s²' },
+      { label: 'Mateřská planeta', value: 'Saturn' },
+      { label: 'Objevitel', value: 'William Bond, 1848' },
+    ],
+    funFact: 'Hyperion je jediný měsíc známý s chaotickou rotací — jeho orientace v prostoru se nemůže předvídat. Gravitační rušení Titanu a nepravidelný tvar jsou příčinou tohoto chaosu.',
+  },
+
   miranda: {
     name: 'Miranda',
     kind: 'moon',
