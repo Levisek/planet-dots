@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setMode, getInclination, getEccentricity, MODES } from './simMode.js';
+import { setMode, getInclination, getEccentricity, MODES, getTimeScale, setTimeScale, onTimeScaleChange } from './simMode.js';
 
 test('getInclination — Fyzikální vrátí real', () => {
   setMode(MODES.FYZIKALNI);
@@ -41,4 +41,27 @@ test('getEccentricity — Pochopení vrátí e (clamped)', () => {
 test('getEccentricity — chybí eReal vrátí e', () => {
   setMode(MODES.FYZIKALNI);
   assert.equal(getEccentricity({ e: 0.04 }), 0.04);
+});
+
+test('getTimeScale — default 0.5 v Pochopení', () => {
+  setMode(MODES.POCHOPENI);
+  setTimeScale(0.5); // explicit reset
+  assert.equal(getTimeScale(), 0.5);
+});
+
+test('setTimeScale — listener fires on change', () => {
+  let received = null;
+  const unsub = onTimeScaleChange((v) => { received = v; });
+  setTimeScale(2.0);
+  assert.equal(received, 2.0);
+  unsub();
+});
+
+test('setTimeScale — žádný fire pokud stejná hodnota', () => {
+  setTimeScale(1.5);
+  let count = 0;
+  const unsub = onTimeScaleChange(() => { count++; });
+  setTimeScale(1.5);
+  assert.equal(count, 0);
+  unsub();
 });
