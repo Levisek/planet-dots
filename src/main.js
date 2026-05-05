@@ -523,7 +523,10 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     // Real měřítko měsíců — Triton, Iapetus, Nereid uletí daleko od rodiče.
     setAllMoonScaleReal(fyz);
     if (detailView && detailView.state() === DV_STATE.DETAIL) {
-      // V detailu jen refresh camera distance, neměnit globální view.
+      // Přepočítej pozice těles na nový mode — v DETAIL se tick() updatePlanetOrbits nevolá.
+      updatePlanetOrbits(anchors, PLANETS, _simElapsed);
+      updateMoonOrbits(_simElapsed, moonScaleFactors);
+      // Teď přesuň kameru k aktuální (nové) pozici fokusovaného tělesa.
       detailView.refreshCamera();
     } else {
       if (fyz) {
