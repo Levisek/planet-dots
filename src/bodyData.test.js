@@ -41,3 +41,28 @@ test('český text obsahuje diakritiku u alespoň 5 záznamů', () => {
   }
   assert.ok(count >= 5, `diakritika nalezena jen u ${count} záznamů`);
 });
+
+test('všechny planety mají category=planet', () => {
+  for (const p of PLANETS) {
+    if (p.id === 'sun') continue;
+    assert.equal(p.category, 'planet', `Planeta ${p.id} chybí category=planet`);
+  }
+});
+
+test('všechny planety mají inclinationDeg', () => {
+  for (const p of PLANETS) {
+    if (p.id === 'sun') continue;
+    assert.ok(typeof p.inclinationDeg === 'number',
+      `Planeta ${p.id} chybí inclinationDeg`);
+    assert.ok(p.inclinationDeg >= 0 && p.inclinationDeg < 180);
+  }
+});
+
+test('všechny planety mají e a eReal', () => {
+  for (const p of PLANETS) {
+    if (p.id === 'sun') continue;
+    assert.ok(typeof p.e === 'number', `Planeta ${p.id} chybí e`);
+    assert.ok(typeof p.eReal === 'number', `Planeta ${p.id} chybí eReal`);
+    assert.ok(p.e <= 0.08, `Planeta ${p.id} e > 0.08 (Pochopení clamp)`);
+  }
+});
