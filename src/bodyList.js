@@ -4,6 +4,7 @@
 import { PLANETS } from './planets.js';
 import { MOONS, MOONS_BY_PARENT } from './moons.js';
 import { BODY_DATA } from './bodyData.js';
+import { ASTEROIDS } from './asteroids.js';
 
 export function createBodyList({ onClick }) {
   const root = document.createElement('div');
@@ -44,6 +45,12 @@ export function createBodyList({ onClick }) {
       el.style.color = '#888';
       root.appendChild(el);
     }
+  }
+
+  // Asteroidy
+  root.appendChild(group('Asteroidy'));
+  for (const a of ASTEROIDS) {
+    root.appendChild(addItem(a.id, a.name));
   }
 
   return {

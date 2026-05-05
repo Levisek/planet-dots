@@ -23,6 +23,7 @@ import { createDetailView, STATE as DV_STATE } from './detailView.js';
 import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
 import { createPlanetLabels } from './planetLabels.js';
+import { createAsteroidLabels } from './asteroidLabels.js';
 import { createBodyList } from './bodyList.js';
 import { createOrbitLines, createAsteroidOrbitLines } from './orbitLines.js';
 import { buildBodyMesh, applyShape } from './bodyMesh.js';
@@ -86,6 +87,7 @@ let detailView = null;
 let sunActivity = null;
 let moonLabels = null;
 let planetLabels = null;
+let asteroidLabels = null;
 const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo (+ 'saturn_ring')
 let _activeCameraTween = null;
 const controlsTarget = { x: 0, y: 0, z: 0 };
@@ -282,6 +284,7 @@ function tick() {
   // Moon labels (viditelné v planet-detail)
   if (moonLabels) moonLabels.update();
   if (planetLabels) planetLabels.update();
+  if (asteroidLabels) asteroidLabels.update();
 
   renderer.render(scene, camera);
 
@@ -402,6 +405,12 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     camera,
     canvas: renderer.domElement,
     anchors,
+    onClick: (id) => detailView && detailView.enter(id),
+  });
+  asteroidLabels = createAsteroidLabels({
+    camera,
+    canvas: renderer.domElement,
+    asteroidAnchors,
     onClick: (id) => detailView && detailView.enter(id),
   });
   const bodyList = createBodyList({
@@ -545,6 +554,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         // Zobraz labely pro měsíce této planety; planet labely skryt (focus jeden)
         if (moonLabels) moonLabels.showForParent(id);
         if (planetLabels) planetLabels.setVisible(false);
+        if (asteroidLabels) asteroidLabels.setVisible(false);
         bodyList.setActive(id);
       } else {
         // Moon detail — všechna tělesa klikatelná pro re-focus.
@@ -552,6 +562,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         picker.setActiveIds(new Set(allIds));
         if (moonLabels) moonLabels.hideAll();
         if (planetLabels) planetLabels.setVisible(false);
+        if (asteroidLabels) asteroidLabels.setVisible(false);
         bodyList.setActive(id);
         // Přepnout vybraný měsíc na detailDotSize
         const moonIdx = MOONS.findIndex((m) => m.id === id);
@@ -567,6 +578,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       infoPanel.hide();
       picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
       if (planetLabels) planetLabels.setVisible(true);
+      if (asteroidLabels) asteroidLabels.setVisible(true);
       bodyList.setActive(null);
       // Obnovit všechny planet i moon dotSize na main-scene hodnoty.
       for (let i = 0; i < PLANETS.length; i++) {
