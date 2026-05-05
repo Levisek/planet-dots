@@ -24,7 +24,7 @@ test('každý záznam má povinná pole', () => {
     }
     assert.ok(data.tagline.length > 0, `${id} tagline je prázdný`);
     assert.ok(data.funFact.length > 0, `${id} funFact je prázdný`);
-    assert.ok(['sun', 'planet', 'moon'].includes(data.kind), `${id} kind = ${data.kind}`);
+    assert.ok(['sun', 'planet', 'moon', 'asteroid'].includes(data.kind), `${id} kind = ${data.kind}`);
     assert.ok(Array.isArray(data.fields) && data.fields.length >= 6, `${id} fields musí být pole s ≥6 řádky`);
     for (const row of data.fields) {
       assert.equal(typeof row.label, 'string');

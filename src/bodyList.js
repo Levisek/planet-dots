@@ -50,7 +50,7 @@ export function createBodyList({ onClick }) {
   // Asteroidy
   root.appendChild(group('Asteroidy'));
   for (const a of ASTEROIDS) {
-    root.appendChild(addItem(a.id, a.name));
+    root.appendChild(addItem(a.id, BODY_DATA[a.id]?.name || a.name));
   }
 
   return {
