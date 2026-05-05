@@ -124,7 +124,7 @@ async function maybeCompleteHemisphere(buf) {
   }
   const darkRatio = darkCount / (width * height);
 
-  if (darkRatio < 0.40) {
+  if (darkRatio < 0.30) {
     return { buf, completed: false, darkRatio };
   }
 

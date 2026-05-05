@@ -53,6 +53,12 @@
     "darkRatio": 0.0008827160493827161,
     "status": "ok"
   },
+  "hyperion": {
+    "width": 1024,
+    "height": 1024,
+    "darkRatio": 0.42876434326171875,
+    "status": "incomplete"
+  },
   "iapetus": {
     "width": 2048,
     "height": 1024,
@@ -176,7 +182,7 @@
   "triton": {
     "width": 2048,
     "height": 1024,
-    "darkRatio": 0.386655330657959,
+    "darkRatio": 0,
     "status": "ok"
   },
   "umbriel": {
@@ -200,7 +206,7 @@
   "vesta": {
     "width": 894,
     "height": 767,
-    "darkRatio": 0.39032635358423096,
+    "darkRatio": 0.33528754641256064,
     "status": "ok"
   }
 }
