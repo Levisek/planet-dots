@@ -1,217 +1,104 @@
-# VISUAL-AUDIT — dots
+# Visual Audit V4.3 — všechny planetky a měsíce
 
-> Runtime vizuální audit · 2026-04-24 22:43:28 · git `faf2d52` (dirty) · mode `web`
+**Datum:** 2026-05-05
+**Cíl:** http://localhost:3000/ (Chromium 1440×900 headless)
+**Auditovaná tělesa:** 37 (8 planet + 26 měsíců + 3 asteroidy)
+**Console errors:** 0
 
----
-
-## 0. SOUHRN
-
-```
-╭─ severity ──────────────────────────────────╮
-│  🔴  3 kritik                               │
-│  🟡 10 upozornění                           │
-│  🟢 13 prošlo                               │
-│                                             │
-│  zábrana releasu: ANO                       │
-╰─────────────────────────────────────────────╯
-
-╭─ pokrytí ───────────────────────────────────╮
-│  mode:       web                              │
-│  viewporty:  375, 768, 1440                   │
-│  windows:    0                                │
-│  csp viol:   0                                │
-│  console:    4                                │
-╰─────────────────────────────────────────────╯
-```
+Screenshoty: `.audit/screenshots/<id>-<mode>.png` (74 souborů + 2 overview)
 
 ---
 
-## 1. 🔴 KRITICKÉ (3)
+## 🔴 Critical (blokuje user feedback "vše dotáhnout")
 
-### V002 · 0× <h1> na stránce (očekáváno 1)
+### C1. Hyperion / Phoebe / Sinope / Pasiphae mesh — NEVIDITELNÉ v detail view
 
-**Viewport:** mobile  
-**Fix:** Přidej h1 do hero/main.
+- **Symptom:** klik na Hyperion / Phoebe → prázdná scéna, jen info panel. Sinope/Pasiphae stejně.
+- **Soubor:** `src/moons.js:138,150,62,74` — všechny mají `radiusPx: 0.5`
+- **Příčina:** fallback color sphere má radius 0.5 (sub-pixel z výchozí detail-view distance). Žádné chyby v kódu, ale veličina je tak malá že mesh je nepostřehnutelný i v close-zoom.
+- **Fix:** zvedt `radiusPx` pro malé tělíska s `texture: null` na minimum vizuální velikosti — např. 1.5–2.0 (analogicky velkým moonům s texturou). Diameter ratio už nebude přesný, ale objekt bude viditelný. Alternativa: speciální "flat marker" mesh (světlejší color, lehce větší disc) pro objekty bez textury.
 
----
+### C2. Velké planety v Fyzikálním detail view — mesh chybí
 
-### V002 · 0× <h1> na stránce (očekáváno 1)
+- **Symptom:** klik na Saturn / Jupiter v Fyzikálním → vidíme moon orbit lines a labels, ale **žádný planet mesh ani Saturn ring**. V Pochopení mode tatáž planeta vidět normálně.
+- **Screenshoty:** `saturn-fyzikalni.png`, `jupiter-fyzikalni.png`
+- **Možné příčiny:**
+  - a) Kamera near-plane clip — v Fyzikálním pozice planet jsou 10× dál, camera tween může strčit kameru blíž k planetě než near-plane (~10 jednotek)
+  - b) Far plane (2M) je možná nedostatečné pro Fyzikální mode pohled z dálky
+  - c) Camera tween v Fyzikálním nedotweenuje na planet position v 2.5s window auditu (ale uživatel hlásí stejný problém manuálně, takže ne audit timing)
+- **Fix:** investigovat camera config v `detailView.js` při `_focusId === planet`. Možná zvýšit minDistance v controls a rozšířit far plane na 5M+. Nebo upravit camera tween distance scaling pro Fyzikální (relativně k orbital radius).
 
-**Viewport:** tablet  
-**Fix:** Přidej h1 do hero/main.
+### C3. Triton a další Voyager-only moony — dark hemisféra stále viditelná
 
----
-
-### V002 · 0× <h1> na stránce (očekáváno 1)
-
-**Viewport:** desktop  
-**Fix:** Přidej h1 do hero/main.
-
-
----
-
-## 2. 🟡 UPOZORNĚNÍ (10)
-
-### AXE-landmark-one-main · Document should have one main landmark
-
-**Kde:** `html`  
-**Viewport:** mobile  
-**Detail:**
-```
-<html lang="cs">
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/landmark-one-main?application=playwright
+- **Symptom:** Triton jako srpek (crescent), tmavá strana viditelně chybí
+- **Soubor:** `textures/triton.jpg` — darkRatio 38.7% (těsně pod 40% threshold completion)
+- **Příčina:** F2.T22 mirror+blur completion má threshold 40% — Triton spadl pod, completion neproběhla. Threshold byl nastaven empiricky pro Uran moony (54-62% dark) — Triton je hraniční.
+- **Fix:** snížit threshold v `scripts/download-textures.mjs:maybeCompleteHemisphere` z 0.40 na 0.30. Re-process Triton (a Vesta 39%, hraniční).
 
 ---
 
-### AXE-page-has-heading-one · Page should contain a level-one heading
+## 🟡 Important (UX zhoršení)
 
-**Kde:** `html`  
-**Viewport:** mobile  
-**Detail:**
-```
-<html lang="cs">
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/page-has-heading-one?application=playwright
+### I1. Asteroidy = uniform color spheres bez detailů
 
----
+- **Tělesa:** Ceres (#9a8d7a tan), Pallas (#8a8a8a gray)
+- **Stav:** žádné cylindrické textury neexistují (Ceres má orthographic Dawn snímky, Pallas jen Hubble blur). Fallback color sphere = jednolitá barva.
+- **Zhodnocení:** funguje technicky, vizuálně nudné. **V4.3 teaser** to akceptuje, ale uživatel poznamenává "nejsou dotažené".
+- **Návrh fixu:** procedurální texture pro Ceres/Pallas — Hubble image stretch + Perlin noise + radial gradient. Nebo importovat tyto z Solar System Scope (Vesta tam je, Ceres asi taky).
 
-### AXE-region · All page content should be contained by landmarks
+### I2. Saturn ring nevidět ve většině detail screenshots
 
-**Kde:** `#canvas`  
-**Viewport:** mobile  
-**Detail:**
-```
-<canvas id="canvas" data-engine="three.js r170" width="375" height="812" style="width: 375px; height: 812px; touch-action: none;"></canvas>
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/region?application=playwright
+- **Screenshot:** `saturn-pochopeni.png` — Saturn vpravo (mimo střed), ring chybí
+- **Příčina:** audit screenshot kamera je trochu offset (camera tween in 2.5s window), ale i v normální use cases ring bývá invisible — pravděpodobně child-of-anchor správně, ale gated/visibility issue
+- **Fix:** verify v running app manually — pokud ring viditelný v real interaction OK, audit timing je viník. Pokud chybí i manuálně → debug saturnRing.js gated mesh.
 
----
+### I3. Sub-pixel moony rendered jako tečky bez detailu
 
-### AXE-landmark-one-main · Document should have one main landmark
+- **Tělesa:** Phobos, Deimos, Sinope, Pasiphae, Mimas, Enceladus, Hyperion, Phoebe (radiusPx 0.5)
+- **Symptom:** v detail view jsou viditelné jen jako bodové dots, žádný surface
+- **Tradeoff:** real diameter ratio Phobos:Mars je 27:6779 ≈ 1:250 — pokud Mars = 50px, Phobos je 0.2px (sub-pixel). Současný 0.5 je už zveličený.
+- **Návrh:** v detail view (close-zoom) renderovat bigger placeholder — např. když camera distance < 100, force minimum mesh visible diameter = 2px. UI hint by pomohlo (label "měřítko nepřesné pro malá tělíska v detail view").
 
-**Kde:** `html`  
-**Viewport:** tablet  
-**Detail:**
-```
-<html lang="cs">
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/landmark-one-main?application=playwright
+### I4. Pochopení mode camera default je velmi blízko Slunce
+
+- **Screenshot:** `_overview-pochopeni.png` — Slunce dominuje frame, planety v cluster vlevo, většina viditelná jen jako labels
+- **Příčina:** camera (0, 3500, 6000) — Slunce má radius 995, takže Slunce je 1/3 frame
+- **Fix:** zvýšit default camera distance v Pochopení na (0, 5000, 9000) nebo dál, aby user viděl celé inner planety + asteroid pás bez zoom-out.
 
 ---
 
-### AXE-page-has-heading-one · Page should contain a level-one heading
+## 🟢 Working well
 
-**Kde:** `html`  
-**Viewport:** tablet  
-**Detail:**
-```
-<html lang="cs">
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/page-has-heading-one?application=playwright
-
----
-
-### AXE-region · All page content should be contained by landmarks
-
-**Kde:** `#canvas`  
-**Viewport:** tablet  
-**Detail:**
-```
-<canvas id="canvas" data-engine="three.js r170" width="768" height="1024" style="width: 768px; height: 1024px; touch-action: none;"></canvas
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/region?application=playwright
+- **Body list:** Title Case (Slunce, Merkur, Venuše, ...), Asteroidy section, klikatelné, group hierarchy
+- **Info panely:** rich content, coverageNote ✻ pro Voyager-only moony správně viditelné
+- **Vesta texture:** Dawn mission map renders well s krátery
+- **Earth texture po Fix-10:** kontinenty správně orientovány (X-tilt místo Z-tilt)
+- **Speed slider + datum:** funkční, J2000 + days/hours format
+- **Asteroid orbit lines:** Ceres/Vesta/Pallas viditelné v overview, Pallas s viditelným náklonem
+- **Mode toggle:** Pochopení/Fyzikální buttons funkční, vizuální feedback aktivního
+- **Lighting OFF default:** flat illumination jasná, krátery viditelné na osvětlených moonech (Vesta, Miranda)
+- **Mars detail Fyzikální:** Mars + Phobos + Deimos s viditelnými orbit lines
+- **Asteroid pás:** 300 částic gaussian distribuce mezi Mars-Jupiter, viditelný v obou módech, **správně se rozšiřuje v Fyzikálním**
 
 ---
 
-### AXE-landmark-one-main · Document should have one main landmark
+## Doporučený fix order
 
-**Kde:** `html`  
-**Viewport:** desktop  
-**Detail:**
-```
-<html lang="cs">
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/landmark-one-main?application=playwright
-
----
-
-### AXE-page-has-heading-one · Page should contain a level-one heading
-
-**Kde:** `html`  
-**Viewport:** desktop  
-**Detail:**
-```
-<html lang="cs">
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/page-has-heading-one?application=playwright
+1. **C2** (camera Fyzikální detail) — kritický, ovlivňuje 4 outer planety
+2. **C1** (sub-pixel mesh visibility) — kritický, jinak Hyperion/Phoebe/Sinope/Pasiphae jsou neviditelní
+3. **C3** (Triton dark hemisphere) — drobný code fix (threshold)
+4. **I3** (sub-pixel placeholder) — provázáno s C1
+5. **I4** (Pochopení camera default) — quality of life
+6. **I1** (asteroid texture quality) — V4.3 teaser nice-to-have, mohlo by jít do V4.5+
+7. **I2** (Saturn ring) — verifikovat manuálně, fixnout pokud reproducible
 
 ---
 
-### AXE-region · All page content should be contained by landmarks
+## Audit script + screenshoty
 
-**Kde:** `#canvas`  
-**Viewport:** desktop  
-**Detail:**
-```
-<canvas id="canvas" data-engine="three.js r170" width="1440" height="900" style="width: 1440px; height: 900px; touch-action: none;"></canvas
-```
-**Fix:** https://dequeuniversity.com/rules/axe/4.11/region?application=playwright
+- Script: `.audit/visual-audit-all.mjs` (Playwright headless)
+- Report data: `.audit/visual-audit-report.json` (per-body screenshot paths)
+- Screenshoty: `.audit/screenshots/*.png` (74 souborů, 1440×900)
+- Overview: `_overview-pochopeni.png`, `_overview-fyzikalni.png`
 
----
-
-### V084 · 4× console error/warn
-
-**Detail:**
-```
-[mobile] warning: [.WebGL-0x4ee4001b6c00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-[mobile] warning: [.WebGL-0x4ee4001b6c00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-[mobile] warning: [.WebGL-0x4ee4001b6c00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-[mobile] warning: [.WebGL-0x4ee4001b6c00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
-```
-**Fix:** Odstraň debug log. Reálné errory → error boundary / sentry.
-
-
-
-
----
-
-## 4. 🟢 PROŠLO (13)
-
-<details><summary>Rozbal seznam</summary>
-
-- `AXE-aria-hidden-body`
-- `AXE-avoid-inline-spacing`
-- `AXE-document-title`
-- `AXE-html-has-lang`
-- `AXE-html-lang-valid`
-- `AXE-meta-viewport`
-- `AXE-meta-viewport-large`
-- `AXE-region`
-- `V008`
-- `V009`
-- `V040`
-- `V041`
-- `V044`
-
-</details>
-
----
-
-## 5. METADATA
-
-```yaml
-timestamp: 2026-04-24T22:43:28.154Z
-git_sha: faf2d52
-git_branch: master
-git_dirty: true
-mode: web
-target: http://localhost:3000
-project_root: C:/dev/planet-dots
-playwright: 1.59.1
-checklist_version: 0.1.0
-```
-
----
-
-*Generováno `/visual-audit` · Claude Code · screenshoty v `.audit/screenshots/`*
+Spuštění: `npm install --no-save playwright && node .audit/visual-audit-all.mjs`. Vyžaduje běžící `npm run serve`.
