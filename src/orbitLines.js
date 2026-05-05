@@ -5,9 +5,15 @@
 import * as THREE from 'three';
 import { PLANETS } from './planets.js';
 import { ASTEROIDS } from './asteroids.js';
-import { getOrbitRadius, getEccentricity, getInclination, onModeChange } from './simMode.js';
+import { getOrbitRadius, getEccentricity, getInclination, onModeChange, isFyzikalni } from './simMode.js';
 import { sampleKeplerCurve } from './moonOrbitLines.js';
 import { auToDisplayRadius } from './planetOrbits.js';
+
+const AU_TO_DISPLAY_REAL = 3846; // linear AU mapping per planets.js V4.2 spec
+
+function asteroidOrbitRadius(a) {
+  return isFyzikalni() ? a.a * AU_TO_DISPLAY_REAL : auToDisplayRadius(a.a);
+}
 
 const SEGMENTS = 192;
 
@@ -73,7 +79,7 @@ const ASTEROID_ORBIT_MATERIAL = new THREE.LineBasicMaterial({
 export function createAsteroidOrbitLines(scene) {
   const lines = [];
   for (const a of ASTEROIDS) {
-    const radius = auToDisplayRadius(a.a);
+    const radius = asteroidOrbitRadius(a);
     const e = getEccentricity(a);
     const inc = getInclination(a);
     const points = sampleKeplerCurve(128, radius, e, inc);
@@ -90,7 +96,7 @@ export function createAsteroidOrbitLines(scene) {
   onModeChange(() => {
     for (const entry of lines) {
       const asteroid = ASTEROIDS.find((a) => a.id === entry.asteroidId);
-      const radius = auToDisplayRadius(asteroid.a);
+      const radius = asteroidOrbitRadius(asteroid);
       const e = getEccentricity(asteroid);
       const inc = getInclination(asteroid);
       const points = sampleKeplerCurve(128, radius, e, inc);

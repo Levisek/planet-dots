@@ -1,11 +1,19 @@
 import * as THREE from 'three';
 import { ASTEROID_BELT } from './asteroids.js';
 import { auToDisplayRadius } from './planetOrbits.js';
+import { isFyzikalni, onModeChange } from './simMode.js';
+
+const AU_TO_DISPLAY_REAL = 3846; // linear AU mapping per planets.js V4.2 spec
+
+function auToDisplayMode(au) {
+  return isFyzikalni() ? au * AU_TO_DISPLAY_REAL : auToDisplayRadius(au);
+}
 
 /**
  * Vytvoří particle ring jako THREE.Points.
  * 300 asteroidů s gaussian distribucí kolem 2.8 AU (Peak asteroid belt).
  * Statický v lokálním frame, rotuje kolem Y osy s periodou ~30s.
+ * Reaguje na simMode (Pochopení/Fyzikální) — přepočítá pozice při mode change.
  *
  * @param {THREE.Scene} scene
  * @returns {{points: THREE.Points, update: (simElapsed: number) => void}}
@@ -19,6 +27,11 @@ export function createAsteroidBelt(scene) {
   const minColor = hexToRgb(colorRange.min);
   const maxColor = hexToRgb(colorRange.max);
 
+  // Store per-particle au/angle/yJitter so we can rebuild on mode change
+  const particleAU = new Float32Array(count);
+  const particleAngle = new Float32Array(count);
+  const particleY = new Float32Array(count);
+
   for (let i = 0; i < count; i++) {
     // Box-Muller transform pro Gaussian sample kolem peakAU
     let au;
@@ -29,11 +42,15 @@ export function createAsteroidBelt(scene) {
       au = peakAU + z * sigmaAU;
     } while (au < innerAU || au > outerAU);
 
-    const radius = auToDisplayRadius(au);
     const angle = Math.random() * Math.PI * 2;
     // Belt má lehkou tloušťku v Y (±5 jednotek)
     const yJitter = (Math.random() - 0.5) * 10;
 
+    particleAU[i] = au;
+    particleAngle[i] = angle;
+    particleY[i] = yJitter;
+
+    const radius = auToDisplayMode(au);
     positions[i * 3] = radius * Math.cos(angle);
     positions[i * 3 + 1] = yJitter;
     positions[i * 3 + 2] = radius * Math.sin(angle);
@@ -59,6 +76,18 @@ export function createAsteroidBelt(scene) {
 
   const points = new THREE.Points(geometry, material);
   scene.add(points);
+
+  // Při změně simMode přepočítej pozice všech particles
+  onModeChange(() => {
+    const posArr = geometry.attributes.position.array;
+    for (let i = 0; i < count; i++) {
+      const radius = auToDisplayMode(particleAU[i]);
+      posArr[i * 3] = radius * Math.cos(particleAngle[i]);
+      posArr[i * 3 + 2] = radius * Math.sin(particleAngle[i]);
+      // Y zůstává stejný (particleY[i] nezávisí na mode)
+    }
+    geometry.attributes.position.needsUpdate = true;
+  });
 
   // Belt rotuje kolem Y osy s periodou ~30s sim (průměrný asteroid period ve Pochopení tempu)
   const ROTATION_PERIOD_SEC = 30;

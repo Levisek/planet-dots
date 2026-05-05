@@ -41,11 +41,13 @@ const { anchors: asteroidAnchors, imageData: asteroidImageData, loaded: asteroid
 const asteroidBelt = createAsteroidBelt(scene);
 
 // Convert ASTEROIDS data to orbit-compatible format (same fields as planets).
+const AU_TO_DISPLAY_REAL = 3846; // linear AU mapping per planets.js V4.2 spec
+
 function makeAsteroidOrbitable(a) {
   return {
     ...a,
     orbitRadius: auToDisplayRadius(a.a),
-    orbitRadiusReal: auToDisplayRadius(a.a),
+    orbitRadiusReal: a.a * AU_TO_DISPLAY_REAL,
     orbitalPeriodSec: a.period,
     orbitalPeriodSecReal: a.periodReal,
     initialPhaseRad: a.phaseOffset,
