@@ -125,19 +125,26 @@ async function maybeCompleteHemisphere(buf) {
     return { buf, completed: false, darkRatio };
   }
 
-  // Mirror flip horizontally + Gaussian blur 20px
-  const mirrored = await sharp(buf, { failOn: 'none' })
+  // Vertikální flip (north/south swap) + Gaussian blur — Uranus měsíce mají
+  // tmavou severní polokouli (Voyager pokryl jen jih), takže flip() vyplní sever jihem.
+  const mirrorV = await sharp(buf, { failOn: 'none' })
+    .flip()
+    .blur(20)
+    .toBuffer();
+
+  // Horizontální flip jako záloha pro jiné geometrie
+  const mirrorH = await sharp(buf, { failOn: 'none' })
     .flop()
     .blur(20)
     .toBuffer();
 
-  // Alpha blend mirror over original (overlays into dark areas)
-  const blended = await sharp(buf, { failOn: 'none' })
-    .composite([{
-      input: mirrored,
-      blend: 'over',
-      tile: false,
-    }])
+  // Lighten blend: vezme max(original, mirror) per pixel → tmavé oblasti dostanou obsah z mirroru
+  const step1 = await sharp(buf, { failOn: 'none' })
+    .composite([{ input: mirrorV, blend: 'lighten' }])
+    .toBuffer();
+
+  const blended = await sharp(step1, { failOn: 'none' })
+    .composite([{ input: mirrorH, blend: 'lighten' }])
     .toBuffer();
 
   return { buf: blended, completed: true, darkRatio };

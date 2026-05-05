@@ -2,8 +2,8 @@
   "ariel": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.5978134645061728,
-    "status": "incomplete"
+    "darkRatio": 0.16791377314814815,
+    "status": "ok"
   },
   "callisto": {
     "width": 1800,
@@ -98,8 +98,8 @@
   "miranda": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.5555632716049382,
-    "status": "incomplete"
+    "darkRatio": 0.10470293209876544,
+    "status": "ok"
   },
   "neptune": {
     "width": 2048,
@@ -116,8 +116,8 @@
   "oberon": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.6049402006172839,
-    "status": "incomplete"
+    "darkRatio": 0.17582561728395063,
+    "status": "ok"
   },
   "phobos": {
     "width": 2048,
@@ -170,8 +170,8 @@
   "titania": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.6065094521604938,
-    "status": "incomplete"
+    "darkRatio": 0.1964891975308642,
+    "status": "ok"
   },
   "triton": {
     "width": 2048,
@@ -182,8 +182,8 @@
   "umbriel": {
     "width": 1440,
     "height": 720,
-    "darkRatio": 0.5747299382716049,
-    "status": "incomplete"
+    "darkRatio": 0.11917438271604938,
+    "status": "ok"
   },
   "uranus": {
     "width": 2048,
