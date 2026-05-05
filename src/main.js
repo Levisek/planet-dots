@@ -690,7 +690,13 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         return m ? Math.max(m.radiusPx * 8, 30) : 40;
       }
       const baseDist = p.radiusPx * 4.5;
-      const childMoons = MOONS.filter((mm) => mm.parent === id);
+      // V Fyzikálním módu (scaleOn=true) vynech irregular měsíce (Phoebe, Sinope,
+      // Pasiphae, Iapetus, Nereid...) — jejich real-scale vzdálenosti jsou řádově
+      // větší než regulární měsíce a způsobují, že kamera uskočí natolik daleko,
+      // že samotná planeta je neviditelná (sub-pixel). Uživatel může zoom-out.
+      const childMoons = MOONS.filter(
+        (mm) => mm.parent === id && (!scaleOn || mm.category !== 'irregular'),
+      );
       if (childMoons.length === 0) return baseDist;
       let maxMoonDist = 0;
       for (const m of childMoons) {
@@ -701,7 +707,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       // Camera musí být dál než nejvzdálenější měsíc a celý orbit musí být ve viewportu.
       // FOV=45° → half_angle=22.5° → tan(22.5°)≈0.414. S 15% safety marginem:
       // cameraDist = maxMoonDist / tan(22.5°) * 1.15 ≈ maxMoonDist * 2.78
-      return Math.max(baseDist, maxMoonDist * 2.8 + p.radiusPx);
+      // Safety cap: max p.radiusPx × 40, aby planeta zůstala viditelná (angul. > 2.8°).
+      const rawDist = Math.max(baseDist, maxMoonDist * 2.8 + p.radiusPx);
+      return Math.min(rawDist, p.radiusPx * 40);
     },
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
     isFyzikalni,
