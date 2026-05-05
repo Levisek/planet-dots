@@ -1,6 +1,10 @@
-// planetOrbits — pure-math helpers pro 3D orbity planet kolem Slunce.
-// Slunce je v origin (0,0,0), planety obíhají v XZ rovině (Y=0).
-// Žádný eccentricity (kruhové orbity pro V4.2 — eccentricity přijde s V4.3).
+// planetOrbits — thin wrapper nad orbit.js Kepler solveru.
+// V V4.2 byl kruhový (cos/sin), V4.3 sjednoceno na Kepler s inclination.
+
+import { orbitPosition } from './orbit.js';
+import {
+  getOrbitRadius, getOrbitalPeriod, getEccentricity, getInclination,
+} from './simMode.js';
 
 // Real AU: Mercury 0.39 · Venus 0.72 · Earth 1.00 · Mars 1.52
 //          Jupiter 5.20 · Saturn 9.55 · Uranus 19.20 · Neptune 30.05
@@ -14,27 +18,22 @@ export function auToDisplayRadius(au) {
   return 1100 + 350 * Math.sqrt(au);
 }
 
-import { getOrbitRadius, getOrbitalPeriod } from './simMode.js';
-
 /**
- * Pozice planety v čase elapsed (s). Kruhová orbita v XZ rovině.
- * Bere aktuální orbitRadius/period podle simMode (Pochopení/Fyzikální).
+ * Pozice planety v čase elapsed (s). Eliptická orbita s inclination.
+ * Bere aktuální orbitRadius/period/e/inc podle simMode (Pochopení/Fyzikální).
  */
 export function orbitalPosition(planet, elapsed) {
-  const r = getOrbitRadius(planet);
-  if (r === 0) return { x: 0, y: 0, z: 0 };
+  const a = getOrbitRadius(planet);
+  if (a === 0) return { x: 0, y: 0, z: 0 };
   const period = getOrbitalPeriod(planet);
-  const omega = (2 * Math.PI) / period;
-  const theta = planet.initialPhaseRad + omega * elapsed;
-  return {
-    x: r * Math.cos(theta),
-    y: 0,
-    z: r * Math.sin(theta),
-  };
+  const e = getEccentricity(planet);
+  const inc = getInclination(planet);
+  const { x, y, z } = orbitPosition(elapsed, planet.initialPhaseRad, period, a, e, inc);
+  return { x, y, z };
 }
 
 /**
- * Aktualizuje pozici všech planet anchors podle aktuálního času.
+ * Aktualizuje pozice všech planet anchors podle aktuálního času.
  * Sun (orbitRadius=0) zůstává v origin.
  */
 export function updatePlanetOrbits(anchors, planets, elapsed) {
