@@ -578,7 +578,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       if (moonLabels) moonLabels.hideAll();
     },
     enableOrbit: (enabled, target) => {
-      controls.enabled = enabled;
+      controls.enabled = true; // vždy zapnuto (MAIN i DETAIL)
       if (enabled && target) {
         controls.target.set(target.x, target.y, target.z);
         controlsTarget.x = target.x;
@@ -590,9 +590,15 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         const m = MOONS.find((mm) => mm.id === focusId);
         const radius = p ? p.radiusPx : (m ? m.radiusPx : 10);
         controls.minDistance = radius * 1.2 + 10; // povrch + buffer
+        controls.maxDistance = 500000;
       } else {
-        // MAIN state — reset na default
-        controls.minDistance = 30;
+        // MAIN state — orbit kolem Slunce (origin)
+        controls.target.set(0, 0, 0);
+        controlsTarget.x = 0;
+        controlsTarget.y = 0;
+        controlsTarget.z = 0;
+        controls.minDistance = 5000;  // nepřiblížit se dovnitř Slunce
+        controls.maxDistance = 500000; // nepřekročit za Neptune
       }
     },
     getBodyPosition: getBodyPos,
@@ -629,6 +635,12 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
     isFyzikalni,
   });
+
+  // Inicializuj OrbitControls pro MAIN stav (orbit kolem Slunce)
+  controls.enabled = true;
+  controls.target.set(0, 0, 0);
+  controls.minDistance = 5000;
+  controls.maxDistance = 500000;
 
   // Picker events
   picker.onHover((id) => {
