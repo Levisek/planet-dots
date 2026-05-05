@@ -91,3 +91,18 @@ test('orbitPosition s inc=0 zachová původní behavior', () => {
   assert.equal(noInc.y, explicit.y);
   assert.equal(noInc.z, explicit.z);
 });
+
+test('solveKepler konverguje pro e=0.75 (Nereid)', () => {
+  const M = 1.5;
+  const e = 0.75;
+  const E = solveKepler(M, e);
+  // Verify Kepler equation: E - e·sin(E) = M
+  assert.ok(Math.abs(E - e * Math.sin(E) - M) < 1e-6);
+});
+
+test('solveKepler konverguje pro e=0.97 (Halley-like)', () => {
+  const M = 0.5;
+  const e = 0.97;
+  const E = solveKepler(M, e);
+  assert.ok(Math.abs(E - e * Math.sin(E) - M) < 1e-5);
+});

@@ -2,11 +2,15 @@
  * Newton-Raphson solver pro Keplerovu rovnici E - e·sin(E) = M.
  * @param {number} M — mean anomaly (rad)
  * @param {number} e — eccentricity (0..1)
- * @param {number} [iterations=5]
+ * @param {number} [iterations] — adaptive: e>0.9?12, e>0.6?8, else 5
  * @returns {number} E — eccentric anomaly
  */
-export function solveKepler(M, e, iterations = 5) {
-  let E = M;
+export function solveKepler(M, e, iterations) {
+  if (iterations === undefined) {
+    iterations = e > 0.9 ? 12 : e > 0.6 ? 8 : 5;
+  }
+  // Initial guess: improved pro high-e
+  let E = e > 0.9 ? M + e * Math.sin(M) : M;
   for (let i = 0; i < iterations; i++) {
     E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
   }
