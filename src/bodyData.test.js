@@ -66,3 +66,24 @@ test('všechny planety mají e a eReal', () => {
     assert.ok(p.e <= 0.08, `Planeta ${p.id} e > 0.08 (Pochopení clamp)`);
   }
 });
+
+test('všechny moony mají category', () => {
+  for (const m of MOONS) {
+    assert.ok(['moon', 'irregular'].includes(m.category),
+      `Moon ${m.id} má neplatnou category: ${m.category}`);
+  }
+});
+
+test('všechny moony mají inclinationDeg', () => {
+  for (const m of MOONS) {
+    assert.ok(typeof m.inclinationDeg === 'number',
+      `Moon ${m.id} chybí inclinationDeg`);
+  }
+});
+
+test('žádný moon nemá retrograde flag (zrušeno v V4.3)', () => {
+  for (const m of MOONS) {
+    assert.equal(m.retrograde, undefined,
+      `Moon ${m.id} má zastaralý retrograde flag`);
+  }
+});
