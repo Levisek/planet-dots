@@ -7,7 +7,7 @@ export const ASTEROIDS = [
     a: 2.766, e: 0.0758, eReal: 0.0758, inclinationDeg: 10.59,
     period: 25, periodReal: 46.0, phaseOffset: 0.0,
     realDiameterKm: 940, realSemiMajorAxisKm: 414.01e6,
-    color: '#9a8d7a', texture: 'textures/ceres.jpg', // Solar System Scope 2k_ceres_fictional (cylindrická)
+    color: '#9a8d7a', texture: 'textures/ceres.jpg', // USGS Dawn FC DLR global mosaic 400m (reálná data, greyscale)
     radiusPx: 10,
     coverageNote: null,
   },
@@ -15,7 +15,7 @@ export const ASTEROIDS = [
     a: 2.362, e: 0.0887, eReal: 0.0887, inclinationDeg: 7.14,
     period: 22, periodReal: 36.6, phaseOffset: 1.7,
     realDiameterKm: 525, realSemiMajorAxisKm: 353.32e6,
-    color: '#b0a08c', texture: 'textures/vesta.jpg',
+    color: '#b0a08c', texture: 'textures/vesta.jpg', // Dawn FC HAMO global photomap 3561×1781 (2:1 equirectangular, PD)
     radiusPx: 7,
     shape: { scale: [1.0, 0.93, 0.88], displacement: { type: 'simplex', amplitude: 0.06, seed: 'vesta' } },
   },
@@ -26,7 +26,7 @@ export const ASTEROIDS = [
     color: '#8a8a8a', texture: 'textures/pallas.jpg', // procedurální moonscape (simplex noise, C-typ povrch)
     radiusPx: 7,
     shape: { scale: [1.0, 0.95, 0.90], displacement: { type: 'simplex', amplitude: 0.08, seed: 'pallas' } },
-    coverageNote: 'Pallas fotografována jen Hubble dalekohledem. Detaily neznámé.',
+    coverageNote: 'Pallas fotografována jen Hubble dalekohledem (orthographic). Cylindrická mapa neexistuje, povrch procedurálně doplněn.',
   },
 ];
 

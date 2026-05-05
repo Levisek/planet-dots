@@ -71,7 +71,7 @@ export const MOONS = [
     color: '#605040',
     texture: 'textures/sinope.jpg',
     shape: { scale: [1.0, 0.95, 0.9], displacement: { type: 'simplex', amplitude: 0.10, seed: 'sinope' } },
-    coverageNote: 'Sinope fotografována jen z dálky — povrch procedurálně doplněn.',
+    coverageNote: 'Sinope: Voyager flyby snímky (~5px rozlišení). Cylindrická mapa neexistuje, povrch procedurálně doplněn.',
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'pasiphae', name: 'PASIPHAE', parent: 'jupiter',
     diameterKm: 60, radiusPx: 1.5, tickCount: 2066,
@@ -83,7 +83,7 @@ export const MOONS = [
     color: '#554638',
     texture: 'textures/pasiphae.jpg',
     shape: { scale: [1.0, 0.92, 0.88], displacement: { type: 'simplex', amplitude: 0.10, seed: 'pasiphae' } },
-    coverageNote: 'Pasiphae fotografována jen z dálky — povrch procedurálně doplněn.',
+    coverageNote: 'Pasiphae: Voyager flyby snímky (~5px rozlišení). Cylindrická mapa neexistuje, povrch procedurálně doplněn.',
     dotSize: 0.35, detailDotSize: 0.008 },
 
   { id: 'titan', name: 'TITAN', parent: 'saturn',

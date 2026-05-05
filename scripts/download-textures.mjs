@@ -59,12 +59,15 @@ const URLS = {
   rhea:     ['http://bjj.mmedia.is/data/rhea/rhea_a.jpg'],
 
   // SATURN MOONS (kromě Rhea) — Wikimedia cylindrical
+  // Titan: Cassini ISS albedo map (2:1 equirectangular, 938nm filter, reálná povrchová data)
   titan:     [wm('Titan_map_April_2011_full.png')],
-  iapetus:   [wm('Iapetus_May_2008_PIA11116_moon_only.jpg'), wm('Iapetus_May_2008_PIA11116.jpg')],
+  // Iapetus: Color mosaic (Cassini ISS, 2:1 equirectangular, UV+IR, 400m/px — Cassini Regio + equatorial ridge)
+  iapetus:   [wm('Iapetus_Color_Map.jpg'), wm('Iapetus_May_2008_PIA11116_moon_only.jpg'), wm('Iapetus_May_2008_PIA11116.jpg')],
   dione:     [wm('Dione_map_2010_PIA12814.jpg')],
   tethys:    [wm('Tethys_map_June_2008_PIA08416_moon_only.jpg'), wm('Tethys_map_June_2008_PIA08416.jpg')],
   enceladus: [wm('Map_of_Enceladus_December_2008_PIA11145.jpg'), wm('Map_of_Enceladus_October_2009_PIA11680.jpg')],
-  mimas:     [wm('Map_of_Mimas_2017-01_PIA17214.jpg'), wm('Map_of_Mimas_2010-02_PIA12780.jpg')],
+  // Mimas: colorized 2014 PIA18437 (2:1 equirectangular, 200m/px, Herschel crater viditelný)
+  mimas:     [wm('Map_of_Mimas_colorized_2014-04_PIA18437.jpg'), wm('Map_of_Mimas_2017-01_PIA17214.jpg'), wm('Map_of_Mimas_2010-02_PIA12780.jpg')],
   // POZNÁMKA: hyperion a phoebe mají texture: null v moons.js (orthographic foto, ne equirectangular).
   // Soubory níže jsou záložní archive — nejsou aktivně načítány scénou.
   hyperion:  [wm('Hyperion_PIA07740.jpg')], // orthographic Cassini
@@ -85,10 +88,16 @@ const URLS = {
   triton: [wm('Triton_map_no_grid.jpg'), wm('Triton_map1987.png')],
 
   // ASTEROIDS — V4.3 teaser
-  // Ceres: Solar System Scope 2k_ceres_fictional (cylindrická, CC BY 4.0, označeno fictional = umělá)
+  // Ceres: Dawn FC DLR global mosaic (USGS, equirectangular, greyscale, reálná data, 400m/px)
+  // Fallback: false-color composition (reálná Dawn data), poté SSS fictional
   // Pallas: žádná cylindrická mapa neexistuje — pallas.jpg generuje scripts/build-procedural-textures.mjs
-  ceres:  [sss('ceres_fictional')],
-  vesta:  [wm('Vesta_full_mosaic.jpg')],
+  ceres:  [
+    'https://astrogeology.usgs.gov/ckan/dataset/39338f6b-5fef-4ac4-9310-ce5b1cdd0f69/resource/8b1e5592-c2b0-4ed7-8cd2-5a3590d88bf7/download/ceres_dawn_fc_dlr_global_1024.jpg',
+    wm('PIA19977-Ceres-CompositionMap-Dawn-20150930.jpg'),
+    sss('ceres_fictional'),
+  ],
+  // Vesta: Dawn FC HAMO global photomap (3561×1781px 2:1 equirectangular, full coverage, PD)
+  vesta:  [wm('Vesta_map_for_GeoHack.png'), wm('Vesta_full_mosaic.jpg')],
 };
 
 const RING = ['saturn_ring', 'https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png', 'png'];
