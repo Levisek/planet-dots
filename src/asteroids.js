@@ -17,7 +17,7 @@ export const ASTEROIDS = [
     realDiameterKm: 525, realSemiMajorAxisKm: 353.32e6,
     color: '#b0a08c', texture: 'textures/vesta.jpg',
     radiusPx: 7,
-    shape: { scale: [1.0, 0.93, 0.88] },
+    shape: { scale: [1.0, 0.93, 0.88], displacement: { type: 'simplex', amplitude: 0.06, seed: 'vesta' } },
   },
   { id: 'pallas', name: 'PALLAS', category: 'irregular',
     a: 2.772, e: 0.08, eReal: 0.2305, inclinationDeg: 34.84,
@@ -25,7 +25,7 @@ export const ASTEROIDS = [
     realDiameterKm: 512, realSemiMajorAxisKm: 414.7e6,
     color: '#8a8a8a', texture: 'textures/pallas.jpg', // procedurální moonscape (simplex noise, C-typ povrch)
     radiusPx: 7,
-    shape: { scale: [1.0, 0.95, 0.90] },
+    shape: { scale: [1.0, 0.95, 0.90], displacement: { type: 'simplex', amplitude: 0.08, seed: 'pallas' } },
     coverageNote: 'Pallas fotografována jen Hubble dalekohledem. Detaily neznámé.',
   },
 ];

@@ -22,6 +22,7 @@ export const MOONS = [
     a: 1.3, e: 0.1, eReal: 0.0151, period: 2, periodReal: 2, phaseOffset: 0.0,
     realSemiMajorAxisKm: 9_376,
     category: 'moon', inclinationDeg: 1.08,
+    shape: { scale: [1.0, 0.81, 0.67], displacement: { type: 'simplex', amplitude: 0.15, seed: 'phobos' } },
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'deimos', name: 'DEIMOS', parent: 'mars',
     diameterKm: 12, radiusPx: 0.5, tickCount: MOON_TICK,
@@ -29,6 +30,7 @@ export const MOONS = [
     a: 2.0, e: 0.05, eReal: 0.0002, period: 8, periodReal: 7.91, phaseOffset: 1.5,
     realSemiMajorAxisKm: 23_463,
     category: 'moon', inclinationDeg: 1.79,
+    shape: { scale: [1.0, 0.80, 0.73], displacement: { type: 'simplex', amplitude: 0.12, seed: 'deimos' } },
     dotSize: 0.35, detailDotSize: 0.008 },
 
   { id: 'io', name: 'IO', parent: 'jupiter',
@@ -68,7 +70,7 @@ export const MOONS = [
     realSemiMajorAxisKm: 23_939_000,
     color: '#605040',
     texture: null,
-    shape: { scale: [1.0, 0.95, 0.9] },
+    shape: { scale: [1.0, 0.95, 0.9], displacement: { type: 'simplex', amplitude: 0.10, seed: 'sinope' } },
     coverageNote: 'Sinope fotografována jen z dálky. Pravý tvar neznámý.',
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'pasiphae', name: 'PASIPHAE', parent: 'jupiter',
@@ -80,7 +82,7 @@ export const MOONS = [
     realSemiMajorAxisKm: 23_624_000,
     color: '#554638',
     texture: null,
-    shape: { scale: [1.0, 0.92, 0.88] },
+    shape: { scale: [1.0, 0.92, 0.88], displacement: { type: 'simplex', amplitude: 0.10, seed: 'pasiphae' } },
     coverageNote: 'Pasiphae fotografována jen z dálky. Pravý tvar neznámý.',
     dotSize: 0.35, detailDotSize: 0.008 },
 
@@ -153,7 +155,7 @@ export const MOONS = [
     realSemiMajorAxisKm: 12947780,
     category: 'irregular', inclinationDeg: 175.3,
     color: '#7a6650',
-    shape: { scale: [1.0, 1.02, 0.94] },
+    shape: { scale: [1.0, 1.02, 0.94], displacement: { type: 'simplex', amplitude: 0.06, seed: 'phoebe' } },
     coverageNote: 'Phoebe poprvé fotografována Cassini 2004.',
     dotSize: 0.33, detailDotSize: 0.008 },
 
@@ -213,6 +215,7 @@ export const MOONS = [
     a: 5.0, e: 0.3, eReal: 0.7507, period: 36, periodReal: 367.7, phaseOffset: 1.5,
     realSemiMajorAxisKm: 5_513_400,
     category: 'irregular', inclinationDeg: 5.0,
+    shape: { scale: [1.0, 0.9, 0.85], displacement: { type: 'simplex', amplitude: 0.08, seed: 'nereid' } },
     coverageNote: 'Pouze flyby Voyager 2 (1989). Žádný globální mapový snímek neexistuje.',
     dotSize: 0.3, detailDotSize: 0.007 },
   { id: 'proteus', name: 'PROTEUS', parent: 'neptune',
@@ -221,6 +224,7 @@ export const MOONS = [
     a: 1.2, e: 0.005, eReal: 0.000534, period: 1.1, periodReal: 1.15, phaseOffset: 0.8,
     realSemiMajorAxisKm: 117_647,
     category: 'moon', inclinationDeg: 0.04,
+    shape: { scale: [1.0, 0.99, 0.96], displacement: { type: 'simplex', amplitude: 0.05, seed: 'proteus' } },
     coverageNote: 'Pouze flyby Voyager 2 (1989). Žádný globální mapový snímek neexistuje.',
     dotSize: 0.32, detailDotSize: 0.008 },
 ];
