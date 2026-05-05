@@ -6,6 +6,7 @@ import { MOONS } from './moons.js';
  * (Stejné jako v planetAnchors.js, duplikováno pro modularitu.)
  */
 function loadImageData(url) {
+  if (!url) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -52,6 +53,9 @@ export function createMoonAnchors(_scene, planetAnchors) {
     loadPromises.push(
       loadImageData(m.texture).then((data) => {
         imageData[m.id] = data;
+      }).catch((e) => {
+        console.warn(`Moon texture failed: ${m.id}`, e.message);
+        imageData[m.id] = null;
       })
     );
   }
