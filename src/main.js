@@ -24,7 +24,7 @@ import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
 import { createPlanetLabels } from './planetLabels.js';
 import { createBodyList } from './bodyList.js';
-import { createOrbitLines } from './orbitLines.js';
+import { createOrbitLines, createAsteroidOrbitLines } from './orbitLines.js';
 import { buildBodyMesh, applyShape } from './bodyMesh.js';
 import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
@@ -407,6 +407,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     onClick: (id) => detailView && detailView.enter(id),
   });
   const orbitLines = createOrbitLines(scene);
+  const asteroidOrbitLines = createAsteroidOrbitLines(scene);
 
   // Lighting toggle button — přepíná material na všech body mesh-ích:
   // VYP → MeshBasicMaterial (flat, plné barvy, ignoruje světla).

@@ -4,7 +4,10 @@
 
 import * as THREE from 'three';
 import { PLANETS } from './planets.js';
-import { getOrbitRadius, onModeChange } from './simMode.js';
+import { ASTEROIDS } from './asteroids.js';
+import { getOrbitRadius, getEccentricity, getInclination, onModeChange } from './simMode.js';
+import { sampleKeplerCurve } from './moonOrbitLines.js';
+import { auToDisplayRadius } from './planetOrbits.js';
 
 const SEGMENTS = 192;
 
@@ -50,6 +53,51 @@ export function createOrbitLines(scene) {
         positions[i * 3 + 2] = r * Math.sin(theta);
       }
       entry.line.geometry.attributes.position.needsUpdate = true;
+    }
+  });
+
+  return {
+    setVisible(v) {
+      for (const entry of lines) entry.line.visible = v;
+    },
+  };
+}
+
+const ASTEROID_ORBIT_MATERIAL = new THREE.LineBasicMaterial({
+  color: 0x665544,
+  transparent: true,
+  opacity: 0.3,
+  depthWrite: false,
+});
+
+export function createAsteroidOrbitLines(scene) {
+  const lines = [];
+  for (const a of ASTEROIDS) {
+    const radius = auToDisplayRadius(a.a);
+    const e = getEccentricity(a);
+    const inc = getInclination(a);
+    const points = sampleKeplerCurve(128, radius, e, inc);
+    const geom = new THREE.BufferGeometry().setFromPoints(
+      points.map((p) => new THREE.Vector3(p.x, p.y, p.z))
+    );
+    const line = new THREE.LineLoop(geom, ASTEROID_ORBIT_MATERIAL);
+    line.userData.asteroidId = a.id;
+    scene.add(line);
+    lines.push({ asteroidId: a.id, line });
+  }
+
+  // Při změně simMode přepočítej orbity asteroidů.
+  onModeChange(() => {
+    for (const entry of lines) {
+      const asteroid = ASTEROIDS.find((a) => a.id === entry.asteroidId);
+      const radius = auToDisplayRadius(asteroid.a);
+      const e = getEccentricity(asteroid);
+      const inc = getInclination(asteroid);
+      const points = sampleKeplerCurve(128, radius, e, inc);
+      entry.line.geometry.dispose();
+      entry.line.geometry = new THREE.BufferGeometry().setFromPoints(
+        points.map((p) => new THREE.Vector3(p.x, p.y, p.z))
+      );
     }
   });
 
