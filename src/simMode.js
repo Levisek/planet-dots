@@ -102,6 +102,11 @@ export function getInclination(body) {
   return real > 90 ? 180 - clamped : clamped;
 }
 
+/** Derived helper — true pokud má těleso retrográdní oběh (inclinationDeg > 90). */
+export function isRetrograde(body) {
+  return (body.inclinationDeg ?? 0) > 90;
+}
+
 // --- timeScale getter/setter + listeners ---
 
 export function getTimeScale() { return _timeScale; }

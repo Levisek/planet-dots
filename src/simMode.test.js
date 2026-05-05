@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setMode, getInclination, getEccentricity, MODES, getTimeScale, setTimeScale, onTimeScaleChange, _resetTimeScaleOverride } from './simMode.js';
+import { setMode, getInclination, getEccentricity, MODES, getTimeScale, setTimeScale, onTimeScaleChange, _resetTimeScaleOverride, isRetrograde } from './simMode.js';
 
 test('getInclination — Fyzikální vrátí real', () => {
   setMode(MODES.FYZIKALNI);
@@ -67,4 +67,13 @@ test('setTimeScale — žádný fire pokud stejná hodnota', () => {
   assert.equal(count, 0);
   unsub();
   _resetTimeScaleOverride(); // cleanup for test isolation
+});
+
+test('isRetrograde — true pokud inclinationDeg > 90', () => {
+  assert.equal(isRetrograde({ inclinationDeg: 157 }), true);
+  assert.equal(isRetrograde({ inclinationDeg: 91 }), true);
+  assert.equal(isRetrograde({ inclinationDeg: 90 }), false);
+  assert.equal(isRetrograde({ inclinationDeg: 5 }), false);
+  assert.equal(isRetrograde({ inclinationDeg: 0 }), false);
+  assert.equal(isRetrograde({}), false);
 });
