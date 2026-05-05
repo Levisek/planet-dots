@@ -30,6 +30,7 @@ import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
+import { initTimeControls } from './timeControls.js';
 
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
 createStarfield(scene);
@@ -665,6 +666,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       detailView.exit();
     }
   });
+
+  // Initialize time controls UI
+  initTimeControls(() => _simElapsed);
 
   clock.start();
   requestAnimationFrame(tick);
