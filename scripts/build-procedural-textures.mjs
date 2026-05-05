@@ -144,4 +144,32 @@ await buildProceduralTexture({
   outputPath: path.join(TEXDIR, 'pallas.jpg'),
 });
 
+// Sinope — Jupiter outer irregular, dark D-type asteroid (carbonaceous)
+await buildProceduralTexture({
+  baseColor: [96, 80, 64],   // tmavě hnědá (D-typ, captured outer asteroid)
+  variation: 22,
+  octaves: [
+    [0.005, 0.55],
+    [0.020, 0.27],
+    [0.080, 0.13],
+    [0.300, 0.05],
+  ],
+  seed: 'sinope-jupiter',
+  outputPath: path.join(TEXDIR, 'sinope.jpg'),
+});
+
+// Pasiphae — Jupiter outer irregular, dark D-type (lehce odlišný)
+await buildProceduralTexture({
+  baseColor: [85, 70, 56],   // ještě tmavší hnědá
+  variation: 24,
+  octaves: [
+    [0.006, 0.50],
+    [0.022, 0.30],
+    [0.085, 0.14],
+    [0.290, 0.06],
+  ],
+  seed: 'pasiphae-jupiter',
+  outputPath: path.join(TEXDIR, 'pasiphae.jpg'),
+});
+
 console.log('\nProcedurální textury OK.');
