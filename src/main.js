@@ -13,6 +13,7 @@ import { createAsteroidBelt } from './asteroidBelt.js';
 import { ASTEROIDS } from './asteroids.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
+import { tickHyperion } from './hyperionChaos.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
 import { getEccentricity, getInclination, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, isRetrograde } from './simMode.js';
 import { createPicker } from './picking.js';
@@ -136,7 +137,11 @@ function updateMoonOrbits(t, factorsByMoon = {}) {
     if (!moonAnchor) continue;
     moonAnchor.position.set(x, y, z);
     const nu = trueAnomaly(E, e);
-    moonAnchor.rotation.y = nu + Math.PI;
+    if (m.chaoticRotation) {
+      tickHyperion(t, moonAnchor);
+    } else {
+      moonAnchor.rotation.y = nu + Math.PI;
+    }
     moonAnchor.updateMatrixWorld(true);
   }
 }
