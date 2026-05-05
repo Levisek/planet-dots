@@ -24,7 +24,7 @@ import { createMoonLabels } from './moonLabels.js';
 import { createPlanetLabels } from './planetLabels.js';
 import { createBodyList } from './bodyList.js';
 import { createOrbitLines } from './orbitLines.js';
-import { buildBodyMesh } from './bodyMesh.js';
+import { buildBodyMesh, applyShape } from './bodyMesh.js';
 import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
@@ -337,12 +337,12 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     if (!tex) continue;
     // L5 (10242 verts) — L4 dělalo facety viditelné v detail view (Titan, Luna).
     const mesh = buildBodyMesh(tex, m.radiusPx, 10242);
+    applyShape(mesh, m);
     mesh.visible = false;
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
     gatedMeshes.push({ key: m.id, ownerIdx: MOON_OWNER_BASE + i, isPlanet: false, isMoon: true, parentId: m.parent });
   }
-
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
   picker = createPicker({ scene, camera, canvas: renderer.domElement });
   for (const p of PLANETS) {

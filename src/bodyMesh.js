@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { icosphereRaw } from './geometry.js';
 import { sampleColorPoleSafe, sphericalUV } from './textureUtils.js';
+import { applySimplexDisplacement } from './displacement.js';
 
 /**
  * Vytvoří mesh pro tělo: icosphere trojúhelníky s per-face barvou sampled
@@ -80,4 +81,26 @@ export function buildBodyMesh(imageData, radius, minVertices) {
   // Ulož cached lambert pro toggle (lazy init: vytvoří se při prvním ON).
   mesh.userData._flatMaterial = material;
   return mesh;
+}
+
+/**
+ * Aplikuje body.shape na mesh:
+ *  - body.shape.scale: [x, y, z] non-uniform scale
+ *  - body.shape.tilt: [rx, ry, rz] axial tilt (rad)
+ *  - body.shape.displacement: { type, amplitude, seed } simplex noise
+ *
+ * @param {THREE.Mesh} mesh
+ * @param {object} body — body data (planet/moon/asteroid)
+ */
+export function applyShape(mesh, body) {
+  if (!body || !body.shape) return;
+  if (body.shape.scale) {
+    mesh.scale.set(...body.shape.scale);
+  }
+  if (body.shape.tilt) {
+    mesh.rotation.set(...body.shape.tilt);
+  }
+  if (body.shape.displacement) {
+    applySimplexDisplacement(mesh.geometry, body.shape.displacement);
+  }
 }
