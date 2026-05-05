@@ -1,3 +1,7 @@
+import { PLANET_BY_ID } from './planets.js';
+import { MOON_BY_ID } from './moons.js';
+import { ASTEROIDS } from './asteroids.js';
+
 export const STATE = Object.freeze({
   MAIN: 'MAIN',
   TRANSITION_IN: 'TRANSITION_IN',
@@ -18,6 +22,12 @@ export function createDetailView(deps) {
   let _timer = 0; // sekundy v aktuální transition state
   let _returnPos = null;
   let _returnTarget = null;
+
+  function getBodyData(id) {
+    return (PLANET_BY_ID[id]) ||
+           (MOON_BY_ID[id]) ||
+           (ASTEROIDS.find(a => a.id === id));
+  }
 
   function computeDetailCameraOffset(id) {
     const r = deps.getBodyRadius(id);
@@ -50,7 +60,8 @@ export function createDetailView(deps) {
 
   function enterDetailState() {
     _state = STATE.DETAIL;
-    deps.showPanel(_focusId);
+    const body = getBodyData(_focusId);
+    deps.showPanel(_focusId, body);
     const p = deps.getBodyPosition(_focusId);
     deps.enableOrbit(true, p);
   }
