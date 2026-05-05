@@ -1,0 +1,206 @@
+{
+  "ariel": {
+    "width": 1440,
+    "height": 720,
+    "darkRatio": 0.5978134645061728,
+    "status": "incomplete"
+  },
+  "callisto": {
+    "width": 1800,
+    "height": 900,
+    "darkRatio": 0.0007345679012345679,
+    "status": "ok"
+  },
+  "ceres": {
+    "width": 950,
+    "height": 950,
+    "darkRatio": 0.6455922437673131,
+    "status": "incomplete"
+  },
+  "deimos": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "dione": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.0029625892639160156,
+    "status": "ok"
+  },
+  "earth": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.0022492408752441406,
+    "status": "ok"
+  },
+  "enceladus": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.012666702270507812,
+    "status": "ok"
+  },
+  "europa": {
+    "width": 1800,
+    "height": 900,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "ganymede": {
+    "width": 1800,
+    "height": 900,
+    "darkRatio": 0.0008827160493827161,
+    "status": "ok"
+  },
+  "iapetus": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.004551887512207031,
+    "status": "ok"
+  },
+  "io": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.004621982574462891,
+    "status": "ok"
+  },
+  "jupiter": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "luna": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.00000286102294921875,
+    "status": "ok"
+  },
+  "mars": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.00014925003051757812,
+    "status": "ok"
+  },
+  "mercury": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.00003147125244140625,
+    "status": "ok"
+  },
+  "mimas": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.023792743682861328,
+    "status": "ok"
+  },
+  "miranda": {
+    "width": 1440,
+    "height": 720,
+    "darkRatio": 0.5555632716049382,
+    "status": "incomplete"
+  },
+  "neptune": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "nereid": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "oberon": {
+    "width": 1440,
+    "height": 720,
+    "darkRatio": 0.6049402006172839,
+    "status": "incomplete"
+  },
+  "phobos": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "phoebe": {
+    "width": 813,
+    "height": 1184,
+    "darkRatio": 0.6235850703101625,
+    "status": "incomplete"
+  },
+  "proteus": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.000385284423828125,
+    "status": "ok"
+  },
+  "rhea": {
+    "width": 1800,
+    "height": 900,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "saturn": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "sun": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "tethys": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.0036916732788085938,
+    "status": "ok"
+  },
+  "titan": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.03802061080932617,
+    "status": "ok"
+  },
+  "titania": {
+    "width": 1440,
+    "height": 720,
+    "darkRatio": 0.6065094521604938,
+    "status": "incomplete"
+  },
+  "triton": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.386655330657959,
+    "status": "ok"
+  },
+  "umbriel": {
+    "width": 1440,
+    "height": 720,
+    "darkRatio": 0.5747299382716049,
+    "status": "incomplete"
+  },
+  "uranus": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0,
+    "status": "ok"
+  },
+  "venus": {
+    "width": 2048,
+    "height": 1024,
+    "darkRatio": 0.00012922286987304688,
+    "status": "ok"
+  },
+  "vesta": {
+    "width": 894,
+    "height": 767,
+    "darkRatio": 0.39032635358423096,
+    "status": "ok"
+  }
+}
