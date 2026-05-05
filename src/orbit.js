@@ -40,3 +40,21 @@ export function trueAnomaly(E, e) {
     Math.sqrt(1 - e) * Math.cos(E / 2),
   );
 }
+
+/**
+ * Rotuje 3D pozici kolem osy X o `incDeg` stupňů.
+ * Pro inc=0 noop. Pro inc=90 flip Y/Z. Pro inc>90 retrograde flip plane.
+ * @param {{x:number, y:number, z:number}} pos
+ * @param {number} incDeg
+ * @returns {{x:number, y:number, z:number}}
+ */
+export function applyInclination(pos, incDeg) {
+  if (incDeg === 0) return { x: pos.x, y: pos.y, z: pos.z };
+  const r = (incDeg * Math.PI) / 180;
+  const c = Math.cos(r), s = Math.sin(r);
+  return {
+    x: pos.x,
+    y: pos.y * c - pos.z * s,
+    z: pos.y * s + pos.z * c,
+  };
+}

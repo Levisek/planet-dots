@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { solveKepler, orbitPosition, trueAnomaly } from './orbit.js';
+import { solveKepler, orbitPosition, trueAnomaly, applyInclination } from './orbit.js';
 
 test('solveKepler(0, e) = 0', () => {
   for (const e of [0, 0.1, 0.3]) {
@@ -53,4 +53,25 @@ test('trueAnomaly(π, e) = π', () => {
 test('orbitPosition returns E for downstream use', () => {
   const { E } = orbitPosition(2.5, 0, 10, 100, 0.1);
   assert.ok(typeof E === 'number' && E > 0 && E < Math.PI);
+});
+
+test('applyInclination — inc=0 noop', () => {
+  const result = applyInclination({ x: 100, y: 0, z: 50 }, 0);
+  assert.equal(result.x, 100);
+  assert.equal(result.y, 0);
+  assert.equal(result.z, 50);
+});
+
+test('applyInclination — inc=90 flip Y/Z', () => {
+  const result = applyInclination({ x: 100, y: 0, z: 50 }, 90);
+  assert.equal(result.x, 100);
+  assert.ok(Math.abs(result.y - (-50)) < 1e-10);
+  assert.ok(Math.abs(result.z) < 1e-10);
+});
+
+test('applyInclination — inc=180 zachová X, flip Z znaménko', () => {
+  const result = applyInclination({ x: 100, y: 0, z: 50 }, 180);
+  assert.ok(Math.abs(result.x - 100) < 1e-10);
+  assert.ok(Math.abs(result.y) < 1e-10);
+  assert.ok(Math.abs(result.z - (-50)) < 1e-10);
 });
