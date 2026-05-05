@@ -1,24 +1,12 @@
+import * as THREE from 'three';
 import { applyInclination, solveKepler } from './orbit.js';
 import { getEccentricity, getInclination } from './simMode.js';
 
-// THREE je lazy-importovaný jen když DOM funkce jsou volány (showFor/disposeAll).
-// Díky tomu je sampleKeplerCurve testovatelná bez THREE v Node test prostředí.
-let THREE = null;
-async function ensureThree() {
-  if (!THREE) THREE = await import('three');
-}
-
-let _material = null;
-function getMaterial() {
-  if (!_material) {
-    _material = new THREE.LineBasicMaterial({
-      color: 0x6688aa,
-      transparent: true,
-      opacity: 0.4,
-    });
-  }
-  return _material;
-}
+const ORBIT_LINE_MATERIAL = new THREE.LineBasicMaterial({
+  color: 0x6688aa,
+  transparent: true,
+  opacity: 0.4,
+});
 
 /**
  * Sample N bodů na eliptické orbitě s inclination.
@@ -50,10 +38,9 @@ export function sampleKeplerCurve(samples, a, e, incDeg) {
  * @param {Object<string, import('three').Object3D>} planetAnchors
  * @param {object} moonsByPlanet — { [planetId]: [moon1, moon2, ...] }
  * @param {Object<string, object>} planetByIdLookup — pro radiusPx
- * @returns {Promise<import('three').LineLoop[]>}
+ * @returns {import('three').LineLoop[]}
  */
-export async function showFor(planetId, planetAnchors, moonsByPlanet, planetByIdLookup) {
-  await ensureThree();
+export function showFor(planetId, planetAnchors, moonsByPlanet, planetByIdLookup) {
   const planet = planetAnchors[planetId];
   if (!planet) return [];
   const planetData = planetByIdLookup ? planetByIdLookup[planetId] : null;
@@ -68,7 +55,7 @@ export async function showFor(planetId, planetAnchors, moonsByPlanet, planetById
     const geom = new THREE.BufferGeometry().setFromPoints(
       points.map(p => new THREE.Vector3(p.x, p.y, p.z))
     );
-    const line = new THREE.LineLoop(geom, getMaterial());
+    const line = new THREE.LineLoop(geom, ORBIT_LINE_MATERIAL);
     planet.add(line);
     lines.push(line);
   }
