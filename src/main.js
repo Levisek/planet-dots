@@ -34,7 +34,7 @@ const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange
 createStarfield(scene);
 const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
-const { anchors: asteroidAnchors, loaded: asteroidsLoaded } = createAsteroidAnchors(scene);
+const { anchors: asteroidAnchors, imageData: asteroidImageData, loaded: asteroidsLoaded } = createAsteroidAnchors(scene);
 const asteroidBelt = createAsteroidBelt(scene);
 
 // Convert ASTEROIDS data to orbit-compatible format (same fields as planets).
@@ -297,7 +297,7 @@ function tick() {
   requestAnimationFrame(tick);
 }
 
-Promise.all([loaded, moonsLoaded]).then(() => {
+Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   initAfterLoad();
 
   // Flat-triangle icosphere mesh per tělo (V3 stylu — žádný shader,
@@ -343,6 +343,16 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     bodyMeshes[m.id] = mesh;
     gatedMeshes.push({ key: m.id, ownerIdx: MOON_OWNER_BASE + i, isPlanet: false, isMoon: true, parentId: m.parent });
   }
+  // Asteroid meshes (Ceres / Vesta / Pallas) — vždy viditelné, nejsou gated (žádný particle owner).
+  for (const a of ASTEROIDS) {
+    const tex = asteroidImageData[a.id] ?? null;
+    if (!tex) continue;
+    const mesh = buildBodyMesh(tex, a.radiusPx, 2562);
+    applyShape(mesh, a);
+    mesh.visible = true;
+    asteroidAnchors[a.id].add(mesh);
+    bodyMeshes[a.id] = mesh;
+  }
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
   picker = createPicker({ scene, camera, canvas: renderer.domElement });
   for (const p of PLANETS) {
@@ -365,6 +375,15 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       moonAnchor.getWorldPosition(v);
       return { x: v.x, y: v.y, z: v.z };
     }, Math.max(m.radiusPx * 2, 4));
+  }
+  for (const a of ASTEROIDS) {
+    const aAnchor = asteroidAnchors[a.id];
+    if (!aAnchor) continue;
+    picker.addBody(a.id, () => {
+      const v = new THREE.Vector3();
+      aAnchor.getWorldPosition(v);
+      return { x: v.x, y: v.y, z: v.z };
+    }, Math.max(a.radiusPx * 2, 8));
   }
   // V main stavu aktivní = jen planets + sun
   picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
@@ -452,6 +471,12 @@ Promise.all([loaded, moonsLoaded]).then(() => {
     if (mAnchor) {
       const v = new THREE.Vector3();
       mAnchor.getWorldPosition(v);
+      return { x: v.x, y: v.y, z: v.z };
+    }
+    const aAnchor = asteroidAnchors[id];
+    if (aAnchor) {
+      const v = new THREE.Vector3();
+      aAnchor.getWorldPosition(v);
       return { x: v.x, y: v.y, z: v.z };
     }
     return { x: 0, y: 0, z: 0 };
@@ -568,7 +593,9 @@ Promise.all([loaded, moonsLoaded]).then(() => {
       const p = PLANET_BY_ID[id];
       if (p) return p.radiusPx;
       const m = MOONS.find((mm) => mm.id === id);
-      return m ? Math.max(m.radiusPx, 3) : 1;
+      if (m) return Math.max(m.radiusPx, 3);
+      const a = ASTEROIDS.find((aa) => aa.id === id);
+      return a ? Math.max(a.radiusPx, 3) : 1;
     },
     getCameraDistance: (id, scaleOn) => {
       // Pro planety se zahrnou i jejich měsíce (camera z-offset zahrne max moon dist).
