@@ -1,6 +1,8 @@
 import { PLANET_BY_ID } from './planets.js';
-import { MOON_BY_ID } from './moons.js';
+import { MOON_BY_ID, MOONS_BY_PARENT } from './moons.js';
 import { ASTEROIDS } from './asteroids.js';
+import * as moonOrbitLines from './moonOrbitLines.js';
+import { onModeChange } from './simMode.js';
 
 export const STATE = Object.freeze({
   MAIN: 'MAIN',
@@ -22,6 +24,8 @@ export function createDetailView(deps) {
   let _timer = 0; // sekundy v aktuální transition state
   let _returnPos = null;
   let _returnTarget = null;
+  let _currentMoonLines = [];
+  let _modeChangeUnsub = null;
 
   function getBodyData(id) {
     return (PLANET_BY_ID[id]) ||
@@ -58,12 +62,42 @@ export function createDetailView(deps) {
     deps.cameraFlyTo(pos, target, TRANSITION_DURATION);
   }
 
+  function showMoonLines() {
+    const isPlanet = !!(deps.planetAnchors && deps.planetAnchors[_focusId] && PLANET_BY_ID[_focusId]);
+    if (!isPlanet) return;
+    _currentMoonLines = moonOrbitLines.showFor(
+      _focusId,
+      deps.planetAnchors,
+      MOONS_BY_PARENT,
+      PLANET_BY_ID
+    );
+    _modeChangeUnsub = onModeChange(() => {
+      moonOrbitLines.disposeAll(_currentMoonLines);
+      _currentMoonLines = moonOrbitLines.showFor(
+        _focusId,
+        deps.planetAnchors,
+        MOONS_BY_PARENT,
+        PLANET_BY_ID
+      );
+    });
+  }
+
+  function hideMoonLines() {
+    moonOrbitLines.disposeAll(_currentMoonLines);
+    _currentMoonLines = [];
+    if (_modeChangeUnsub) {
+      _modeChangeUnsub();
+      _modeChangeUnsub = null;
+    }
+  }
+
   function enterDetailState() {
     _state = STATE.DETAIL;
     const body = getBodyData(_focusId);
     deps.showPanel(_focusId, body);
     const p = deps.getBodyPosition(_focusId);
     deps.enableOrbit(true, p);
+    showMoonLines();
   }
 
   function startTransitionOut() {
@@ -73,6 +107,7 @@ export function createDetailView(deps) {
     _timer = 0;
     deps.fadeOthers(null, 1);
     deps.cameraFlyTo(_returnPos, _returnTarget, TRANSITION_DURATION);
+    hideMoonLines();
   }
 
   function enterMainState() {
@@ -94,6 +129,7 @@ export function createDetailView(deps) {
         return;
       }
       // DETAIL → re-focus (bez průchodu MAIN)
+      hideMoonLines();
       _focusId = id;
       _state = STATE.TRANSITION_IN;
       _timer = 0;
