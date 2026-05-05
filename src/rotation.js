@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PLANETS } from './planets.js';
 
-// Lokální Y osa planety (po aplikaci axial tilt přes anchor.rotation.z).
+// Lokální Y osa planety (po aplikaci axial tilt přes anchor.rotation.x).
 const LOCAL_Y = new THREE.Vector3(0, 1, 0);
 
 /**

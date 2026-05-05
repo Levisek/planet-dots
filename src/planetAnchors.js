@@ -42,7 +42,7 @@ export function createPlanetAnchors(scene) {
     const anchor = new THREE.Object3D();
     const pos = orbitalPosition(p, 0);
     anchor.position.set(pos.x, pos.y, pos.z);
-    anchor.rotation.z = THREE.MathUtils.degToRad(p.axialTilt);
+    anchor.rotation.x = THREE.MathUtils.degToRad(p.axialTilt);
     anchor.userData.planet = p;
     scene.add(anchor);
     anchors[p.id] = anchor;

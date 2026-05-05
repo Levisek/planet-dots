@@ -38,9 +38,10 @@ export function sampleKeplerCurve(samples, a, e, incDeg) {
  * @param {Object<string, import('three').Object3D>} planetAnchors
  * @param {object} moonsByPlanet — { [planetId]: [moon1, moon2, ...] }
  * @param {Object<string, object>} planetByIdLookup — pro radiusPx
+ * @param {Object<string, {a: number, period: number}>} [scaleFactors] — real-scale faktory per moonId (z moonScaleFactors v main.js)
  * @returns {import('three').LineLoop[]}
  */
-export function showFor(planetId, planetAnchors, moonsByPlanet, planetByIdLookup) {
+export function showFor(planetId, planetAnchors, moonsByPlanet, planetByIdLookup, scaleFactors = {}) {
   const planet = planetAnchors[planetId];
   if (!planet) return [];
   const planetData = planetByIdLookup ? planetByIdLookup[planetId] : null;
@@ -48,7 +49,8 @@ export function showFor(planetId, planetAnchors, moonsByPlanet, planetByIdLookup
   const moons = moonsByPlanet[planetId] || [];
   const lines = [];
   for (const m of moons) {
-    const a = m.a * parentRadiusPx;
+    const aFactor = scaleFactors[m.id]?.a ?? 1;
+    const a = m.a * parentRadiusPx * aFactor;
     const e = getEccentricity(m);
     const inc = getInclination(m);
     const points = sampleKeplerCurve(64, a, e, inc);

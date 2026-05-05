@@ -65,19 +65,23 @@ export function createDetailView(deps) {
   function showMoonLines() {
     const isPlanet = !!(deps.planetAnchors && deps.planetAnchors[_focusId] && PLANET_BY_ID[_focusId]);
     if (!isPlanet) return;
+    const scaleFactors = deps.getMoonScaleFactors ? deps.getMoonScaleFactors() : {};
     _currentMoonLines = moonOrbitLines.showFor(
       _focusId,
       deps.planetAnchors,
       MOONS_BY_PARENT,
-      PLANET_BY_ID
+      PLANET_BY_ID,
+      scaleFactors
     );
     _modeChangeUnsub = onModeChange(() => {
       moonOrbitLines.disposeAll(_currentMoonLines);
+      const sf = deps.getMoonScaleFactors ? deps.getMoonScaleFactors() : {};
       _currentMoonLines = moonOrbitLines.showFor(
         _focusId,
         deps.planetAnchors,
         MOONS_BY_PARENT,
-        PLANET_BY_ID
+        PLANET_BY_ID,
+        sf
       );
     });
   }
