@@ -95,3 +95,13 @@ test('Hyperion existuje v MOONS', () => {
   assert.equal(hyperion.category, 'irregular');
   assert.equal(hyperion.chaoticRotation, true);
 });
+
+test('Phoebe existuje v BODY_DATA s kompletními edukačními daty', () => {
+  assert.ok(BODY_DATA.phoebe, 'Phoebe chybí v BODY_DATA');
+  const p = BODY_DATA.phoebe;
+  assert.equal(p.name, 'Phoebe');
+  assert.equal(p.kind, 'moon');
+  assert.ok(p.tagline.includes('retrográdní'));
+  assert.ok(p.funFact.includes('Kuiperova pásu'));
+  assert.ok(p.fields.length >= 6);
+});

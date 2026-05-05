@@ -435,6 +435,24 @@ export const BODY_DATA = {
     funFact: 'Hyperion je jediný měsíc známý s chaotickou rotací — jeho orientace v prostoru se nemůže předvídat. Gravitační rušení Titanu a nepravidelný tvar jsou příčinou tohoto chaosu.',
   },
 
+  phoebe: {
+    name: 'Phoebe',
+    kind: 'moon',
+    tagline: 'Saturnův retrográdní měsíc — pravděpodobně zachycený KBO.',
+    fields: [
+      { label: 'Průměr', value: '213 km' },
+      { label: 'Hmota', value: '~8,3×10¹⁸ kg' },
+      { label: 'Den', value: '~9 hodin' },
+      { label: 'Vzdálenost od Saturnu', value: '12 947 780 km' },
+      { label: 'Atmosféra', value: 'žádná' },
+      { label: 'Povrchová teplota', value: '−183 °C' },
+      { label: 'Gravitace', value: '~0,04 m/s²' },
+      { label: 'Mateřská planeta', value: 'Saturn' },
+      { label: 'Objevitel', value: 'William Henry Pickering, 1899' },
+    ],
+    funFact: 'Phoebe obíhá Saturn opačným směrem než ostatní velké měsíce — to napovídá, že byla zachycena z Kuiperova pásu, ne formována se Saturnovým systémem.',
+  },
+
   miranda: {
     name: 'Miranda',
     kind: 'moon',

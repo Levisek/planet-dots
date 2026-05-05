@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { MOONS, MOON_BY_ID, MOONS_BY_PARENT } from './moons.js';
 import { PLANET_BY_ID, POOL_SIZE } from './planets.js';
 
-test('MOONS má přesně 23 měsíců (20 V2 + 3 Neptune)', () => {
-  assert.equal(MOONS.length, 23);
+test('MOONS má přesně 24 měsíců (21 V2 + 3 Neptune)', () => {
+  assert.equal(MOONS.length, 24);
 });
 
 test('každý měsíc má povinné atributy', () => {
@@ -37,7 +37,7 @@ test('period, a, tickCount, radiusPx jsou kladné', () => {
   }
 });
 
-test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 8, Uranus 5, Neptune 3', () => {
+test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 9, Uranus 5, Neptune 3', () => {
   const byParent = MOONS.reduce((acc, m) => {
     acc[m.parent] = (acc[m.parent] || 0) + 1;
     return acc;
@@ -45,7 +45,7 @@ test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 8, Uranus 5, Neptune
   assert.equal(byParent.earth, 1);
   assert.equal(byParent.mars, 2);
   assert.equal(byParent.jupiter, 4);
-  assert.equal(byParent.saturn, 8);
+  assert.equal(byParent.saturn, 9);
   assert.equal(byParent.uranus, 5);
   assert.equal(byParent.neptune, 3);
 });
@@ -53,10 +53,10 @@ test('rozložení rodin: Earth 1, Mars 2, Jupiter 4, Saturn 8, Uranus 5, Neptune
 test('MOONS_BY_PARENT je správně seskupený', () => {
   assert.equal(MOONS_BY_PARENT.earth.length, 1);
   assert.equal(MOONS_BY_PARENT.jupiter.length, 4);
-  assert.equal(MOONS_BY_PARENT.saturn.length, 8);
+  assert.equal(MOONS_BY_PARENT.saturn.length, 9);
 });
 
-test('MOON_BY_ID obsahuje všech 23', () => {
+test('MOON_BY_ID obsahuje všech 24', () => {
   for (const m of MOONS) {
     assert.equal(MOON_BY_ID[m.id], m);
   }
@@ -67,4 +67,12 @@ test('součet moon tickCount + planet ticks se vejde do POOL_SIZE s rezervou', (
   // všechny měsíce jsou icosphere level 5 (10242), unified density napříč tělesy
   assert.ok(moonSum > 100000 && moonSum < 250000, `moon ticks = ${moonSum} mimo rozumný rozsah`);
   assert.ok(POOL_SIZE >= 500000, `POOL_SIZE = ${POOL_SIZE}, musí ≥ 500000`);
+});
+
+test('Phoebe existuje v MOONS s 175.3° inc', () => {
+  const phoebe = MOONS.find(m => m.id === 'phoebe');
+  assert.ok(phoebe);
+  assert.equal(phoebe.parent, 'saturn');
+  assert.equal(phoebe.category, 'irregular');
+  assert.ok(Math.abs(phoebe.inclinationDeg - 175.3) < 0.001);
 });
