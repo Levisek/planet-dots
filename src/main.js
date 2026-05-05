@@ -384,6 +384,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     const m = MOONS[i];
     const tex = moonImageData[m.id];
     let mesh;
+    let isFallback = false;
     if (tex) {
       // L5 (10242 verts) — L4 dělalo facety viditelné v detail view (Titan, Luna).
       mesh = buildBodyMesh(tex, m.radiusPx, 10242);
@@ -393,12 +394,19 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     } else {
       // texture: null záměrně — fallback barevná sféra
       mesh = buildFallbackMesh(m.radiusPx, m.color || '#808080', 10242);
+      isFallback = true;
     }
     applyShape(mesh, m);
-    mesh.visible = false;
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
-    gatedMeshes.push({ key: m.id, ownerIdx: MOON_OWNER_BASE + i, isPlanet: false, isMoon: true, parentId: m.parent });
+    if (isFallback) {
+      // Fallback mesh nemá particle formation → visible ihned, bez gating.
+      mesh.visible = true;
+      mesh.userData.settled = true;
+    } else {
+      mesh.visible = false;
+      gatedMeshes.push({ key: m.id, ownerIdx: MOON_OWNER_BASE + i, isPlanet: false, isMoon: true, parentId: m.parent });
+    }
   }
   // Asteroid meshes (Ceres / Vesta / Pallas) — vždy viditelné, nejsou gated (žádný particle owner).
   for (const a of ASTEROIDS) {
