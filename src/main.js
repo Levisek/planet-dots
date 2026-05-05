@@ -11,7 +11,7 @@ import { updatePlanetOrbits } from './planetOrbits.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
-import { getMoonE, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES } from './simMode.js';
+import { getMoonE, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -43,6 +43,12 @@ scene.add(pool.mesh);
 
 const clock = new THREE.Clock();
 let elapsed = 0;
+
+// Dvojitý časový kanál (V4.3):
+// _simElapsed — akumuluje dt × getTimeScale(), použito pro orbity (může jít zpět)
+// _realElapsed — akumuluje dt rovně, použito pro formation/sun/wind (vždy dopředu)
+let _simElapsed = 0;
+let _realElapsed = 0;
 
 let picker = null;
 let tooltip = null;
@@ -136,6 +142,11 @@ function tick() {
   const dt = clock.getDelta();
   elapsed += dt;
 
+  // Dual time channel
+  const dtSim = dt * getTimeScale();
+  _simElapsed += dtSim;
+  _realElapsed += dt;
+
   // Camera tween (pro fly-to) — jednotný přes cameraTween.js
   if (_activeCameraTween) {
     _activeCameraTween.t += dt;
@@ -161,9 +172,9 @@ function tick() {
   const focusId = detailView ? detailView.focusId() : null;
   const isMoonDetail = focusId && MOONS.some((m) => m.id === focusId);
   if (isMainState) {
-    updatePlanetOrbits(anchors, PLANETS, elapsed);
+    updatePlanetOrbits(anchors, PLANETS, _simElapsed);
     rotateAnchors(anchors, dt);
-    updateMoonOrbits(elapsed, moonScaleFactors);
+    updateMoonOrbits(_simElapsed, moonScaleFactors);
   } else if (isMoonDetail) {
     // Moon-detail: focus měsíc rotuje, ostatní stojí.
     for (const p of PLANETS) {
@@ -190,22 +201,23 @@ function tick() {
         a.updateMatrixWorld(true);
       }
     }
-    updateMoonOrbits(elapsed, moonScaleFactors);
+    updateMoonOrbits(_simElapsed, moonScaleFactors);
   }
 
   // Formation intro Beat 1+2 (cloud + kolaps), pak solar/moon wind.
+  // Tyto systémy vždy jedou dopředu — používají _realElapsed.
   if (isMainState) {
-    updateFormationIntro(pool, elapsed, dt);
-    updateSolarWind(pool, elapsed, dt, anchors, imageData);
-    updateMoonWind(pool, elapsed, dt, anchors, moonAnchors, imageData, moonImageData);
+    updateFormationIntro(pool, _realElapsed, dt);
+    updateSolarWind(pool, _realElapsed, dt, anchors, imageData);
+    updateMoonWind(pool, _realElapsed, dt, anchors, moonAnchors, imageData, moonImageData);
   }
 
-  pool.updateFlight(elapsed, dt);
+  pool.updateFlight(_realElapsed, dt);
 
   // Sun activity — vždy aktivní, ale intenzita vyšší pokud je Slunce v detailu
   if (sunActivity) {
     const isSunDetail = dvState === 'DETAIL' && detailView.focusId() === 'sun';
-    sunActivity.update(pool, elapsed, dt, { intensity: isSunDetail ? 'high' : 'low' });
+    sunActivity.update(pool, _realElapsed, dt, { intensity: isSunDetail ? 'high' : 'low' });
   }
 
   const rotStart = performance.now();
