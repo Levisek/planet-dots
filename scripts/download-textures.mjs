@@ -85,10 +85,10 @@ const URLS = {
   triton: [wm('Triton_map_no_grid.jpg'), wm('Triton_map1987.png')],
 
   // ASTEROIDS — V4.3 teaser
-  // POZNÁMKA: ceres a pallas mají texture: null v asteroids.js (orthographic/Hubble foto, ne equirectangular).
-  ceres:  [wm('Ceres_-_RC3_-_Haulani_Crater_(22381131691).jpg'), wm('PIA19310-Ceres-DwarfPlanet-Dawn-RC3-image19-20150506.jpg')],
+  // Ceres: Solar System Scope 2k_ceres_fictional (cylindrická, CC BY 4.0, označeno fictional = umělá)
+  // Pallas: žádná cylindrická mapa neexistuje — pallas.jpg generuje scripts/build-procedural-textures.mjs
+  ceres:  [sss('ceres_fictional')],
   vesta:  [wm('Vesta_full_mosaic.jpg')],
-  // pallas: žádná cylindrická mapa neexistuje — texture: null
 };
 
 const RING = ['saturn_ring', 'https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png', 'png'];
