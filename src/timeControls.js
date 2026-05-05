@@ -9,14 +9,27 @@ let _container = null;
 
 let _getSimElapsed = null;
 
-// Logarithmic mapping: slider 0..100 → speed 0.1..5.0
-// pos=50 → speed=1.0; pos=0 → 0.1; pos=100 → 5.0
+// Piecewise log mapping: slider 0..100 → speed 0.1..5.0
+// pos=0..50 → 0.1..1.0, pos=50..100 → 1.0..5.0
+// pos=50 → speed=1.0 (per spec)
 function sliderToSpeed(pos) {
-  const t = pos / 100;
-  return 0.1 * Math.pow(50, t); // exp mapping
+  if (pos <= 50) {
+    const t = pos / 50;
+    return 0.1 * Math.pow(10, t);  // 0.1 → 1.0
+  } else {
+    const t = (pos - 50) / 50;
+    return Math.pow(5, t);  // 1.0 → 5.0
+  }
 }
+
 function speedToSlider(speed) {
-  return 100 * Math.log(speed / 0.1) / Math.log(50);
+  if (speed <= 1.0) {
+    // Inverse of 0.1 * 10^t, t = pos/50
+    return 50 * Math.log10(speed / 0.1);
+  } else {
+    // Inverse of 5^t, t = (pos-50)/50
+    return 50 + 50 * Math.log(speed) / Math.log(5);
+  }
 }
 
 /**
