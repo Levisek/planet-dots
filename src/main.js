@@ -646,6 +646,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     },
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
     isFyzikalni,
+    planetAnchors: anchors,
   });
 
   // Inicializuj OrbitControls pro MAIN stav (orbit kolem Slunce)
