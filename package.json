@@ -8,5 +8,8 @@
     "test": "node --test \"src/**/*.test.js\"",
     "serve": "npx --yes serve -l 3000 .",
     "textures": "npm install --no-save sharp && node scripts/download-textures.mjs"
+  },
+  "devDependencies": {
+    "three": "^0.184.0"
   }
 }
