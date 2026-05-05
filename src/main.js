@@ -15,7 +15,7 @@ import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { tickHyperion } from './hyperionChaos.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
-import { getEccentricity, getInclination, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, isRetrograde } from './simMode.js';
+import { getEccentricity, getInclination, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, setTimeScale, _resetTimeScaleOverride, isRetrograde } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -662,8 +662,34 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
 
   // ESC handler
   window.addEventListener('keydown', (e) => {
+    // Skip when typing in inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
     if (e.key === 'Escape' && detailView.state() === DV_STATE.DETAIL) {
       detailView.exit();
+    }
+
+    // timeScale keybinds: [ ] \ 0
+    switch (e.key) {
+      case '[':
+        setTimeScale(Math.max(0.1, Math.abs(getTimeScale()) - 0.1) * (getTimeScale() < 0 ? -1 : 1));
+        e.preventDefault();
+        break;
+      case ']':
+        setTimeScale(Math.min(5.0, Math.abs(getTimeScale()) + 0.1) * (getTimeScale() < 0 ? -1 : 1));
+        e.preventDefault();
+        break;
+      case '\\':
+        setTimeScale(-getTimeScale());
+        e.preventDefault();
+        break;
+      case '0':
+        _resetTimeScaleOverride();
+        const defaultScale = getSimMode() === MODES.POCHOPENI ? 0.5 : 1.0;
+        setTimeScale(defaultScale);
+        _resetTimeScaleOverride();
+        e.preventDefault();
+        break;
     }
   });
 
