@@ -102,6 +102,47 @@ async function fetchBuffer(url) {
   return buf;
 }
 
+/**
+ * Pokud texture má >40 % dark pixelů (RGB sum < 120), vyplní chybějící část
+ * mirror + Gaussian blur z existing hemisféry.
+ *
+ * @param {Buffer} buf — original image buffer
+ * @returns {Promise<{buf: Buffer, completed: boolean, darkRatio: number}>}
+ */
+async function maybeCompleteHemisphere(buf) {
+  const img = sharp(buf, { failOn: 'none' });
+  const { width, height } = await img.metadata();
+  const raw = await img.raw().toBuffer();
+
+  // Detekuj dark pixely (RGB sum < 120)
+  let darkCount = 0;
+  for (let i = 0; i < raw.length; i += 3) {
+    if (raw[i] + raw[i+1] + raw[i+2] < 120) darkCount++;
+  }
+  const darkRatio = darkCount / (width * height);
+
+  if (darkRatio < 0.40) {
+    return { buf, completed: false, darkRatio };
+  }
+
+  // Mirror flip horizontally + Gaussian blur 20px
+  const mirrored = await sharp(buf, { failOn: 'none' })
+    .flop()
+    .blur(20)
+    .toBuffer();
+
+  // Alpha blend mirror over original (overlays into dark areas)
+  const blended = await sharp(buf, { failOn: 'none' })
+    .composite([{
+      input: mirrored,
+      blend: 'over',
+      tile: false,
+    }])
+    .toBuffer();
+
+  return { buf: blended, completed: true, darkRatio };
+}
+
 async function saveImage(buf, out, keepAlpha) {
   // sharp dekóduje + resize + saves
   let img = sharp(buf, { failOn: 'none' });
@@ -134,9 +175,16 @@ async function downloadOne(name, urls, force, ext) {
     // Wikimedia rate-limits unauthenticated requests — buď slušný a čekej.
     if (url.includes('commons.wikimedia.org')) await sleep(4000);
     try {
-      const buf = await fetchBuffer(url);
+      const rawBuf = await fetchBuffer(url);
+      let buf, completed = false, darkRatio = 0;
+      if (ext === 'jpg') {
+        ({ buf, completed, darkRatio } = await maybeCompleteHemisphere(rawBuf));
+      } else {
+        buf = rawBuf;
+      }
       const size = await saveImage(buf, out, ext === 'png');
-      console.log(`[ok]   ${name}.${ext} (${size}b) <- ${url.slice(0, 80)}`);
+      const tag = completed ? `[ok+complete (${(darkRatio*100).toFixed(0)}% dark)]` : '[ok]';
+      console.log(`${tag} ${name}.${ext} (${size}b) <- ${url.slice(0, 80)}`);
       return true;
     } catch (e) {
       const tag = i < urls.length - 1 ? 'fallback' : 'FAIL';
