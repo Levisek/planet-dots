@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setMode, getInclination, MODES } from './simMode.js';
+import { setMode, getInclination, getEccentricity, MODES } from './simMode.js';
 
 test('getInclination — Fyzikální vrátí real', () => {
   setMode(MODES.FYZIKALNI);
@@ -25,4 +25,20 @@ test('getInclination — suplementární clamp pro high-inc', () => {
   assert.ok(Math.abs(getInclination({ inclinationDeg: 175.3, category: 'irregular' }) - 175.3) < 0.001);
   // Hypotetický 110° (effective 70 > 30) → clamp na 30, vrátí 150
   assert.equal(getInclination({ inclinationDeg: 110, category: 'irregular' }), 150);
+});
+
+test('getEccentricity — Fyzikální vrátí eReal', () => {
+  setMode(MODES.FYZIKALNI);
+  assert.equal(getEccentricity({ e: 0.05, eReal: 0.21 }), 0.21);
+});
+
+test('getEccentricity — Pochopení vrátí e (clamped)', () => {
+  setMode(MODES.POCHOPENI);
+  assert.equal(getEccentricity({ e: 0.08, eReal: 0.21 }), 0.08);
+  assert.equal(getEccentricity({ e: 0.02, eReal: 0.05 }), 0.02);
+});
+
+test('getEccentricity — chybí eReal vrátí e', () => {
+  setMode(MODES.FYZIKALNI);
+  assert.equal(getEccentricity({ e: 0.04 }), 0.04);
 });

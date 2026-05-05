@@ -47,12 +47,14 @@ export function getOrbitalPeriod(planet) {
     : planet.orbitalPeriodSec;
 }
 
-/** Aktuální eccentricity moonu. Default v fyzikálním = real, v pochopení = clamp 0.05 */
-export function getMoonE(moon) {
-  return _current === MODE.FYZIKALNI && moon.eReal !== undefined
-    ? moon.eReal
-    : moon.e;
+/** Univerzální getter pro eccentricity — vrátí eReal v FYZIKALNI mode, jinak e. */
+export function getEccentricity(body) {
+  if (_current === MODE.FYZIKALNI && body.eReal !== undefined) return body.eReal;
+  return body.e ?? 0;
 }
+
+// Backward-compat alias — deprecate v F4 cleanup
+export const getMoonE = getEccentricity;
 
 /** Aktuální period moonu (kolem rodičovské planety). */
 export function getMoonPeriod(moon) {
