@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "three": "^0.184.0"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
   }
 }

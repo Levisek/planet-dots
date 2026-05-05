@@ -32,6 +32,44 @@ import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
 import { initTimeControls } from './timeControls.js';
+import { icosphereRaw } from './geometry.js';
+
+/**
+ * Fallback barevná sféra pro tělesa bez cylindrické mapy (texture: null).
+ * Používá stejnou icosphere subdivizi jako buildBodyMesh, ale všechny vrcholy
+ * mají pevnou barvu (z body.color) místo textury.
+ */
+function buildFallbackMesh(radius, hexColor, minVertices) {
+  const { vertices, faces } = icosphereRaw(minVertices);
+  const numTris = faces.length;
+  const posArray = new Float32Array(numTris * 3 * 3);
+  const colorArray = new Float32Array(numTris * 3 * 3);
+  const normalArray = new Float32Array(numTris * 3 * 3);
+  const c = new THREE.Color(hexColor);
+  for (let i = 0; i < numTris; i++) {
+    const [a, b, cc] = faces[i];
+    const va = vertices[a], vb = vertices[b], vc = vertices[cc];
+    const base = i * 9;
+    posArray[base+0]=va[0]*radius; posArray[base+1]=va[1]*radius; posArray[base+2]=va[2]*radius;
+    posArray[base+3]=vb[0]*radius; posArray[base+4]=vb[1]*radius; posArray[base+5]=vb[2]*radius;
+    posArray[base+6]=vc[0]*radius; posArray[base+7]=vc[1]*radius; posArray[base+8]=vc[2]*radius;
+    for (let k = 0; k < 3; k++) {
+      colorArray[base+k*3+0]=c.r; colorArray[base+k*3+1]=c.g; colorArray[base+k*3+2]=c.b;
+    }
+    normalArray[base+0]=va[0]; normalArray[base+1]=va[1]; normalArray[base+2]=va[2];
+    normalArray[base+3]=vb[0]; normalArray[base+4]=vb[1]; normalArray[base+5]=vb[2];
+    normalArray[base+6]=vc[0]; normalArray[base+7]=vc[1]; normalArray[base+8]=vc[2];
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+  geo.computeBoundingSphere();
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: false, opacity: 1.0 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData._flatMaterial = mat;
+  return mesh;
+}
 
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
 createStarfield(scene);
@@ -345,9 +383,17 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   for (let i = 0; i < MOONS.length; i++) {
     const m = MOONS[i];
     const tex = moonImageData[m.id];
-    if (!tex) continue;
-    // L5 (10242 verts) — L4 dělalo facety viditelné v detail view (Titan, Luna).
-    const mesh = buildBodyMesh(tex, m.radiusPx, 10242);
+    let mesh;
+    if (tex) {
+      // L5 (10242 verts) — L4 dělalo facety viditelné v detail view (Titan, Luna).
+      mesh = buildBodyMesh(tex, m.radiusPx, 10242);
+    } else if (m.texture !== null) {
+      // texture má cestu ale se nestáhla — přeskoč (loader selhal)
+      continue;
+    } else {
+      // texture: null záměrně — fallback barevná sféra
+      mesh = buildFallbackMesh(m.radiusPx, m.color || '#808080', 10242);
+    }
     applyShape(mesh, m);
     mesh.visible = false;
     moonAnchors[m.id].add(mesh);
@@ -357,8 +403,16 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Asteroid meshes (Ceres / Vesta / Pallas) — vždy viditelné, nejsou gated (žádný particle owner).
   for (const a of ASTEROIDS) {
     const tex = asteroidImageData[a.id] ?? null;
-    if (!tex) continue;
-    const mesh = buildBodyMesh(tex, a.radiusPx, 2562);
+    let mesh;
+    if (tex) {
+      mesh = buildBodyMesh(tex, a.radiusPx, 2562);
+    } else if (a.texture !== null) {
+      // texture má cestu ale se nestáhla — přeskoč
+      continue;
+    } else {
+      // texture: null záměrně — fallback barevná sféra
+      mesh = buildFallbackMesh(a.radiusPx, a.color || '#808080', 2562);
+    }
     applyShape(mesh, a);
     mesh.visible = true;
     asteroidAnchors[a.id].add(mesh);

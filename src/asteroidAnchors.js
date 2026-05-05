@@ -6,6 +6,7 @@ import { ASTEROIDS } from './asteroids.js';
  * (Stejné jako v planetAnchors.js a moonAnchors.js, duplikováno pro modularitu.)
  */
 function loadImageData(url) {
+  if (!url) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';

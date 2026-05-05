@@ -65,8 +65,10 @@ const URLS = {
   tethys:    [wm('Tethys_map_June_2008_PIA08416_moon_only.jpg'), wm('Tethys_map_June_2008_PIA08416.jpg')],
   enceladus: [wm('Map_of_Enceladus_December_2008_PIA11145.jpg'), wm('Map_of_Enceladus_October_2009_PIA11680.jpg')],
   mimas:     [wm('Map_of_Mimas_2017-01_PIA17214.jpg'), wm('Map_of_Mimas_2010-02_PIA12780.jpg')],
-  hyperion:  [wm('PIA07740_Hyperion_Cassini.jpg')],
-  phoebe:    [wm('Phoebe_cassini.jpg'), wm('Phoebe_image.jpg')],
+  // POZNÁMKA: hyperion a phoebe mají texture: null v moons.js (orthographic foto, ne equirectangular).
+  // Soubory níže jsou záložní archive — nejsou aktivně načítány scénou.
+  hyperion:  [wm('Hyperion_PIA07740.jpg')], // orthographic Cassini
+  phoebe:    [wm('Phoebe_cassini_full.jpg'), wm('Phoebe_cassini.jpg')], // orthographic Cassini
 
   // URANUS MOONS — Wikimedia (USGS Voyager)
   miranda: [wm('Miranda_map_JPL_USGS.jpg'), wm('Miranda_map.jpg')],
@@ -83,9 +85,10 @@ const URLS = {
   triton: [wm('Triton_map_no_grid.jpg'), wm('Triton_map1987.png')],
 
   // ASTEROIDS — V4.3 teaser
+  // POZNÁMKA: ceres a pallas mají texture: null v asteroids.js (orthographic/Hubble foto, ne equirectangular).
   ceres:  [wm('Ceres_-_RC3_-_Haulani_Crater_(22381131691).jpg'), wm('PIA19310-Ceres-DwarfPlanet-Dawn-RC3-image19-20150506.jpg')],
   vesta:  [wm('Vesta_full_mosaic.jpg')],
-  pallas: [wm('Pallas-HST-2007-2010.png')],
+  // pallas: žádná cylindrická mapa neexistuje — texture: null
 };
 
 const RING = ['saturn_ring', 'https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png', 'png'];

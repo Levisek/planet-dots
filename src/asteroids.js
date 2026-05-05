@@ -7,7 +7,7 @@ export const ASTEROIDS = [
     a: 2.766, e: 0.0758, eReal: 0.0758, inclinationDeg: 10.59,
     period: 25, periodReal: 46.0, phaseOffset: 0.0,
     realDiameterKm: 940, realSemiMajorAxisKm: 414.01e6,
-    color: '#9a8d7a', texture: 'textures/ceres.jpg',
+    color: '#9a8d7a', texture: null, // žádná cylindrická mapa — Dawn foto je orthographic
     radiusPx: 10,
     coverageNote: null,
   },
@@ -23,7 +23,7 @@ export const ASTEROIDS = [
     a: 2.772, e: 0.08, eReal: 0.2305, inclinationDeg: 34.84,
     period: 26, periodReal: 46.6, phaseOffset: 2.9,
     realDiameterKm: 512, realSemiMajorAxisKm: 414.7e6,
-    color: '#8a8a8a', texture: 'textures/pallas.jpg',
+    color: '#8a8a8a', texture: null, // žádná cylindrická mapa dostupná
     radiusPx: 7,
     shape: { scale: [1.0, 0.95, 0.90] },
     coverageNote: 'Pallas fotografována jen Hubble dalekohledem. Detaily neznámé.',

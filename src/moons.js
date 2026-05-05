@@ -135,7 +135,7 @@ export const MOONS = [
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'hyperion', name: 'HYPERION', parent: 'saturn',
     diameterKm: 270, radiusPx: 0.5, tickCount: MOON_TICK,
-    texture: 'textures/hyperion.jpg',
+    texture: null, // žádná cylindrická mapa — Cassini foto je orthographic, ne equirectangular
     a: 4.6, e: 0.05, eReal: 0.1230, period: 70, periodReal: 21.28, phaseOffset: 0.7,
     realDiameterKm: 270,
     realSemiMajorAxisKm: 1481010,
@@ -147,7 +147,7 @@ export const MOONS = [
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'phoebe', name: 'PHOEBE', parent: 'saturn',
     diameterKm: 213, radiusPx: 0.5, tickCount: MOON_TICK,
-    texture: 'textures/phoebe.jpg',
+    texture: null, // žádná cylindrická mapa — Cassini foto je orthographic, ne equirectangular
     a: 13.5, e: 0.08, eReal: 0.1634, period: 280, periodReal: 550.31, phaseOffset: 2.1,
     realDiameterKm: 213,
     realSemiMajorAxisKm: 12947780,
