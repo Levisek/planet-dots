@@ -7,7 +7,10 @@ import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
 import { rotateAnchors, rotateOne } from './rotation.js';
 import { updateSolarWind } from './solarWind.js';
-import { updatePlanetOrbits } from './planetOrbits.js';
+import { updatePlanetOrbits, orbitalPosition, auToDisplayRadius } from './planetOrbits.js';
+import { createAsteroidAnchors } from './asteroidAnchors.js';
+import { createAsteroidBelt } from './asteroidBelt.js';
+import { ASTEROIDS } from './asteroids.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
@@ -31,6 +34,30 @@ const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange
 createStarfield(scene);
 const { anchors, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
+const { anchors: asteroidAnchors, loaded: asteroidsLoaded } = createAsteroidAnchors(scene);
+const asteroidBelt = createAsteroidBelt(scene);
+
+// Convert ASTEROIDS data to orbit-compatible format (same fields as planets).
+function makeAsteroidOrbitable(a) {
+  return {
+    ...a,
+    orbitRadius: auToDisplayRadius(a.a),
+    orbitRadiusReal: auToDisplayRadius(a.a),
+    orbitalPeriodSec: a.period,
+    orbitalPeriodSecReal: a.periodReal,
+    initialPhaseRad: a.phaseOffset,
+  };
+}
+const ORBITABLE_ASTEROIDS = ASTEROIDS.map(makeAsteroidOrbitable);
+
+function updateAsteroidOrbits(elapsed) {
+  for (const a of ORBITABLE_ASTEROIDS) {
+    const anchor = asteroidAnchors[a.id];
+    if (!anchor) continue;
+    const pos = orbitalPosition(a, elapsed);
+    anchor.position.set(pos.x, pos.y, pos.z);
+  }
+}
 
 // Unified anchor array — planety 0..8, měsíce 9..27 (MOON_OWNER_BASE=9). Používá applyClusterRotation.
 const anchorsByIndex = [
@@ -175,6 +202,8 @@ function tick() {
     updatePlanetOrbits(anchors, PLANETS, _simElapsed);
     rotateAnchors(anchors, dt);
     updateMoonOrbits(_simElapsed, moonScaleFactors);
+    updateAsteroidOrbits(_simElapsed);
+    asteroidBelt.update(_simElapsed);
   } else if (isMoonDetail) {
     // Moon-detail: focus měsíc rotuje, ostatní stojí.
     for (const p of PLANETS) {
