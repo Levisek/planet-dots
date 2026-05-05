@@ -11,7 +11,7 @@ import { updatePlanetOrbits } from './planetOrbits.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { orbitPosition, trueAnomaly } from './orbit.js';
-import { getEccentricity, getInclination, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale } from './simMode.js';
+import { getEccentricity, getInclination, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, isRetrograde } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -185,7 +185,7 @@ function tick() {
       const a = moonAnchors[m.id];
       if (!a) continue;
       if (m.id === focusId) {
-        rotateOne(a, { rotationPeriod: m.period ?? 10, direction: m.retrograde ? -1 : 1 }, dt);
+        rotateOne(a, { rotationPeriod: m.period ?? 10, direction: isRetrograde(m) ? -1 : 1 }, dt);
       } else {
         a.updateMatrixWorld(true);
       }
