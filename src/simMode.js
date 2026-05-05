@@ -61,4 +61,24 @@ export function getMoonPeriod(moon) {
     : moon.period;
 }
 
+// --- Inclination with per-category clamp ---
+
+const INCLINATION_CAPS = {
+  planet: 5,
+  moon: 15,
+  irregular: 30,
+  dwarf: 30,
+};
+
+export function getInclination(body) {
+  const real = body.inclinationDeg;
+  if (real === undefined) return 0;
+  if (_current === MODE.FYZIKALNI) return real;
+
+  const cap = INCLINATION_CAPS[body.category] ?? 15;
+  const effective = real > 90 ? 180 - real : real;
+  const clamped = Math.min(effective, cap);
+  return real > 90 ? 180 - clamped : clamped;
+}
+
 export const MODES = MODE;
