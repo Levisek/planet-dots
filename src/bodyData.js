@@ -291,6 +291,42 @@ export const BODY_DATA = {
     funFact: 'Callisto má nejhustěji pokrátrovaný povrch ve sluneční soustavě — je jako kosmický záznamník historie.',
   },
 
+  sinope: {
+    name: 'Sinope',
+    kind: 'moon',
+    tagline: 'Vzdálený retrográdní měsíc Jupitera, pravděpodobně zachycený asteroid.',
+    fields: [
+      { label: 'Průměr', value: '~38 km' },
+      { label: 'Hmota', value: '~7,5×10¹⁶ kg' },
+      { label: 'Den', value: 'neznámý (pravděpodobně tidálně zamčeno)' },
+      { label: 'Vzdálenost od Jupitera', value: '23 939 000 km' },
+      { label: 'Atmosféra', value: 'žádná' },
+      { label: 'Povrchová teplota', value: '~−200 °C' },
+      { label: 'Gravitace', value: '~0,004 m/s²' },
+      { label: 'Mateřská planeta', value: 'Jupiter' },
+      { label: 'Objevitel', value: 'Seth Barnes Nicholson, 1914' },
+    ],
+    funFact: 'Sinope a Pasiphae patří do Pasiphae group — skupiny irregular Jupiterových měsíců s podobnými retrográdními orbitami, které byly všechny pravděpodobně zachyceny z asteroidového pásu.',
+  },
+
+  pasiphae: {
+    name: 'Pasiphae',
+    kind: 'moon',
+    tagline: 'Vzdálený retrográdní měsíc Jupitera, vedoucí člen Pasiphae group.',
+    fields: [
+      { label: 'Průměr', value: '~60 km' },
+      { label: 'Hmota', value: '~3×10¹⁷ kg' },
+      { label: 'Den', value: 'neznámý (pravděpodobně tidálně zamčeno)' },
+      { label: 'Vzdálenost od Jupitera', value: '23 624 000 km' },
+      { label: 'Atmosféra', value: 'žádná' },
+      { label: 'Povrchová teplota', value: '~−200 °C' },
+      { label: 'Gravitace', value: '~0,007 m/s²' },
+      { label: 'Mateřská planeta', value: 'Jupiter' },
+      { label: 'Objevitel', value: 'Philibert Jacques Melotte, 1908' },
+    ],
+    funFact: 'Sinope a Pasiphae patří do Pasiphae group — skupiny irregular Jupiterových měsíců s podobnými retrográdními orbitami, které byly všechny pravděpodobně zachyceny z asteroidového pásu.',
+  },
+
   titan: {
     name: 'Titan',
     kind: 'moon',

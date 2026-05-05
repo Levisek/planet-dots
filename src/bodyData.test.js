@@ -105,3 +105,13 @@ test('Phoebe existuje v BODY_DATA s kompletními edukačními daty', () => {
   assert.ok(p.funFact.includes('Kuiperova pásu'));
   assert.ok(p.fields.length >= 6);
 });
+
+test('Sinope a Pasiphae existují v MOONS s retrograde inc', () => {
+  const sinope = MOONS.find(m => m.id === 'sinope');
+  const pasiphae = MOONS.find(m => m.id === 'pasiphae');
+  assert.ok(sinope && pasiphae);
+  assert.equal(sinope.parent, 'jupiter');
+  assert.equal(pasiphae.parent, 'jupiter');
+  assert.ok(sinope.inclinationDeg > 90);
+  assert.ok(pasiphae.inclinationDeg > 90);
+});
