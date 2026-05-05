@@ -5,7 +5,12 @@ export function createInfoPanel() {
   if (!el) throw new Error('#infoPanel element nenalezen');
   let closeCb = null;
 
-  function render(id) {
+  function renderCoverageNote(body) {
+    if (!body || !body.coverageNote) return '';
+    return `<div class="coverage-note">✻ ${escapeHtml(body.coverageNote)}</div>`;
+  }
+
+  function render(id, body) {
     const data = BODY_DATA[id];
     if (!data) return;
 
@@ -20,6 +25,7 @@ export function createInfoPanel() {
       <p class="tagline">${escapeHtml(data.tagline)}</p>
       <table>${rowsHtml}</table>
       <div class="funFact">„${escapeHtml(data.funFact)}"</div>
+      ${renderCoverageNote(body)}
     `;
 
     el.querySelector('.close').onclick = () => closeCb && closeCb();
@@ -34,8 +40,8 @@ export function createInfoPanel() {
   }
 
   return {
-    show(id) {
-      render(id);
+    show(id, body) {
+      render(id, body);
       requestAnimationFrame(() => el.classList.add('visible'));
     },
     hide() {
