@@ -124,7 +124,7 @@ export const MOONS = [
   { id: 'phoebe', name: 'PHOEBE', parent: 'saturn',
     diameterKm: 213, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/phoebe.jpg',
-    a: 5.0, e: 0.08, eReal: 0.1634, period: 280, periodReal: 550.31, phaseOffset: 2.1,
+    a: 13.5, e: 0.08, eReal: 0.1634, period: 280, periodReal: 550.31, phaseOffset: 2.1,
     realDiameterKm: 213,
     realSemiMajorAxisKm: 12947780,
     category: 'irregular', inclinationDeg: 175.3,
