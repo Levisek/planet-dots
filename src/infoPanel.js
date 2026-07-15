@@ -1,4 +1,5 @@
 import { BODY_DATA } from './bodyData.js';
+import { escapeHtml } from './escapeHtml.js';
 
 export function createInfoPanel() {
   const el = document.getElementById('infoPanel');
@@ -29,14 +30,6 @@ export function createInfoPanel() {
     `;
 
     el.querySelector('.close').onclick = () => closeCb && closeCb();
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
   }
 
   return {

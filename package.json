@@ -10,9 +10,7 @@
     "textures": "npm install --no-save sharp && node scripts/download-textures.mjs"
   },
   "devDependencies": {
+    "sharp": "^0.34.5",
     "three": "^0.184.0"
-  },
-  "dependencies": {
-    "sharp": "^0.34.5"
   }
 }

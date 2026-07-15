@@ -29,7 +29,7 @@ await fs.mkdir(TEXDIR, { recursive: true });
 
 // Wikimedia vyžaduje identifying UA s contact info (jinak rate-limit 429).
 // https://meta.wikimedia.org/wiki/User-Agent_policy
-const UA = 'dots-edu/1.0 (https://github.com/anthropics/claude-code; education project)';
+const UA = 'dots-edu/1.0 (education project; contact: martas.levis@gmail.com)';
 const MAX_DIM = 2048;
 
 const sss = (name) => `https://www.solarsystemscope.com/textures/download/2k_${name}.jpg`;
@@ -52,11 +52,11 @@ const URLS = {
   luna: [sss('moon')],
 
   // GALILEOVY + RHEA — Björn Jónsson
-  io:       ['http://bjj.mmedia.is/data/io/io.jpg', wm('Io_map_projection_PIA00319.jpg')],
-  europa:   ['http://bjj.mmedia.is/data/europa/europa.jpg'],
-  ganymede: ['http://bjj.mmedia.is/data/ganymede/ganymede.jpg', wm('Map_of_Ganymede_by_Bj%C3%B6rn_J%C3%B3nsson.jpg')],
-  callisto: ['http://bjj.mmedia.is/data/callisto/callisto.jpg', wm('Callisto_map_NASA_JPL_Voyager.jpg')],
-  rhea:     ['http://bjj.mmedia.is/data/rhea/rhea_a.jpg'],
+  io:       ['https://bjj.mmedia.is/data/io/io.jpg', wm('Io_map_projection_PIA00319.jpg')],
+  europa:   ['https://bjj.mmedia.is/data/europa/europa.jpg'],
+  ganymede: ['https://bjj.mmedia.is/data/ganymede/ganymede.jpg', wm('Map_of_Ganymede_by_Bj%C3%B6rn_J%C3%B3nsson.jpg')],
+  callisto: ['https://bjj.mmedia.is/data/callisto/callisto.jpg', wm('Callisto_map_NASA_JPL_Voyager.jpg')],
+  rhea:     ['https://bjj.mmedia.is/data/rhea/rhea_a.jpg'],
 
   // SATURN MOONS (kromě Rhea) — Wikimedia cylindrical
   // Titan: Cassini ISS albedo map (2:1 equirectangular, 938nm filter, reálná povrchová data)

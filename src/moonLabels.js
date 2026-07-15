@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MOONS } from './moons.js';
 import { BODY_DATA } from './bodyData.js';
+import { escapeHtml } from './escapeHtml.js';
 
 const _vec = new THREE.Vector3();
 
@@ -22,7 +23,7 @@ export function createMoonLabels({ camera, canvas, moonAnchors }) {
     const distStr = m.realSemiMajorAxisKm
       ? `· ${(m.realSemiMajorAxisKm / 1000).toLocaleString('cs-CZ')} tis. km`
       : '';
-    el.innerHTML = `${name}<span class="dist">${distStr}</span>`;
+    el.innerHTML = `${escapeHtml(name)}<span class="dist">${escapeHtml(distStr)}</span>`;
     container.appendChild(el);
     labels[m.id] = { el, anchor };
   }
