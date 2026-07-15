@@ -525,7 +525,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     });
   });
   // Při změně simMode přepocítej kameru — Fyzikální má Neptune ve 4105,
-  // default kamera (0,3500,6000) je pak nedostatečná. Auto-zoom out.
+  // default kamera (0,5000,9000) je pak nedostatečná. Auto-zoom out.
   onModeChange((mode) => {
     const fyz = mode === MODES.FYZIKALNI;
     // Real měřítko měsíců — Triton, Iapetus, Nereid uletí daleko od rodiče.
@@ -540,7 +540,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       if (fyz) {
         camera.position.set(0, 90000, 160000);
       } else {
-        camera.position.set(0, 3500, 6000);
+        camera.position.set(0, 5000, 9000);
       }
       camera.lookAt(0, 0, 0);
     }
@@ -596,6 +596,12 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         if (g.isPlanet || g.isMoon) pool.setOwnerAlpha(g.ownerIdx, ownerA);
         const mesh = bodyMeshes[g.key];
         if (!mesh) continue;
+        // Vstup do detailu force-settluje focus mesh (+ ring/měsíce přes parentId).
+        // Uživatel může kliknout dřív, než doletí tečky formace — bez tohohle
+        // by detail view bylo prázdné (VISUAL-AUDIT I2).
+        if (isDetail && isFocus && !mesh.userData.settled) {
+          mesh.userData.settled = true;
+        }
         // Mesh visible vždy (po settle), opacity dim pro non-focus v detail.
         mesh.visible = !!mesh.userData.settled;
         if (mesh.material) {
@@ -698,12 +704,13 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         return m ? Math.max(m.radiusPx * 8, 30) : 40;
       }
       const baseDist = p.radiusPx * 4.5;
-      // V Fyzikálním módu (scaleOn=true) vynech irregular měsíce (Phoebe, Sinope,
-      // Pasiphae, Iapetus, Nereid...) — jejich real-scale vzdálenosti jsou řádově
-      // větší než regulární měsíce a způsobují, že kamera uskočí natolik daleko,
-      // že samotná planeta je neviditelná (sub-pixel). Uživatel může zoom-out.
+      // Irregular měsíce (Phoebe a=13.5, Sinope a=16, Pasiphae, Iapetus, Nereid...)
+      // se do distance nepočítají v ŽÁDNÉM módu — jejich orbity jsou řádově větší
+      // než regulární měsíce. V Pochopení hnaly Saturn dist na 2910 (base 337),
+      // kamera pak skončila u Slunce a to photobombilo detail view (VISUAL-AUDIT I2).
+      // Uživatel může zoom-out, chce-li vidět irregular orbity.
       const childMoons = MOONS.filter(
-        (mm) => mm.parent === id && (!scaleOn || mm.category !== 'irregular'),
+        (mm) => mm.parent === id && mm.category !== 'irregular',
       );
       if (childMoons.length === 0) return baseDist;
       let maxMoonDist = 0;
@@ -755,7 +762,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       moons: MOONS.map((m) => m.id),
     };
     window.__pool = pool;
-    window.__debug = { pool, anchors, moonAnchors };
+    window.__debug = { pool, anchors, moonAnchors, camera, controls, controlsTarget };
   }
 
   // Panel handlers

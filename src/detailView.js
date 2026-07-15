@@ -41,8 +41,12 @@ export function createDetailView(deps) {
     const dist = deps.getCameraDistance
       ? deps.getCameraDistance(id, fyz)
       : r * 4.5;
+    // Kamera ustupuje po z SMĚREM ke Slunci (origin), ne vždy po +z.
+    // Slunce (radius 995) tak skončí za kamerou a nephotobombí detail view
+    // (VISUAL-AUDIT I2). Bonus: se zapnutým lightingem je vidět denní strana.
+    const zSign = p.z >= 0 ? -1 : 1;
     return {
-      pos: { x: p.x, y: p.y + r * 0.6, z: p.z + dist },
+      pos: { x: p.x, y: p.y + r * 0.6, z: p.z + zSign * dist },
       target: p,
     };
   }
