@@ -762,7 +762,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       moons: MOONS.map((m) => m.id),
     };
     window.__pool = pool;
-    window.__debug = { pool, anchors, moonAnchors, camera, controls, controlsTarget };
+    window.__debug = { pool, anchors, moonAnchors, asteroidAnchors, camera, controls, controlsTarget };
   }
 
   // Panel handlers

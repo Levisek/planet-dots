@@ -55,9 +55,11 @@ a opravu period (Iapetus, Nereid) — **vyřešeno už ve V4.3** přes `eReal`/`
 
 ## Co zbývá (priorita shora)
 
-1. **Vizuální regrese CI** — `.audit/visual-audit-all.mjs` existuje, chybí baseline
-   diff + spouštění v CI. Všech 12 nálezů V4.3 auditu našel ruční run; bez
-   automatizace každá verze riskuje tichý rozpad předchozích fixů.
+1. ~~**Vizuální regrese CI**~~ — HOTOVO 2026-07-16: `scripts/visual-regression.mjs`
+   (`npm run test:visual`) assertuje strukturální invarianty přes `__debug` API
+   (mesh viditelný, kamera cílí na anchor, úhlová velikost, Slunce mimo frustum,
+   Saturn ring) — pixel-diff by u orbitální scény generoval falešné poplachy.
+   Běží v CI jako samostatný job, screenshoty jdou do artifacts.
 2. **I1/I3** — asteroidy jako uniform koule (procedurální textury částečně hotové),
    sub-pixel moony bez povrchu v detailu. Nice-to-have, může jít s V4.5.
 3. **main.js (~800 ř.)** — kompoziční kořen bobtná; před V4.4 vytáhnout
