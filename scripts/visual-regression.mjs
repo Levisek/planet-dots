@@ -13,6 +13,7 @@
 // Screenshoty se ukládají do .levis-tmp/visual-regression/ pro ruční kontrolu.
 //
 // Usage: node scripts/visual-regression.mjs            # spustí vlastní server :3003
+//        node scripts/visual-regression.mjs --all      # audit VŠECH těles × oba módy
 //        VR_CHANNEL=chrome node scripts/...            # systémový Chrome místo bundled
 
 import { chromium } from 'playwright';
@@ -23,7 +24,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const SHOT_DIR = path.join(ROOT, '.levis-tmp', 'visual-regression');
+const ALL = process.argv.includes('--all');
+const SHOT_DIR = path.join(ROOT, '.levis-tmp', ALL ? 'visual-audit-all' : 'visual-regression');
 await fs.mkdir(SHOT_DIR, { recursive: true });
 
 const PORT = 3003;
@@ -44,7 +46,16 @@ const check = (cond, label) => {
 const srv = spawn('npx', ['--yes', 'serve', '-l', String(PORT), '.'], {
   shell: process.platform === 'win32', stdio: 'ignore', cwd: ROOT,
 });
-await new Promise((r) => setTimeout(r, 4000));
+// Poll dokud server neodpovídá (npx cold start umí trvat >4s).
+for (let i = 0; ; i++) {
+  try {
+    await fetch(`http://localhost:${PORT}/`, { method: 'HEAD' });
+    break;
+  } catch {
+    if (i >= 30) { console.error(`serve na :${PORT} nenastartoval do 30s`); process.exit(1); }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
 
 const launchOpts = { headless: true };
 if (process.env.VR_CHANNEL) launchOpts.channel = process.env.VR_CHANNEL;
@@ -74,12 +85,45 @@ check(await page.evaluate(() => {
 check(await page.evaluate(() => document.fonts.check('9px "Press Start 2P"')), 'font načten lokálně');
 await page.screenshot({ path: path.join(SHOT_DIR, 'overview.png') });
 
+// --- plán: (id, mode) dvojice ---
+let currentMode = 'pochopeni';
+async function setMode(mode) {
+  if (mode === currentMode) return;
+  await page.evaluate((m) => document.querySelector(`#topToggles button[data-mode="${m}"]`)?.click(), mode);
+  await page.waitForTimeout(1500);
+  currentMode = mode;
+}
+
+let plan;
+if (ALL) {
+  const ids = await page.evaluate(() => ({
+    planets: Object.keys(window.__debug.anchors),
+    moons: Object.keys(window.__debug.moonAnchors),
+    asteroids: Object.keys(window.__debug.asteroidAnchors || {}),
+  }));
+  const bodies = [...ids.planets, ...ids.moons, ...ids.asteroids];
+  plan = ['pochopeni', 'fyzikalni'].flatMap((mode) => bodies.map((id) => ({ id, mode })));
+  console.log(`\n--all: ${bodies.length} těles × 2 módy (${ids.planets.length} planet, ${ids.moons.length} měsíců, ${ids.asteroids.length} asteroidů)`);
+} else {
+  plan = DETAIL_BODIES.map((id) => ({ id, mode: 'pochopeni' }));
+}
+
+const report = [];
+
 // --- detail view invarianty ---
-for (const id of DETAIL_BODIES) {
-  console.log(`\n[detail: ${id}]`);
+for (const { id, mode } of plan) {
+  const tag = ALL ? `${id} (${mode})` : id;
+  console.log(`\n[detail: ${tag}]`);
+  await setMode(mode);
   const d = await page.evaluate(async (bodyId) => {
     window.__dotsAudit.enter(bodyId);
-    await new Promise((r) => setTimeout(r, 2000)); // tween 0.8s + rezerva
+    // Poll na DETAIL místo fixního čekání — tween je 0.8s, ale headless frame
+    // občas zaškobrtne a enter() je během TRANSITION_IN ignorován.
+    const t0 = performance.now();
+    while (window.__dotsAudit.state() !== 'DETAIL' && performance.now() - t0 < 6000) {
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    await new Promise((r) => setTimeout(r, 300)); // dojezd kamery/labelů
     const dbg = window.__debug;
     const anchor = dbg.anchors[bodyId] || dbg.moonAnchors[bodyId] || dbg.asteroidAnchors?.[bodyId];
     if (!anchor) return { error: 'anchor nenalezen' };
@@ -89,6 +133,7 @@ for (const id of DETAIL_BODIES) {
     const dist = cam.position.distanceTo(p);
     const meshes = anchor.children.filter((c) => c.isMesh);
     const visMesh = meshes.find((m) => m.visible && m.geometry?.type !== 'RingGeometry');
+    if (visMesh && !visMesh.geometry.boundingSphere) visMesh.geometry.computeBoundingSphere();
     const ring = meshes.find((m) => m.geometry?.type === 'RingGeometry');
     const r = visMesh?.geometry?.boundingSphere
       ? visMesh.geometry.boundingSphere.radius * visMesh.scale.x
@@ -111,22 +156,31 @@ for (const id of DETAIL_BODIES) {
     };
   }, id);
 
-  if (d.error) { check(false, `${id}: ${d.error}`); continue; }
-  check(d.state === 'DETAIL', `state DETAIL (${d.state})`);
-  check(d.targetDist < 5, `kamera cílí na anchor (offset ${d.targetDist.toFixed(1)})`);
-  check(d.meshVisible, 'mesh tělesa viditelný');
-  check(d.angularDeg >= 2 && d.angularDeg <= 60,
+  const c = (cond, label) => check(cond, ALL ? `${tag}: ${label}` : label);
+  if (d.error) { c(false, d.error); report.push({ id, mode, error: d.error }); continue; }
+  c(d.state === 'DETAIL', `state DETAIL (${d.state})`);
+  c(d.targetDist < 5, `kamera cílí na anchor (offset ${d.targetDist.toFixed(1)})`);
+  c(d.meshVisible, 'mesh tělesa viditelný');
+  c(d.angularDeg >= 2 && d.angularDeg <= 60,
     `úhlová velikost 2–60° (${d.angularDeg.toFixed(1)}°)`);
   // Slunce mimo frame: úhel k Slunci > půl-diagonála FOV (~34° @ 1280×800) + úhlový poloměr.
   const sunHalfAngle = Math.asin(Math.min(1, SUN_RADIUS / d.sunDist)) * 180 / Math.PI;
   const halfDiag = FOV_DEG / 2 * 1.5; // aproximace diagonálního FOV
-  check(id === 'sun' || d.sunAngleDeg > halfDiag + sunHalfAngle || d.sunDist > 20000,
+  c(id === 'sun' || d.sunAngleDeg > halfDiag + sunHalfAngle || d.sunDist > 20000,
     `Slunce mimo frustum (úhel ${d.sunAngleDeg.toFixed(0)}°, potřeba >${(halfDiag + sunHalfAngle).toFixed(0)}°)`);
-  if (id === 'saturn') check(d.ringVisible === true, 'Saturn ring viditelný');
+  if (id === 'saturn') c(d.ringVisible === true, 'Saturn ring viditelný');
+  report.push({ id, mode, ...d });
 
-  await page.screenshot({ path: path.join(SHOT_DIR, `${id}-detail.png`) });
+  await page.screenshot({ path: path.join(SHOT_DIR, ALL ? `${id}-${mode}.png` : `${id}-detail.png`) });
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(1200);
+  // Počkej na návrat do MAIN — exit() funguje jen z DETAIL a enter() dalšího
+  // tělesa by byl během TRANSITION_IN tiše ignorován.
+  await page.evaluate(async () => {
+    const t0 = performance.now();
+    while (window.__dotsAudit.state() !== 'MAIN' && performance.now() - t0 < 5000) {
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  });
 }
 
 await browser.close();
@@ -139,6 +193,13 @@ if (process.platform === 'win32') {
     const line = out.split('\n').find((l) => l.includes(`:${PORT}`) && l.includes('LISTENING'));
     if (line) execSync(`taskkill /PID ${line.trim().split(/\s+/).pop()} /F`, { stdio: 'ignore' });
   } catch { /* server už neběží */ }
+}
+
+if (ALL) {
+  await fs.writeFile(
+    path.join(SHOT_DIR, 'report.json'),
+    JSON.stringify({ timestamp: new Date().toISOString(), entries: report }, null, 2),
+  );
 }
 
 console.log(`\nScreenshoty: ${SHOT_DIR}`);

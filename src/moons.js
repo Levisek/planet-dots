@@ -64,7 +64,10 @@ export const MOONS = [
   { id: 'sinope', name: 'SINOPE', parent: 'jupiter',
     diameterKm: 38, radiusPx: 1.5, tickCount: 2066,
     category: 'irregular',
-    a: 16.0, e: 0.08, eReal: 0.2495, period: 220, periodReal: 758, phaseOffset: 0.4,
+    // a (Pochopení): reálný poměr k Callisto (~12.5×) se do scény nevejde —
+    // a=16 znamenalo orbit 1440 px a perijupiter jen 458 od počátku, tj. UVNITŘ
+    // Slunce (r=995). Max bezpečné a×90×(1+e) < ~900 → a=8 (4× Callisto).
+    a: 8.0, e: 0.08, eReal: 0.2495, period: 220, periodReal: 758, phaseOffset: 0.4,
     inclinationDeg: 158.1,
     realDiameterKm: 38,
     realSemiMajorAxisKm: 23_939_000,
@@ -76,7 +79,9 @@ export const MOONS = [
   { id: 'pasiphae', name: 'PASIPHAE', parent: 'jupiter',
     diameterKm: 60, radiusPx: 1.5, tickCount: 2066,
     category: 'irregular',
-    a: 15.5, e: 0.08, eReal: 0.4090, period: 200, periodReal: 744, phaseOffset: 1.3,
+    // a (Pochopení): sníženo z 15.5 ze stejného důvodu jako Sinope (orbit
+    // procházel Sluncem). Drženo < Sinope jako v reálu (23.6M vs 23.9M km).
+    a: 7.7, e: 0.08, eReal: 0.4090, period: 200, periodReal: 744, phaseOffset: 1.3,
     inclinationDeg: 151.4,
     realDiameterKm: 60,
     realSemiMajorAxisKm: 23_624_000,

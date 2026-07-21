@@ -699,9 +699,12 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       // Pro planety se zahrnou i jejich měsíce (camera z-offset zahrne max moon dist).
       const p = PLANET_BY_ID[id];
       if (!p) {
-        // Moon detail — rozumný offset.
+        // Moon detail — rozumný offset. Floor 12 (ne 30): měsíce s radiusPx 0.5
+        // (Phobos, Mimas, Proteus...) byly na dist 30 jen ~1.9° záběru — sub-pixel
+        // detail (VISUAL-AUDIT I3). Floor musí zůstat > controls.minDistance
+        // (radius*1.2 + 10) a > camera.near (1).
         const m = MOONS.find((mm) => mm.id === id);
-        return m ? Math.max(m.radiusPx * 8, 30) : 40;
+        return m ? Math.max(m.radiusPx * 8, 12) : 40;
       }
       const baseDist = p.radiusPx * 4.5;
       // Irregular měsíce (Phoebe a=13.5, Sinope a=16, Pasiphae, Iapetus, Nereid...)
