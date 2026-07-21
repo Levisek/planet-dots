@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { BODY_DATA } from './bodyData.js';
 import { PLANETS } from './planets.js';
 import { MOONS } from './moons.js';
+import { ASTEROIDS } from './asteroids.js';
+import { sourceOf } from './positionSources.js';
 
 test('BODY_DATA obsahuje záznam pro každou planetu', () => {
   for (const p of PLANETS) {
@@ -104,6 +106,58 @@ test('Phoebe existuje v BODY_DATA s kompletními edukačními daty', () => {
   assert.ok(p.tagline.includes('retrográdní'));
   assert.ok(p.funFact.includes('Kuiperova pásu'));
   assert.ok(p.fields.length >= 6);
+});
+
+// --- Task 6: reálné orbitální elementy (JPL Horizons, ekliptika J2000) ---
+
+const ELEMENT_KEYS = ['aAU', 'e', 'incDeg', 'OmegaDeg', 'omegaDeg', 'M0Deg', 'periodDays'];
+
+test('Kepler-měsíce mají kompletní elements', () => {
+  for (const m of MOONS) {
+    if (sourceOf(m.id) !== 'kepler') continue;
+    const el = m.elements;
+    assert.ok(el, `${m.id} nemá elements`);
+    for (const k of ELEMENT_KEYS) {
+      assert.equal(typeof el[k], 'number', `${m.id}.elements.${k} není číslo`);
+      assert.ok(Number.isFinite(el[k]), `${m.id}.elements.${k} není konečné`);
+    }
+    assert.ok(el.periodDays > 0 && el.aAU > 0, `${m.id} periodDays/aAU musí být kladné`);
+    assert.ok(el.e >= 0 && el.e < 1, `${m.id} e mimo [0,1)`);
+    assert.ok(el.incDeg >= 0 && el.incDeg <= 180, `${m.id} incDeg mimo [0,180]`);
+  }
+});
+
+test('ephemeris-měsíce elements nemají (jedou z astronomy-engine)', () => {
+  for (const m of MOONS) {
+    if (sourceOf(m.id) === 'ephemeris') {
+      assert.equal(m.elements, undefined, `${m.id} je ephemeris, nemá mít elements`);
+    }
+  }
+});
+
+test('asteroidy mají kompletní elements', () => {
+  for (const a of ASTEROIDS) {
+    const el = a.elements;
+    assert.ok(el, `${a.id} nemá elements`);
+    for (const k of ELEMENT_KEYS) {
+      assert.equal(typeof el[k], 'number', `${a.id}.elements.${k} není číslo`);
+      assert.ok(Number.isFinite(el[k]), `${a.id}.elements.${k} není konečné`);
+    }
+    assert.ok(el.periodDays > 0 && el.aAU > 0, `${a.id} periodDays/aAU musí být kladné`);
+    assert.ok(el.e >= 0 && el.e < 1, `${a.id} e mimo [0,1)`);
+  }
+});
+
+test('elements.e sanity vs eReal u měsíců (gross-typo guard)', () => {
+  // elements.e = JPL osculující e @ J2000 (self-consistent set). U pravidelných
+  // měsíců ≈ eReal; u nepravidelných (sinope/pasiphae/nereid…) se osculující e
+  // liší od střední eReal. Tolerance 0.1 chytá hrubé překlepy, ne fyz. rozdíl.
+  for (const m of MOONS) {
+    if (sourceOf(m.id) !== 'kepler') continue;
+    if (typeof m.eReal !== 'number') continue;
+    assert.ok(Math.abs(m.elements.e - m.eReal) < 0.1,
+      `${m.id} elements.e=${m.elements.e} vs eReal=${m.eReal}`);
+  }
 });
 
 test('Sinope a Pasiphae existují v MOONS s retrograde inc', () => {

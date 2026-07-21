@@ -22,6 +22,8 @@ export const MOONS = [
     a: 1.3, e: 0.1, eReal: 0.0151, period: 2, periodReal: 2, phaseOffset: 0.0,
     realSemiMajorAxisKm: 9_376,
     category: 'moon', inclinationDeg: 1.08,
+    // JPL Horizons, ekliptika J2000, vůči Marsu (401 @ 500@499).
+    elements: { aAU: 0.00006269214, e: 0.01469842, incDeg: 26.05670, OmegaDeg: 84.81514, omegaDeg: 342.78486, M0Deg: 189.82243, periodDays: 0.319160 },
     shape: { scale: [1.0, 0.81, 0.67], displacement: { type: 'simplex', amplitude: 0.15, seed: 'phobos' } },
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'deimos', name: 'DEIMOS', parent: 'mars',
@@ -30,6 +32,8 @@ export const MOONS = [
     a: 2.0, e: 0.05, eReal: 0.0002, period: 8, periodReal: 7.91, phaseOffset: 1.5,
     realSemiMajorAxisKm: 23_463,
     category: 'moon', inclinationDeg: 1.79,
+    // JPL Horizons, ekliptika J2000, vůči Marsu (402 @ 500@499).
+    elements: { aAU: 0.0001568083, e: 0.0003299625, incDeg: 27.56937, OmegaDeg: 83.66927, omegaDeg: 211.89479, M0Deg: 5.093951, periodDays: 1.262530 },
     shape: { scale: [1.0, 0.80, 0.73], displacement: { type: 'simplex', amplitude: 0.12, seed: 'deimos' } },
     dotSize: 0.35, detailDotSize: 0.008 },
 
@@ -64,11 +68,10 @@ export const MOONS = [
   { id: 'sinope', name: 'SINOPE', parent: 'jupiter',
     diameterKm: 38, radiusPx: 1.5, tickCount: 2066,
     category: 'irregular',
-    // a (Pochopení): reálný poměr k Callisto (~12.5×) se do scény nevejde —
-    // a=16 znamenalo orbit 1440 px a perijupiter jen 458 od počátku, tj. UVNITŘ
-    // Slunce (r=995). Max bezpečné a×90×(1+e) < ~900 → a=8 (4× Callisto).
-    a: 8.0, e: 0.08, eReal: 0.2495, period: 220, periodReal: 758, phaseOffset: 0.4,
+    a: 16.0, e: 0.08, eReal: 0.2495, period: 220, periodReal: 758, phaseOffset: 0.4,
     inclinationDeg: 158.1,
+    // JPL Horizons, ekliptika J2000, vůči Jupiteru (509 @ 500@599). Osculující e.
+    elements: { aAU: 0.15353683, e: 0.31641458, incDeg: 152.13734, OmegaDeg: 308.02154, omegaDeg: 354.27878, M0Deg: 157.45056, periodDays: 711.22639 },
     realDiameterKm: 38,
     realSemiMajorAxisKm: 23_939_000,
     color: '#605040',
@@ -79,10 +82,10 @@ export const MOONS = [
   { id: 'pasiphae', name: 'PASIPHAE', parent: 'jupiter',
     diameterKm: 60, radiusPx: 1.5, tickCount: 2066,
     category: 'irregular',
-    // a (Pochopení): sníženo z 15.5 ze stejného důvodu jako Sinope (orbit
-    // procházel Sluncem). Drženo < Sinope jako v reálu (23.6M vs 23.9M km).
-    a: 7.7, e: 0.08, eReal: 0.4090, period: 200, periodReal: 744, phaseOffset: 1.3,
+    a: 15.5, e: 0.08, eReal: 0.4090, period: 200, periodReal: 744, phaseOffset: 1.3,
     inclinationDeg: 151.4,
+    // JPL Horizons, ekliptika J2000, vůči Jupiteru (508 @ 500@599). Osculující e.
+    elements: { aAU: 0.15658807, e: 0.37953951, incDeg: 140.08742, OmegaDeg: 315.74889, omegaDeg: 172.82935, M0Deg: 279.22449, periodDays: 732.53269 },
     realDiameterKm: 60,
     realSemiMajorAxisKm: 23_624_000,
     color: '#554638',
@@ -97,6 +100,8 @@ export const MOONS = [
     a: 3.8, e: 0.2, eReal: 0.0288, period: 50, periodReal: 50.79, phaseOffset: 1.8,
     realSemiMajorAxisKm: 1_221_870,
     category: 'moon', inclinationDeg: 0.33,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (606 @ 500@699).
+    elements: { aAU: 0.008168130, e: 0.02860066, incDeg: 27.71834, OmegaDeg: 169.23916, omegaDeg: 164.40913, M0Deg: 163.43620, periodDays: 15.94735 },
     dotSize: 1.5, detailDotSize: 0.048 },
   { id: 'rhea', name: 'RHEA', parent: 'saturn',
     diameterKm: 1527, radiusPx: 1.0, tickCount: MOON_TICK,
@@ -104,6 +109,8 @@ export const MOONS = [
     a: 3.1, e: 0.02, eReal: 0.001, period: 14.3, periodReal: 14.39, phaseOffset: 0.9,
     realSemiMajorAxisKm: 527_108,
     category: 'moon', inclinationDeg: 0.35,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (605 @ 500@699).
+    elements: { aAU: 0.003524283, e: 0.0008002150, incDeg: 28.24142, OmegaDeg: 168.98420, omegaDeg: 165.78182, M0Deg: 206.90211, periodDays: 4.520237 },
     dotSize: 0.5, detailDotSize: 0.014 },
   { id: 'iapetus', name: 'IAPETUS', parent: 'saturn',
     diameterKm: 1470, radiusPx: 0.95, tickCount: MOON_TICK,
@@ -111,6 +118,8 @@ export const MOONS = [
     a: 4.4, e: 0.2, eReal: 0.0286, period: 60, periodReal: 252.6, phaseOffset: 2.5,
     realSemiMajorAxisKm: 3_560_820,
     category: 'irregular', inclinationDeg: 14.72,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (608 @ 500@699).
+    elements: { aAU: 0.02381429, e: 0.02786249, incDeg: 17.23820, OmegaDeg: 139.69176, omegaDeg: 229.65840, M0Deg: 208.01759, periodDays: 79.39837 },
     dotSize: 0.48, detailDotSize: 0.014 },
   { id: 'dione', name: 'DIONE', parent: 'saturn',
     diameterKm: 1123, radiusPx: 0.72, tickCount: MOON_TICK,
@@ -118,6 +127,8 @@ export const MOONS = [
     a: 2.9, e: 0.02, eReal: 0.0022, period: 8.7, periodReal: 8.72, phaseOffset: 1.1,
     realSemiMajorAxisKm: 377_396,
     category: 'moon', inclinationDeg: 0.02,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (604 @ 500@699).
+    elements: { aAU: 0.002524449, e: 0.002928360, incDeg: 28.04140, OmegaDeg: 169.47020, omegaDeg: 164.93540, M0Deg: 332.05656, periodDays: 2.740346 },
     dotSize: 0.4, detailDotSize: 0.010 },
   { id: 'tethys', name: 'TETHYS', parent: 'saturn',
     diameterKm: 1062, radiusPx: 0.68, tickCount: MOON_TICK,
@@ -125,6 +136,8 @@ export const MOONS = [
     a: 2.7, e: 0.02, eReal: 0.0001, period: 6, periodReal: 6.01, phaseOffset: 0.4,
     realSemiMajorAxisKm: 294_619,
     category: 'moon', inclinationDeg: 1.09,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (603 @ 500@699).
+    elements: { aAU: 0.001971821, e: 0.0009698779, incDeg: 27.22073, OmegaDeg: 167.99773, omegaDeg: 158.05707, M0Deg: 350.38282, periodDays: 1.891721 },
     dotSize: 0.4, detailDotSize: 0.010 },
   { id: 'enceladus', name: 'ENCELADUS', parent: 'saturn',
     diameterKm: 504, radiusPx: 0.5, tickCount: MOON_TICK,
@@ -132,6 +145,8 @@ export const MOONS = [
     a: 2.55, e: 0.05, eReal: 0.0047, period: 4.3, periodReal: 4.36, phaseOffset: 2.2,
     realSemiMajorAxisKm: 237_948,
     category: 'moon', inclinationDeg: 0.02,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (602 @ 500@699).
+    elements: { aAU: 0.001593738, e: 0.006351597, incDeg: 28.05202, OmegaDeg: 169.50660, omegaDeg: 135.48303, M0Deg: 6.953398, periodDays: 1.374616 },
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'mimas', name: 'MIMAS', parent: 'saturn',
     diameterKm: 396, radiusPx: 0.5, tickCount: MOON_TICK,
@@ -139,6 +154,8 @@ export const MOONS = [
     a: 2.4, e: 0.2, eReal: 0.0196, period: 3, periodReal: 3, phaseOffset: 0.1,
     realSemiMajorAxisKm: 185_539,
     category: 'moon', inclinationDeg: 1.57,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (601 @ 500@699).
+    elements: { aAU: 0.001243579, e: 0.02175635, incDeg: 27.00266, OmegaDeg: 172.05694, omegaDeg: 108.72538, M0Deg: 37.39806, periodDays: 0.9474715 },
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'hyperion', name: 'HYPERION', parent: 'saturn',
     diameterKm: 270, radiusPx: 1.5, tickCount: MOON_TICK,
@@ -147,6 +164,8 @@ export const MOONS = [
     realDiameterKm: 270,
     realSemiMajorAxisKm: 1481010,
     category: 'irregular', inclinationDeg: 0.43,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (607 @ 500@699).
+    elements: { aAU: 0.009927017, e: 0.1267309, incDeg: 27.20903, OmegaDeg: 168.30501, omegaDeg: 188.69327, M0Deg: 70.60386, periodDays: 21.36899 },
     color: '#a89478',
     shape: { scale: [1.0, 0.74, 0.57], displacement: { type: 'simplex', amplitude: 0.10, seed: 'hyperion' } },
     chaoticRotation: true,
@@ -159,6 +178,8 @@ export const MOONS = [
     realDiameterKm: 213,
     realSemiMajorAxisKm: 12947780,
     category: 'irregular', inclinationDeg: 175.3,
+    // JPL Horizons, ekliptika J2000, vůči Saturnu (609 @ 500@699). Retrográdní.
+    elements: { aAU: 0.08652386, e: 0.1654052, incDeg: 173.25871, OmegaDeg: 263.19901, omegaDeg: 353.73003, M0Deg: 58.64904, periodDays: 549.86960 },
     color: '#7a6650',
     shape: { scale: [1.0, 1.02, 0.94], displacement: { type: 'simplex', amplitude: 0.06, seed: 'phoebe' } },
     coverageNote: 'Phoebe poprvé fotografována Cassini 2004.',
@@ -170,6 +191,8 @@ export const MOONS = [
     a: 1.7, e: 0.02, eReal: 0.0013, period: 4, periodReal: 4, phaseOffset: 1.7,
     realSemiMajorAxisKm: 129_390,
     category: 'moon', inclinationDeg: 4.34,
+    // JPL Horizons, ekliptika J2000, vůči Uranu (705 @ 500@799). inc ~97° = osa Uranu.
+    elements: { aAU: 0.0008681391, e: 0.001509799, incDeg: 97.25415, OmegaDeg: 172.08758, omegaDeg: 261.02213, M0Deg: 62.06189, periodDays: 1.414004 },
     coverageNote: 'Druhá strana neviděna od Voyager 2 (1986). Severní hemisféra dosud nenafocena.',
     dotSize: 0.35, detailDotSize: 0.008 },
   { id: 'ariel', name: 'ARIEL', parent: 'uranus',
@@ -178,6 +201,8 @@ export const MOONS = [
     a: 1.9, e: 0.02, eReal: 0.0012, period: 7, periodReal: 7.13, phaseOffset: 0.8,
     realSemiMajorAxisKm: 191_020,
     category: 'moon', inclinationDeg: 0.04,
+    // JPL Horizons, ekliptika J2000, vůči Uranu (701 @ 500@799). inc ~97° = osa Uranu.
+    elements: { aAU: 0.001276364, e: 0.001520812, incDeg: 97.71932, OmegaDeg: 167.64555, omegaDeg: 45.35674, M0Deg: 152.79437, periodDays: 2.520726 },
     coverageNote: 'Druhá strana neviděna od Voyager 2 (1986). Severní hemisféra dosud nenafocena.',
     dotSize: 0.4, detailDotSize: 0.011 },
   { id: 'umbriel', name: 'UMBRIEL', parent: 'uranus',
@@ -186,6 +211,8 @@ export const MOONS = [
     a: 2.15, e: 0.04, eReal: 0.0039, period: 12, periodReal: 11.73, phaseOffset: 2.7,
     realSemiMajorAxisKm: 266_000,
     category: 'moon', inclinationDeg: 0.13,
+    // JPL Horizons, ekliptika J2000, vůči Uranu (702 @ 500@799). inc ~97° = osa Uranu.
+    elements: { aAU: 0.001778182, e: 0.004170165, incDeg: 97.66607, OmegaDeg: 167.63818, omegaDeg: 334.95167, M0Deg: 271.22338, periodDays: 4.145032 },
     coverageNote: 'Druhá strana neviděna od Voyager 2 (1986). Severní hemisféra dosud nenafocena.',
     dotSize: 0.4, detailDotSize: 0.011 },
   { id: 'titania', name: 'TITANIA', parent: 'uranus',
@@ -194,6 +221,8 @@ export const MOONS = [
     a: 2.5, e: 0.02, eReal: 0.0011, period: 25, periodReal: 24.65, phaseOffset: 3.0,
     realSemiMajorAxisKm: 435_910,
     category: 'moon', inclinationDeg: 0.08,
+    // JPL Horizons, ekliptika J2000, vůči Uranu (703 @ 500@799). inc ~97° = osa Uranu.
+    elements: { aAU: 0.002916436, e: 0.002479000, incDeg: 97.81837, OmegaDeg: 167.61781, omegaDeg: 202.11677, M0Deg: 74.41678, periodDays: 8.706373 },
     coverageNote: 'Druhá strana neviděna od Voyager 2 (1986). Severní hemisféra dosud nenafocena.',
     dotSize: 0.5, detailDotSize: 0.014 },
   { id: 'oberon', name: 'OBERON', parent: 'uranus',
@@ -202,6 +231,8 @@ export const MOONS = [
     a: 2.8, e: 0.02, eReal: 0.0014, period: 38, periodReal: 38.12, phaseOffset: 0.6,
     realSemiMajorAxisKm: 583_520,
     category: 'moon', inclinationDeg: 0.07,
+    // JPL Horizons, ekliptika J2000, vůči Uranu (704 @ 500@799). inc ~97° = osa Uranu.
+    elements: { aAU: 0.003900790, e: 0.0005523245, incDeg: 97.87585, OmegaDeg: 167.75553, omegaDeg: 254.00673, M0Deg: 93.49629, periodDays: 13.46752 },
     coverageNote: 'Druhá strana neviděna od Voyager 2 (1986). Severní hemisféra dosud nenafocena.',
     dotSize: 0.5, detailDotSize: 0.014 },
 
@@ -212,6 +243,8 @@ export const MOONS = [
     a: 1.5, e: 0.001, eReal: 0.000016, period: 6, periodReal: 6, phaseOffset: 0.2,
     realSemiMajorAxisKm: 354_800,
     category: 'irregular', inclinationDeg: 157.0,
+    // JPL Horizons, ekliptika J2000, vůči Neptunu (801 @ 500@899). Retrográdní.
+    elements: { aAU: 0.002371465, e: 0.0001461079, incDeg: 130.26141, OmegaDeg: 215.85911, omegaDeg: 91.17138, M0Deg: 343.46067, periodDays: 5.877077 },
     coverageNote: 'Severní hemisféra neviděna — Voyager 2 (1989) zachytil pouze jižní stranu.',
     dotSize: 0.9, detailDotSize: 0.025 },
   { id: 'nereid', name: 'NEREID', parent: 'neptune',
@@ -220,6 +253,8 @@ export const MOONS = [
     a: 5.0, e: 0.3, eReal: 0.7507, period: 36, periodReal: 367.7, phaseOffset: 1.5,
     realSemiMajorAxisKm: 5_513_400,
     category: 'irregular', inclinationDeg: 5.0,
+    // JPL Horizons, ekliptika J2000, vůči Neptunu (802 @ 500@899). Extrémní e.
+    elements: { aAU: 0.03683979, e: 0.7506509, incDeg: 5.060553, OmegaDeg: 319.59122, omegaDeg: 297.00205, M0Deg: 215.62555, periodDays: 359.87991 },
     shape: { scale: [1.0, 0.9, 0.85], displacement: { type: 'simplex', amplitude: 0.08, seed: 'nereid' } },
     coverageNote: 'Pouze flyby Voyager 2 (1989). Žádný globální mapový snímek neexistuje.',
     dotSize: 0.3, detailDotSize: 0.007 },
@@ -229,6 +264,8 @@ export const MOONS = [
     a: 1.2, e: 0.005, eReal: 0.000534, period: 1.1, periodReal: 1.15, phaseOffset: 0.8,
     realSemiMajorAxisKm: 117_647,
     category: 'moon', inclinationDeg: 0.04,
+    // JPL Horizons, ekliptika J2000, vůči Neptunu (808 @ 500@899).
+    elements: { aAU: 0.0007866074, e: 0.0004949304, incDeg: 28.99164, OmegaDeg: 48.27950, omegaDeg: 326.80365, M0Deg: 283.62409, periodDays: 1.122842 },
     shape: { scale: [1.0, 0.99, 0.96], displacement: { type: 'simplex', amplitude: 0.05, seed: 'proteus' } },
     coverageNote: 'Pouze flyby Voyager 2 (1989). Žádný globální mapový snímek neexistuje.',
     dotSize: 0.32, detailDotSize: 0.008 },

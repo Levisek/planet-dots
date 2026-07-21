@@ -17,7 +17,10 @@ test('getHelioPosition earth ~1 AU', () => {
   assert.ok(Math.abs(Math.hypot(p.x, p.y, p.z) - 1) < 0.02);
 });
 
-test('getRelativePosition titan vrací nenulovou pozici', { todo: true }, () => {
+test('getRelativePosition titan vrací nenulovou pozici', () => {
   const p = getRelativePosition('titan', D);
   assert.ok(Math.hypot(p.x, p.y, p.z) > 0);
+  // Titan aAU ≈ 0.00817; pozice vůči Saturnu musí být v tomto řádu.
+  const r = Math.hypot(p.x, p.y, p.z);
+  assert.ok(r > 0.007 && r < 0.009, `titan r=${r} mimo očekávaný rozsah`);
 });
