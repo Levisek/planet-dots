@@ -14,9 +14,8 @@ import {
 //   Earth   1.0  → 1450  · Mars  1.52 → 1532
 //   Jupiter 5.2  → 1898  · Saturn 9.55 → 2182
 //   Uranus 19.2 → 2635   · Neptune 30 → 3018
-export function auToDisplayRadius(au) {
-  return 1100 + 350 * Math.sqrt(au);
-}
+// Sdíleno se simMode.js přes scale.js (kvůli cyklickému importu re-export zde).
+export { auToDisplayRadius } from './scale.js';
 
 /**
  * Pozice planety v čase elapsed (s). Eliptická orbita s inclination.

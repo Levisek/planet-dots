@@ -9,6 +9,8 @@
 // Každá data zdroj (planets.js, moons.js) drží oba sady polí: `orbitRadius`/
 // `orbitRadiusReal` a `period`/`periodReal`. Getteři níže vrátí podle mode.
 
+import { auToDisplayRadius } from './scale.js';
+
 const MODE = {
   POCHOPENI: 'pochopeni',
   FYZIKALNI: 'fyzikalni',
@@ -51,6 +53,8 @@ export function isFyzikalni() { return _current === MODE.FYZIKALNI; }
 
 // --- Data resolvers ---
 
+// LEGACY (pre-V4.4): používá stará animační cesta; odstranit po plné migraci na positionProvider.
+
 /** Aktuální orbitRadius planety podle mode. Sun (orbitRadius=0) vždy 0. */
 export function getOrbitRadius(planet) {
   if (planet.orbitRadius === 0) return 0;
@@ -84,6 +88,7 @@ export function getMoonPeriod(moon) {
 
 // --- Inclination with per-category clamp ---
 
+// LEGACY (pre-V4.4): používá stará animační cesta; odstranit po plné migraci na positionProvider.
 const INCLINATION_CAPS = {
   planet: 5,
   moon: 15,
@@ -128,5 +133,36 @@ export function onTimeScaleChange(cb) {
 
 export function _resetTimeScaleOverride() { _userOverrideTimeScale = false; }
 export function _isTimeScaleOverridden() { return _userOverrideTimeScale; }
+
+// --- Mód jako zobrazovací transformace (V4.4 position path) ---
+
+const LINEAR_AU = 3846;
+
+/** Scéna pozice planety (AU → scene units) podle aktuálního módu. */
+export function toDisplay(pAU) {
+  if (isFyzikalni()) {
+    return { x: pAU.x * LINEAR_AU, y: pAU.y * LINEAR_AU, z: pAU.z * LINEAR_AU };
+  }
+  const r = Math.hypot(pAU.x, pAU.y, pAU.z);
+  if (r === 0) return { x: 0, y: 0, z: 0 };
+  const rDisp = auToDisplayRadius(r);
+  const k = rDisp / r;
+  return { x: pAU.x * k, y: pAU.y * k, z: pAU.z * k };
+}
+
+const MOON_LINEAR_AU = 3846;      // Fyzikální stejné měřítko
+const MOON_COMPRESS = 60000;      // Pochopení: AU → px vůči rodiči (kalibrovat v F1)
+
+/** Scéna pozice měsíce relativně vůči rodiči (AU → scene units) podle aktuálního módu. */
+export function toDisplayRelative(relAU) {
+  if (isFyzikalni()) {
+    return { x: relAU.x * MOON_LINEAR_AU, y: relAU.y * MOON_LINEAR_AU, z: relAU.z * MOON_LINEAR_AU };
+  }
+  const r = Math.hypot(relAU.x, relAU.y, relAU.z);
+  if (r === 0) return { x: 0, y: 0, z: 0 };
+  const rDisp = Math.sqrt(r) * MOON_COMPRESS; // kompaktní, monotónní
+  const k = rDisp / r;
+  return { x: relAU.x * k, y: relAU.y * k, z: relAU.z * k };
+}
 
 export const MODES = MODE;
