@@ -26,15 +26,30 @@ export function solveKepler(M, e, iterations) {
  * @param {number} a — semi-major axis (px)
  * @param {number} e — eccentricity
  * @param {number} [incDeg=0] — sklonění orbity (stupně, rotace kolem X-osy)
+ * @param {number} [OmegaDeg=0] — délka vzestupného uzlu (stupně, rotace kolem Y-osy)
+ * @param {number} [omegaDeg=0] — argument periapsis (stupně, rotace kolem Y-osy)
  * @returns {{x:number, y:number, z:number, E:number}}
  */
-export function orbitPosition(t, phaseOffset, period, a, e, incDeg = 0) {
+export function orbitPosition(t, phaseOffset, period, a, e, incDeg = 0, OmegaDeg = 0, omegaDeg = 0) {
   const M = (2 * Math.PI * t) / period + phaseOffset;
   const E = solveKepler(M, e);
-  const x = a * (Math.cos(E) - e);
-  const z = a * Math.sqrt(1 - e * e) * Math.sin(E);
-  const inclined = applyInclination({ x, y: 0, z }, incDeg);
-  return { x: inclined.x, y: inclined.y, z: inclined.z, E };
+  const xp = a * (Math.cos(E) - e);
+  const zp = a * Math.sqrt(1 - e * e) * Math.sin(E);
+  // perifocal (periapsis +X, rovina X-Z) → ω (kolem Y) → inc (kolem X) → Ω (kolem Y)
+  let p = rotateY({ x: xp, y: 0, z: zp }, omegaDeg);
+  p = applyInclination(p, incDeg);
+  p = rotateY(p, OmegaDeg);
+  return { x: p.x, y: p.y, z: p.z, E };
+}
+
+/**
+ * Rotace kolem osy Y o `deg` stupňů.
+ */
+export function rotateY(pos, deg) {
+  if (deg === 0) return { x: pos.x, y: pos.y, z: pos.z };
+  const r = (deg * Math.PI) / 180;
+  const c = Math.cos(r), s = Math.sin(r);
+  return { x: pos.x * c + pos.z * s, y: pos.y, z: -pos.x * s + pos.z * c };
 }
 
 /**

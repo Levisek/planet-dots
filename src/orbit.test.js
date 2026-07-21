@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { solveKepler, orbitPosition, trueAnomaly, applyInclination } from './orbit.js';
+import { solveKepler, orbitPosition, trueAnomaly, applyInclination, rotateY } from './orbit.js';
 import { setMode, MODES, getInclination } from './simMode.js';
 
 test('solveKepler(0, e) = 0', () => {
@@ -117,4 +117,27 @@ test('Triton 157° inc + Pochopení mode → vidíme retrograde flip', () => {
   const inc = getInclination(triton);
   // Plný 157° zachován díky suplementární logice (effective 23 < 30)
   assert.equal(inc, 157);
+});
+
+test('rotateY 90° mapuje +X na −Z', () => {
+  const r = rotateY({ x: 1, y: 0, z: 0 }, 90);
+  assert.ok(Math.abs(r.x) < 1e-12 && Math.abs(r.z - (-1)) < 1e-12 && r.y === 0);
+});
+
+test('orbitPosition: Ω=ω=0 identické s předchozím chováním', () => {
+  const a = orbitPosition(2.5, 0, 10, 100, 0.1, 15);
+  const b = orbitPosition(2.5, 0, 10, 100, 0.1, 15, 0, 0);
+  assert.ok(Math.abs(a.x - b.x) < 1e-12 && Math.abs(a.y - b.y) < 1e-12 && Math.abs(a.z - b.z) < 1e-12);
+});
+
+test('orbitPosition: ω=180° překlopí periapsis na opačnou stranu', () => {
+  const p0 = orbitPosition(0, 0, 10, 100, 0.2, 0, 0, 0);    // periapsis +X: a(1−e)=80
+  const p180 = orbitPosition(0, 0, 10, 100, 0.2, 0, 0, 180); // periapsis −X: −80
+  assert.ok(Math.abs(p0.x - 80) < 1e-6);
+  assert.ok(Math.abs(p180.x - (-80)) < 1e-6);
+});
+
+test('orbitPosition: Ω rotuje celou rovinu kolem Y', () => {
+  const p = orbitPosition(0, 0, 10, 100, 0.2, 0, 90, 0); // periapsis +X → Ω90 → −Z
+  assert.ok(Math.abs(p.x) < 1e-6 && Math.abs(p.z - (-80)) < 1e-6);
 });
