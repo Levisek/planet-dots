@@ -1,31 +1,44 @@
-// orbitLines — kruhy v XZ rovině per planeta, vyznačují trajektorii kolem Slunce.
-// Reagují na simMode (Pochopení vs Fyzikální = jiný orbitRadius). Velmi tenké
-// šedé linie, transparent, ne v cestě dotty/mesh.
+// orbitLines — křivky vzorkované ze stejného provideru jako dot pozice
+// (planetOrbits.orbitalPosition), přes jednu oběžnou periodu. Line a dot se
+// tak kryjí by construction (V4.4 — dřív kruh/kepler-curve z clamped getterů,
+// dot z real provideru → planeta stála mimo vlastní linii, viz Jupiter report).
+// Reagují na simMode (Pochopení vs Fyzikální = jiné mapování vzdáleností) přes
+// re-sample při onModeChange. Velmi tenké šedé linie, transparent, ne v cestě
+// dotty/mesh.
 
 import * as THREE from 'three';
 import { PLANETS } from './planets.js';
 import { ASTEROIDS } from './asteroids.js';
-import { getOrbitRadius, getEccentricity, getInclination, onModeChange, isFyzikalni } from './simMode.js';
-import { sampleKeplerCurve } from './moonOrbitLines.js';
-import { auToDisplayRadius } from './planetOrbits.js';
-
-const AU_TO_DISPLAY_REAL = 3846; // linear AU mapping per planets.js V4.2 spec
-
-function asteroidOrbitRadius(a) {
-  return isFyzikalni() ? a.a * AU_TO_DISPLAY_REAL : auToDisplayRadius(a.a);
-}
+import { onModeChange } from './simMode.js';
+import { orbitalPosition } from './planetOrbits.js';
 
 const SEGMENTS = 192;
+const ASTEROID_SEGMENTS = 128;
 
-function buildPositions(radius) {
-  const positions = new Float32Array((SEGMENTS + 1) * 3);
-  for (let i = 0; i <= SEGMENTS; i++) {
-    const theta = (i / SEGMENTS) * Math.PI * 2;
-    positions[i * 3] = radius * Math.cos(theta);
-    positions[i * 3 + 1] = 0;
-    positions[i * 3 + 2] = radius * Math.sin(theta);
+// Ephemeris planety (Mercury..Neptune) nemají elements.periodDays — perioda
+// z reálných astronomických dat (dny), viz task-9 brief.
+const PLANET_PERIOD_DAYS = {
+  mercury: 87.969, venus: 224.701, earth: 365.256, mars: 686.980,
+  jupiter: 4332.589, saturn: 10759.22, uranus: 30685.4, neptune: 60189,
+};
+
+function periodDaysOf(body) {
+  return body.elements ? body.elements.periodDays : PLANET_PERIOD_DAYS[body.id];
+}
+
+/**
+ * Vzorkuje pozici tělesa (planeta nebo asteroid) přes jednu oběžnou periodu
+ * pomocí stejné funkce `orbitalPosition`, kterou main.js používá pro dot.
+ */
+function sampleOrbitCurve(body, baseDate, segments) {
+  const period = periodDaysOf(body);
+  const points = [];
+  for (let i = 0; i <= segments; i++) {
+    const d = new Date(baseDate.getTime() + (i / segments) * period * 86400000);
+    const p = orbitalPosition(body, d);
+    points.push(new THREE.Vector3(p.x, p.y, p.z));
   }
-  return positions;
+  return points;
 }
 
 export function createOrbitLines(scene) {
@@ -38,27 +51,21 @@ export function createOrbitLines(scene) {
   });
   for (const p of PLANETS) {
     if (p.id === 'sun' || p.orbitRadius === 0) continue;
-    const r = getOrbitRadius(p);
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(buildPositions(r), 3));
-    const line = new THREE.Line(geom, material);
+    const points = sampleOrbitCurve(p, new Date(), SEGMENTS);
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.LineLoop(geom, material);
     line.userData.planetId = p.id;
     scene.add(line);
     lines.push({ planetId: p.id, line });
   }
 
-  // Při změně simMode přepočítej radii všech čar.
+  // Při změně simMode je mapování AU→scene units jiné → re-sample z provideru.
   onModeChange(() => {
     for (const entry of lines) {
       const planet = PLANETS.find((p) => p.id === entry.planetId);
-      const r = getOrbitRadius(planet);
-      const positions = entry.line.geometry.attributes.position.array;
-      for (let i = 0; i <= SEGMENTS; i++) {
-        const theta = (i / SEGMENTS) * Math.PI * 2;
-        positions[i * 3] = r * Math.cos(theta);
-        positions[i * 3 + 2] = r * Math.sin(theta);
-      }
-      entry.line.geometry.attributes.position.needsUpdate = true;
+      const points = sampleOrbitCurve(planet, new Date(), SEGMENTS);
+      entry.line.geometry.dispose();
+      entry.line.geometry = new THREE.BufferGeometry().setFromPoints(points);
     }
   });
 
@@ -79,31 +86,21 @@ const ASTEROID_ORBIT_MATERIAL = new THREE.LineBasicMaterial({
 export function createAsteroidOrbitLines(scene) {
   const lines = [];
   for (const a of ASTEROIDS) {
-    const radius = asteroidOrbitRadius(a);
-    const e = getEccentricity(a);
-    const inc = getInclination(a);
-    const points = sampleKeplerCurve(128, radius, e, inc);
-    const geom = new THREE.BufferGeometry().setFromPoints(
-      points.map((p) => new THREE.Vector3(p.x, p.y, p.z))
-    );
+    const points = sampleOrbitCurve(a, new Date(), ASTEROID_SEGMENTS);
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
     const line = new THREE.LineLoop(geom, ASTEROID_ORBIT_MATERIAL);
     line.userData.asteroidId = a.id;
     scene.add(line);
     lines.push({ asteroidId: a.id, line });
   }
 
-  // Při změně simMode přepočítej orbity asteroidů.
+  // Při změně simMode přepočítej orbity asteroidů (re-sample z provideru).
   onModeChange(() => {
     for (const entry of lines) {
       const asteroid = ASTEROIDS.find((a) => a.id === entry.asteroidId);
-      const radius = asteroidOrbitRadius(asteroid);
-      const e = getEccentricity(asteroid);
-      const inc = getInclination(asteroid);
-      const points = sampleKeplerCurve(128, radius, e, inc);
+      const points = sampleOrbitCurve(asteroid, new Date(), ASTEROID_SEGMENTS);
       entry.line.geometry.dispose();
-      entry.line.geometry = new THREE.BufferGeometry().setFromPoints(
-        points.map((p) => new THREE.Vector3(p.x, p.y, p.z))
-      );
+      entry.line.geometry = new THREE.BufferGeometry().setFromPoints(points);
     }
   });
 

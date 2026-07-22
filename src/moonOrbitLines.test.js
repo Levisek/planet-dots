@@ -1,26 +1,56 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sampleKeplerCurve } from './moonOrbitLines.js';
+import * as THREE from 'three';
+import { showFor, disposeAll } from './moonOrbitLines.js';
+import { MOONS_BY_PARENT } from './moons.js';
 
-test('sampleKeplerCurve vrátí 64 bodů', () => {
-  const points = sampleKeplerCurve(64, 100, 0.1, 0);
-  assert.equal(points.length, 64);
+function makeAnchors(ids) {
+  const anchors = {};
+  for (const id of ids) anchors[id] = new THREE.Object3D();
+  return anchors;
+}
+
+test('showFor: neznámý planetId → prázdné pole, žádný crash', () => {
+  const anchors = makeAnchors(['earth']);
+  const lines = showFor('nonexistent', anchors, MOONS_BY_PARENT);
+  assert.deepEqual(lines, []);
 });
 
-test('sampleKeplerCurve closed loop (first ≈ last)', () => {
-  const points = sampleKeplerCurve(64, 100, 0.1, 0);
-  // First a last by měl být blízko (closed elipsa)
-  const dx = points[0].x - points[63].x;
-  const dz = points[0].z - points[63].z;
-  // 1/64 cyklu rozdíl, ne identický, ale blízko
-  assert.ok(Math.sqrt(dx*dx + dz*dz) < 30);
-});
-
-test('sampleKeplerCurve s inc=15° vrátí Y≠0', () => {
-  const points = sampleKeplerCurve(32, 100, 0.0, 15);
-  let hasNonZeroY = false;
-  for (const p of points) {
-    if (Math.abs(p.y) > 0.1) { hasNonZeroY = true; break; }
+test('showFor: earth (ephemeris moon Luna) → 1 LineLoop, body finite, closed loop', () => {
+  const anchors = makeAnchors(['earth']);
+  const lines = showFor('earth', anchors, MOONS_BY_PARENT);
+  assert.equal(lines.length, 1);
+  const [line] = lines;
+  assert.ok(line instanceof THREE.LineLoop);
+  const pos = line.geometry.attributes.position;
+  assert.ok(pos.count >= 2);
+  for (let i = 0; i < pos.count; i++) {
+    assert.ok(Number.isFinite(pos.getX(i)) && Number.isFinite(pos.getY(i)) && Number.isFinite(pos.getZ(i)));
   }
-  assert.ok(hasNonZeroY);
+});
+
+test('showFor: mars (kepler moons Phobos+Deimos, mají elements) → 2 LineLoop, body finite', () => {
+  const anchors = makeAnchors(['mars']);
+  const lines = showFor('mars', anchors, MOONS_BY_PARENT);
+  assert.equal(lines.length, 2);
+  for (const line of lines) {
+    const pos = line.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      assert.ok(Number.isFinite(pos.getX(i)) && Number.isFinite(pos.getZ(i)));
+    }
+  }
+});
+
+test('showFor: linie jsou children planet anchoru', () => {
+  const anchors = makeAnchors(['earth']);
+  const lines = showFor('earth', anchors, MOONS_BY_PARENT);
+  assert.equal(anchors.earth.children.length, lines.length);
+  assert.equal(lines[0].parent, anchors.earth);
+});
+
+test('disposeAll: odebere linie z rodiče', () => {
+  const anchors = makeAnchors(['earth']);
+  const lines = showFor('earth', anchors, MOONS_BY_PARENT);
+  disposeAll(lines);
+  assert.equal(anchors.earth.children.length, 0);
 });

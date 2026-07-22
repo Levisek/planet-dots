@@ -1,6 +1,10 @@
+// moonOrbitLines — křivky vzorkované ze stejného provideru jako moon dot pozice
+// (getRelativePosition + toDisplayRelative), přes jednu oběžnou periodu, aby
+// linie a dot koincidovaly by construction (V4.4, viz task-9 brief).
+
 import * as THREE from 'three';
-import { applyInclination, solveKepler } from './orbit.js';
-import { getEccentricity, getInclination } from './simMode.js';
+import { getRelativePosition } from './positionProvider.js';
+import { toDisplayRelative } from './simMode.js';
 
 const ORBIT_LINE_MATERIAL = new THREE.LineBasicMaterial({
   color: 0x6688aa,
@@ -8,55 +12,54 @@ const ORBIT_LINE_MATERIAL = new THREE.LineBasicMaterial({
   opacity: 0.4,
 });
 
+const SEGMENTS = 96;
+
+// EPHEMERIS_MOONS (luna, io, europa, ganymede, callisto) nemají elements —
+// perioda z reálných astronomických dat (dny), viz task-9 brief.
+const MOON_PERIOD_DAYS = {
+  luna: 27.322, io: 1.769, europa: 3.551, ganymede: 7.155, callisto: 16.689,
+};
+
+function periodDaysOf(moon) {
+  return moon.elements ? moon.elements.periodDays : MOON_PERIOD_DAYS[moon.id];
+}
+
 /**
- * Sample N bodů na eliptické orbitě s inclination.
- * Pure function — žádný THREE.js dependency v vstupu ani výstupu.
- * @param {number} samples — počet bodů
- * @param {number} a — semi-major axis (px)
- * @param {number} e — eccentricity
- * @param {number} incDeg — sklon orbity (stupně)
- * @returns {{x:number, y:number, z:number}[]}
+ * Vzorkuje relativní pozici měsíce (vůči rodičovské planetě) přes jednu
+ * oběžnou periodu pomocí stejných funkcí, které main.js používá pro dot.
+ * Pure function nad providerem — vrací THREE.Vector3[] v relativních scene units.
  */
-export function sampleKeplerCurve(samples, a, e, incDeg) {
+function sampleMoonCurve(moon, baseDate, segments = SEGMENTS) {
+  const period = periodDaysOf(moon);
   const points = [];
-  for (let i = 0; i < samples; i++) {
-    const M = (2 * Math.PI * i) / samples;
-    const E = solveKepler(M, e);
-    const x = a * (Math.cos(E) - e);
-    const z = a * Math.sqrt(1 - e * e) * Math.sin(E);
-    const inclined = applyInclination({ x, y: 0, z }, incDeg);
-    points.push(inclined);
+  for (let i = 0; i <= segments; i++) {
+    const d = new Date(baseDate.getTime() + (i / segments) * period * 86400000);
+    const rel = getRelativePosition(moon.id, d);
+    const disp = toDisplayRelative(rel);
+    points.push(new THREE.Vector3(disp.x, disp.y, disp.z));
   }
   return points;
 }
 
 /**
  * Vytvoří moon orbit lines pro všechny moony jedné planety.
- * Lines jsou children planet anchoru (dědí axial tilt).
+ * Lines jsou children planet anchoru (dědí axial tilt), vzorkované z reálného
+ * position provideru — kryjí se s moon dot pozicí by construction.
  *
  * @param {string} planetId
  * @param {Object<string, import('three').Object3D>} planetAnchors
  * @param {object} moonsByPlanet — { [planetId]: [moon1, moon2, ...] }
- * @param {Object<string, object>} planetByIdLookup — pro radiusPx
- * @param {Object<string, {a: number, period: number}>} [scaleFactors] — real-scale faktory per moonId (z moonScaleFactors v main.js)
  * @returns {import('three').LineLoop[]}
  */
-export function showFor(planetId, planetAnchors, moonsByPlanet, planetByIdLookup, scaleFactors = {}) {
+export function showFor(planetId, planetAnchors, moonsByPlanet) {
   const planet = planetAnchors[planetId];
   if (!planet) return [];
-  const planetData = planetByIdLookup ? planetByIdLookup[planetId] : null;
-  const parentRadiusPx = planetData?.radiusPx || 100;
   const moons = moonsByPlanet[planetId] || [];
+  const baseDate = new Date();
   const lines = [];
   for (const m of moons) {
-    const aFactor = scaleFactors[m.id]?.a ?? 1;
-    const a = m.a * parentRadiusPx * aFactor;
-    const e = getEccentricity(m);
-    const inc = getInclination(m);
-    const points = sampleKeplerCurve(64, a, e, inc);
-    const geom = new THREE.BufferGeometry().setFromPoints(
-      points.map(p => new THREE.Vector3(p.x, p.y, p.z))
-    );
+    const points = sampleMoonCurve(m, baseDate);
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
     const line = new THREE.LineLoop(geom, ORBIT_LINE_MATERIAL);
     planet.add(line);
     lines.push(line);
