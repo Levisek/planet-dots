@@ -14,8 +14,9 @@ import { ASTEROIDS } from './asteroids.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { tickHyperion } from './hyperionChaos.js';
-import { orbitPosition, trueAnomaly } from './orbit.js';
-import { getEccentricity, getInclination, getMoonPeriod, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, setTimeScale, _resetTimeScaleOverride, isRetrograde } from './simMode.js';
+import { getRelativePosition } from './positionProvider.js';
+import { getSimulationDate } from './simulationDate.js';
+import { toDisplayRelative, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, setTimeScale, _resetTimeScaleOverride, isRetrograde } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -93,11 +94,11 @@ function makeAsteroidOrbitable(a) {
 }
 const ORBITABLE_ASTEROIDS = ASTEROIDS.map(makeAsteroidOrbitable);
 
-function updateAsteroidOrbits(elapsed) {
+function updateAsteroidOrbits(date) {
   for (const a of ORBITABLE_ASTEROIDS) {
     const anchor = asteroidAnchors[a.id];
     if (!anchor) continue;
-    const pos = orbitalPosition(a, elapsed);
+    const pos = orbitalPosition(a, date);
     anchor.position.set(pos.x, pos.y, pos.z);
   }
 }
@@ -161,29 +162,23 @@ function initAfterLoad() {
 }
 
 /**
- * factorsByMoon: { [moonId]: { a, period } } — multiplier pro semi-major axis + orbit period.
- * Pro real-scale toggle: a = realAPx/compressedAPx, period = a^1.5 (Keplerův zákon).
- * Když chybí klíč, default {a:1, period:1} — compressed scale, compressed time.
+ * Aktualizuje pozice + tidal-lock rotaci měsíců ke konkrétnímu datu, z
+ * positionProvideru (V4.4 — nahrazuje starý orbit.js Kepler solver napojený
+ * na elapsed). Pozice je relativní vůči rodičovské planetě (moon anchor je
+ * child planet anchoru, takže lokální position = disp stačí).
  */
-function updateMoonOrbits(t, factorsByMoon = {}) {
+function updateMoonOrbits(date) {
   for (const m of MOONS) {
-    const parent = PLANET_BY_ID[m.parent];
-    const parentRadius = parent.radiusPx;
-    const entry = factorsByMoon[m.id] || { a: 1, period: 1 };
-    const aPx = m.a * parentRadius * entry.a;
-    const e = getEccentricity(m);
-    const basePeriod = getMoonPeriod(m);
-    const inc = getInclination(m);
-    const scaledPeriod = basePeriod * entry.period;
-    const { x, y, z, E } = orbitPosition(t, m.phaseOffset, scaledPeriod, aPx, e, inc);
     const moonAnchor = moonAnchors[m.id];
     if (!moonAnchor) continue;
-    moonAnchor.position.set(x, y, z);
-    const nu = trueAnomaly(E, e);
+    const rel = getRelativePosition(m.id, date);
+    const disp = toDisplayRelative(rel);
+    moonAnchor.position.set(disp.x, disp.y, disp.z);
     if (m.chaoticRotation) {
-      tickHyperion(t, moonAnchor);
+      tickHyperion(_simElapsed, moonAnchor);
     } else {
-      moonAnchor.rotation.y = nu + Math.PI;
+      // Tidal lock: stejná strana měsíce vždy směřuje k rodičovské planetě.
+      moonAnchor.rotation.y = Math.atan2(rel.x, rel.z) + Math.PI;
     }
     moonAnchor.updateMatrixWorld(true);
   }
@@ -221,6 +216,7 @@ function tick() {
   const dtSim = dt * getTimeScale();
   _simElapsed += dtSim;
   _realElapsed += dt;
+  const simDate = getSimulationDate(_simElapsed);
 
   // Camera tween (pro fly-to) — jednotný přes cameraTween.js
   if (_activeCameraTween) {
@@ -247,10 +243,10 @@ function tick() {
   const focusId = detailView ? detailView.focusId() : null;
   const isMoonDetail = focusId && MOONS.some((m) => m.id === focusId);
   if (isMainState) {
-    updatePlanetOrbits(anchors, PLANETS, _simElapsed);
+    updatePlanetOrbits(anchors, PLANETS, simDate);
     rotateAnchors(anchors, dt);
-    updateMoonOrbits(_simElapsed, moonScaleFactors);
-    updateAsteroidOrbits(_simElapsed);
+    updateMoonOrbits(simDate);
+    updateAsteroidOrbits(simDate);
     asteroidBelt.update(_simElapsed);
   } else if (isMoonDetail) {
     // Moon-detail: focus měsíc rotuje, ostatní stojí.
@@ -278,7 +274,7 @@ function tick() {
         a.updateMatrixWorld(true);
       }
     }
-    updateMoonOrbits(_simElapsed, moonScaleFactors);
+    updateMoonOrbits(simDate);
   }
 
   // Formation intro Beat 1+2 (cloud + kolaps), pak solar/moon wind.
@@ -532,8 +528,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     setAllMoonScaleReal(fyz);
     if (detailView && detailView.state() === DV_STATE.DETAIL) {
       // Přepočítej pozice těles na nový mode — v DETAIL se tick() updatePlanetOrbits nevolá.
-      updatePlanetOrbits(anchors, PLANETS, _simElapsed);
-      updateMoonOrbits(_simElapsed, moonScaleFactors);
+      const modeChangeDate = getSimulationDate(_simElapsed);
+      updatePlanetOrbits(anchors, PLANETS, modeChangeDate);
+      updateMoonOrbits(modeChangeDate);
       // Teď přesuň kameru k aktuální (nové) pozici fokusovaného tělesa.
       detailView.refreshCamera();
     } else {
