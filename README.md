@@ -23,6 +23,22 @@ Projekt používá ES moduly — **nelze otevřít přes `file://`**. Potřebuje
 
 Pak v prohlížeči otevřít `http://localhost:3000/` (resp. `:8000`).
 
+## Nasazení na domácí server
+
+Běží na `http://192.168.100.250:8093` (LAN + tailnet, ven nevystaveno).
+
+`nginx:alpine` nad bind-mountnutým git klonem v `/opt/stacks/planet-dots/app`.
+Bez buildu — textury i `vendor/three` jsou verzované, `node_modules` je jen
+na testy a stahování textur.
+
+**Aktualizace:** `git -C /opt/stacks/planet-dots/app pull` — nginx servíruje
+ze souborového systému, restart kontejneru netřeba.
+
+Klon se stahuje read-only deploy klíčem, takže ze serveru nejde pushnout.
+
+Provozní detaily (monitoring, porty) jsou v repu `Domaci server`,
+spec nasazení: `docs/superpowers/specs/2026-07-26-sp3-vlastni-aplikace-design.md`.
+
 ## Struktura
 
 - `index.html` — entry.
