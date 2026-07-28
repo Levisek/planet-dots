@@ -1,35 +1,8 @@
 import { PLANETS, PLANET_BY_ID } from './planets.js';
-import { fibonacciSphere } from './geometry.js';
 import { phaseAt } from './animation.js';
-import { PHASE } from './phase.js';
-import { sampleColor, sphericalUV } from './textureUtils.js';
+import { getPlanetTargets, resetPlanetTargets } from './planetTargets.js';
 
 export const TRAVEL_TIME = 0.35;
-
-// Per-planet targets: jen localOffset + color, žádná abs pozice (planety obíhají).
-// Cache je trvalá per planet.id, abs pos se dopočítá v emit loopu z aktuální anchor.position.
-function buildTargetsForPlanet(planet, imageData) {
-  const targets = [];
-  const surfacePts = fibonacciSphere(planet.tickCount, planet.radiusPx * 1.02);
-  for (const off of surfacePts) {
-    const [u, v] = sphericalUV(off[0], off[1], off[2], planet.radiusPx * 1.02);
-    targets.push({
-      localOffset: { x: off[0], y: off[1], z: off[2] },
-      color: sampleColor(imageData, u, v),
-      phase: PHASE.ON_PLANET,
-    });
-  }
-  return targets;
-}
-
-const _cache = new Map();
-
-function getPlanetTargets(planet, imageData) {
-  if (_cache.has(planet.id)) return _cache.get(planet.id);
-  const targets = buildTargetsForPlanet(planet, imageData);
-  _cache.set(planet.id, targets);
-  return targets;
-}
 
 /**
  * Per-phase controller: tracks progress a emituje správný počet teček.
@@ -84,5 +57,5 @@ export function updateSolarWind(pool, currentTime, dt, anchors, imageData) {
 }
 
 export function resetSolarWind() {
-  _cache.clear();
+  resetPlanetTargets();
 }

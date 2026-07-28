@@ -255,6 +255,60 @@ export class ParticlePool {
   }
 
   /**
+   * Emise z disku (akrece V4.4 F3) — jako spawnFromSun, ale zdroj je explicitní
+   * pozice v disku (okolí planety), start barva = protoplanetární prach.
+   * @param {number} sourceIdx — volný IDLE index
+   * @param {{x,y,z}} sourcePos — explicitní world pos startu (bod v disku)
+   * @param {{x,y,z}} finalTarget — kam dorazí (world pos)
+   * @param {{x,y,z}} finalTargetLocal — local offset relativně k ownerovi
+   * @param {[number,number,number]} finalColor — barva po příletu (sampled from texture)
+   * @param {number} ownerIdx — planet/anchor index
+   * @param {number} finalPhase — PHASE.ON_PLANET / ON_RING / ON_MOON po příletu
+   * @param {number} currentTime — čas v sekundách
+   * @param {number} travelTime — jak dlouho letět
+   */
+  spawnFromDisk(sourceIdx, sourcePos, finalTarget, finalTargetLocal,
+                finalColor, ownerIdx, finalPhase, currentTime, travelTime,
+                finalAlpha = 1.0, finalSize = null) {
+    const i = sourceIdx;
+    const sx = sourcePos.x, sy = sourcePos.y, sz = sourcePos.z;
+    this.position[3*i]     = sx;
+    this.position[3*i + 1] = sy;
+    this.position[3*i + 2] = sz;
+    // Prachová šedo-modrá (stejná paleta jako disk), final color se lerpne během letu.
+    this.color[3*i]     = 0.5;
+    this.color[3*i + 1] = 0.55;
+    this.color[3*i + 2] = 0.68;
+    this.alpha[i] = 0.8;
+
+    const tx = finalTarget.x, ty = finalTarget.y, tz = finalTarget.z;
+    this.target[3*i]     = tx;
+    this.target[3*i + 1] = ty;
+    this.target[3*i + 2] = tz;
+    this.velocity[3*i]     = (tx - sx) / travelTime;
+    this.velocity[3*i + 1] = (ty - sy) / travelTime;
+    this.velocity[3*i + 2] = (tz - sz) / travelTime;
+
+    this.postArrivalTarget[3*i]     = tx;
+    this.postArrivalTarget[3*i + 1] = ty;
+    this.postArrivalTarget[3*i + 2] = tz;
+    this.postArrivalColor[3*i]     = finalColor[0];
+    this.postArrivalColor[3*i + 1] = finalColor[1];
+    this.postArrivalColor[3*i + 2] = finalColor[2];
+    this.postArrivalAlpha[i] = finalAlpha;
+    this.localOffset[3*i]     = finalTargetLocal.x;
+    this.localOffset[3*i + 1] = finalTargetLocal.y;
+    this.localOffset[3*i + 2] = finalTargetLocal.z;
+
+    this.arrivalTime[i] = currentTime + travelTime;
+    this.owner[i] = ownerIdx;
+    this.ownerAlpha[i] = this.ownerAlphaMul[ownerIdx];
+    this.phase[i] = PHASE.FLYING;
+    this.finalPhase[i] = finalPhase;
+    this.size[i] = finalSize !== null ? finalSize : 6.0;
+  }
+
+  /**
    * Spawn tečky z povrchu mateřské planety ven na orbitu měsíce.
    * Podobné spawnFromSun, ale zdroj = planet surface, cíl = moon orbit position.
    * Používá IDLE index, nastaví FLYING pak ON_MOON po arrival.
