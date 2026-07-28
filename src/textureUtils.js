@@ -1,5 +1,5 @@
 // Sdílené helpery pro sampling textur + sférické UV.
-// Používají solarWind, moonWind, particles.initFullSun a bodyMesh.
+// Používají formationIntro, moonWind, particles.initFullSun a bodyMesh.
 
 /** RGB [0..1] z ImageData podle UV [0..1]. */
 export function sampleColor(imageData, u, v) {

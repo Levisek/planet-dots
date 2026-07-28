@@ -6,7 +6,6 @@ import { createPlanetAnchors } from './planetAnchors.js';
 import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
 import { rotateAnchors, rotateOne } from './rotation.js';
-import { updateSolarWind } from './solarWind.js';
 import { updatePlanetOrbits, orbitalPosition, auToDisplayRadius } from './planetOrbits.js';
 import { createAsteroidAnchors } from './asteroidAnchors.js';
 import { createAsteroidBelt } from './asteroidBelt.js';
@@ -287,11 +286,10 @@ function tick() {
     updateMoonOrbits(simDate);
   }
 
-  // Formation intro Beat 1+2 (cloud + kolaps), pak solar/moon wind.
+  // Formation intro — akrece z disku (beat_disk/ignition/accretion), pak moon wind.
   // Tyto systémy vždy jedou dopředu — používají _realElapsed.
   if (isMainState) {
-    updateFormationIntro(pool, _realElapsed, dt);
-    updateSolarWind(pool, _realElapsed, dt, anchors, imageData);
+    updateFormationIntro(pool, _realElapsed, dt, anchors, imageData);
     updateMoonWind(pool, _realElapsed, dt, anchors, moonAnchors, imageData, moonImageData);
   }
 

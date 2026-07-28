@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PHASES, phaseAt, phaseProgress } from './animation.js';
+import { PHASES, phaseAt, phaseProgress, ACCRETION_WINDOWS, LIVE_START } from './animation.js';
 
-test('PHASES pokrývají čas 0..13.0 s bez děr', () => {
+test('PHASES pokrývají čas 0..22 s bez děr', () => {
   let t = 0;
   for (const ph of PHASES) {
     assert.equal(ph.start, t, `díra před ${ph.id}`);
@@ -10,49 +10,41 @@ test('PHASES pokrývají čas 0..13.0 s bez děr', () => {
   }
 });
 
-test('PHASES končí fází live s end=Infinity', () => {
+test('PHASES končí fází live s end=Infinity a LIVE_START odpovídá', () => {
   const last = PHASES[PHASES.length - 1];
   assert.equal(last.id, 'live');
   assert.equal(last.end, Infinity);
+  assert.equal(last.start, LIVE_START);
 });
 
 test('phaseAt vrátí správnou fázi pro čas', () => {
-  assert.equal(phaseAt(0).id, 'beat1_cloud');
-  assert.equal(phaseAt(2.5).id, 'beat1_cloud');
-  assert.equal(phaseAt(3.5).id, 'beat2_collapse');
-  assert.equal(phaseAt(6.5).id, 'init');
-  assert.equal(phaseAt(7.5).id, 'sun');
-  assert.equal(phaseAt(8.2).id, 'mercury');
-  assert.equal(phaseAt(8.7).id, 'venus');
-  assert.equal(phaseAt(9.5).id, 'earth');
-  assert.equal(phaseAt(12.5).id, 'saturn');
-  // moon sub-fáze
-  assert.equal(phaseAt(14.7).id, 'earth_moons');
-  assert.equal(phaseAt(15.2).id, 'mars_moons');
-  assert.equal(phaseAt(15.8).id, 'jupiter_moons');
-  assert.equal(phaseAt(17.0).id, 'saturn_moons');
-  assert.equal(phaseAt(18.5).id, 'uranus_moons');
-  assert.equal(phaseAt(19.5).id, 'neptune_moons');
-  assert.equal(phaseAt(20.0).id, 'live');
-  assert.equal(phaseAt(100).id, 'live');
+  assert.equal(phaseAt(0).id, 'beat_disk');
+  assert.equal(phaseAt(3.9).id, 'beat_disk');
+  assert.equal(phaseAt(4.0).id, 'beat_ignition');
+  assert.equal(phaseAt(6.5).id, 'beat_accretion');
+  assert.equal(phaseAt(16.9).id, 'beat_accretion');
+  assert.equal(phaseAt(17).id, 'earth_moons');
+  assert.equal(phaseAt(17.5).id, 'mars_moons');
+  assert.equal(phaseAt(18.0).id, 'jupiter_moons');
+  assert.equal(phaseAt(19.0).id, 'saturn_moons');
+  assert.equal(phaseAt(20.2).id, 'uranus_moons');
+  assert.equal(phaseAt(21.0).id, 'neptune_moons');
+  assert.equal(phaseAt(22.0).id, 'live');
+  assert.equal(phaseAt(99).id, 'live');
 });
 
-test('phaseProgress vrací 0..1 napříč sun fází', () => {
-  assert.equal(phaseProgress(7.0), 0);       // start of sun phase
-  assert.equal(phaseProgress(8.0), 1);       // end of sun phase
-  assert.ok(Math.abs(phaseProgress(7.5) - 0.5) < 1e-9);
+test('phaseProgress vrací 0..1 napříč earth_moons fází', () => {
+  assert.equal(phaseProgress(17.0), 0);       // start of earth_moons
+  assert.equal(phaseProgress(17.5), 1);       // end of earth_moons
+  assert.ok(Math.abs(phaseProgress(17.25) - 0.5) < 1e-9);
 });
 
-const _NON_DATA_PHASES = new Set(['init', 'live', 'beat1_cloud', 'beat2_collapse']);
-test('každá data fáze má planetId (planety) nebo parentId (měsíce)', () => {
+const _NON_DATA_PHASES = new Set(['beat_disk', 'beat_ignition', 'beat_accretion', 'live']);
+test('data fáze (mimo beaty a live) jsou moon sub-fáze s parentId', () => {
   for (const ph of PHASES) {
     if (_NON_DATA_PHASES.has(ph.id)) continue;
-    if (ph.id.endsWith('_moons')) {
-      assert.ok(ph.parentId, `${ph.id} postrádá parentId`);
-    } else {
-      assert.ok(ph.planetId, `${ph.id} postrádá planetId`);
-      assert.ok(ph.label, `${ph.id} postrádá label`);
-    }
+    assert.ok(ph.id.endsWith('_moons'), `${ph.id} neočekávaná fáze`);
+    assert.ok(ph.parentId, `${ph.id} postrádá parentId`);
   }
 });
 
@@ -65,4 +57,21 @@ test('moon sub-fáze mají správné parentId (6 rodin: earth/mars/jupiter/satur
   assert.equal(moonPhases[3].parentId, 'saturn');
   assert.equal(moonPhases[4].parentId, 'uranus');
   assert.equal(moonPhases[5].parentId, 'neptune');
+});
+
+test('ACCRETION_WINDOWS: 8 planet, end > start, vše končí ≤17s (uvnitř beat_accretion)', () => {
+  assert.equal(ACCRETION_WINDOWS.length, 8);
+  for (const w of ACCRETION_WINDOWS) {
+    assert.ok(w.end > w.start, `${w.planetId}: end <= start`);
+    assert.ok(w.end <= 17, `${w.planetId}: end > 17`);
+  }
+});
+
+test('ACCRETION_WINDOWS: sousední okna se překrývají (souběžná akrece, žádné dávky)', () => {
+  for (let i = 0; i < ACCRETION_WINDOWS.length - 1; i++) {
+    assert.ok(
+      ACCRETION_WINDOWS[i + 1].start < ACCRETION_WINDOWS[i].end,
+      `${ACCRETION_WINDOWS[i + 1].planetId} nezačíná před koncem ${ACCRETION_WINDOWS[i].planetId}`,
+    );
+  }
 });

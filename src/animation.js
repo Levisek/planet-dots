@@ -1,31 +1,36 @@
-// Animation timeline — fáze V1 (solar wind).
-
-// 6-beat formation narrativ (V4.2):
-//   Beat 1 (0-3s):  molekulární oblak rotuje kolem origin
-//   Beat 2 (3-6s):  gravitační kolaps ke středu
-//   Beat 3 (6-7s):  Slunce se zažehne (init phase = solarWind je quiet)
-//   Beat 4+5 (7-15s): per-planet materializace + per-rodina měsíce (solarWind)
-//   Beat 6 (15s+): live state
+// Animation timeline — akreční narativ (V4.4 F3):
+//   beat_disk      (0–4s):    protoplanetární disk rotuje
+//   beat_ignition  (4–6.5s):  střed disku se zhustí → zážeh Slunce, zbytek disku zůstává
+//   beat_accretion (6.5–17s): planety se souběžně hustí z prstenců disku
+//                             (per-planeta okna v ACCRETION_WINDOWS, překrývají se)
+//   *_moons        (17–21.8s): měsíční rodiny z povrchu rodičů (moonWind, beze změny)
+//   live           (22s+):    živý stav — simClock přebírá čas
 export const PHASES = [
-  { start: 0,    end: 3.0, id: 'beat1_cloud' },
-  { start: 3.0,  end: 6.0, id: 'beat2_collapse' },
-  { start: 6.0,  end: 7.0, id: 'init' },
-  { start: 7.0,  end: 8.0, id: 'sun',     planetId: 'sun',     label: 'SLUNCE' },
-  { start: 8.0,  end: 8.5, id: 'mercury', planetId: 'mercury', label: 'MERKUR' },
-  { start: 8.5,  end: 9.1, id: 'venus',   planetId: 'venus',   label: 'VENUŠE' },
-  { start: 9.1,  end: 9.8, id: 'earth',   planetId: 'earth',   label: 'ZEMĚ' },
-  { start: 9.8,  end: 10.3, id: 'mars',   planetId: 'mars',    label: 'MARS' },
-  { start: 10.3, end: 11.7, id: 'jupiter', planetId: 'jupiter', label: 'JUPITER' },
-  { start: 11.7, end: 13.0, id: 'saturn', planetId: 'saturn',  label: 'SATURN' },
-  { start: 13.0, end: 13.8, id: 'uranus', planetId: 'uranus',  label: 'URAN' },
-  { start: 13.8, end: 14.6, id: 'neptune', planetId: 'neptune', label: 'NEPTUN' },
-  { start: 14.6, end: 15.0, id: 'earth_moons',   parentId: 'earth' },
-  { start: 15.0, end: 15.4, id: 'mars_moons',    parentId: 'mars' },
-  { start: 15.4, end: 16.4, id: 'jupiter_moons', parentId: 'jupiter' },
-  { start: 16.4, end: 18.0, id: 'saturn_moons',  parentId: 'saturn' },
-  { start: 18.0, end: 19.0, id: 'uranus_moons',  parentId: 'uranus' },
-  { start: 19.0, end: 20.0, id: 'neptune_moons', parentId: 'neptune' },
-  { start: 20.0, end: Infinity, id: 'live' },
+  { start: 0,    end: 4.0,  id: 'beat_disk' },
+  { start: 4.0,  end: 6.5,  id: 'beat_ignition' },
+  { start: 6.5,  end: 17.0, id: 'beat_accretion' },
+  { start: 17.0, end: 17.5, id: 'earth_moons',   parentId: 'earth' },
+  { start: 17.5, end: 18.0, id: 'mars_moons',    parentId: 'mars' },
+  { start: 18.0, end: 19.0, id: 'jupiter_moons', parentId: 'jupiter' },
+  { start: 19.0, end: 20.2, id: 'saturn_moons',  parentId: 'saturn' },
+  { start: 20.2, end: 21.0, id: 'uranus_moons',  parentId: 'uranus' },
+  { start: 21.0, end: 22.0, id: 'neptune_moons', parentId: 'neptune' },
+  { start: 22.0, end: Infinity, id: 'live' },
+];
+
+export const LIVE_START = 22.0;
+
+// Akreční okna: všechna se překrývají (souběžná akrece), vnitřní planety
+// začínají dřív (kratší dynamický čas u Slunce). Žádné dávky.
+export const ACCRETION_WINDOWS = [
+  { planetId: 'mercury', start: 6.5,  end: 12.0 },
+  { planetId: 'venus',   start: 7.0,  end: 12.5 },
+  { planetId: 'earth',   start: 7.5,  end: 13.0 },
+  { planetId: 'mars',    start: 8.0,  end: 13.5 },
+  { planetId: 'jupiter', start: 8.75, end: 14.25 },
+  { planetId: 'saturn',  start: 9.5,  end: 15.0 },
+  { planetId: 'uranus',  start: 10.25, end: 15.75 },
+  { planetId: 'neptune', start: 11.0, end: 16.5 },
 ];
 
 export function phaseAt(t) {
@@ -35,7 +40,7 @@ export function phaseAt(t) {
   return PHASES[PHASES.length - 1];
 }
 
-const _SKIP_PROGRESS = new Set(['init', 'beat1_cloud', 'beat2_collapse']);
+const _SKIP_PROGRESS = new Set(['beat_disk', 'beat_ignition', 'beat_accretion']);
 
 export function phaseProgress(t) {
   for (const ph of PHASES) {
