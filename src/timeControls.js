@@ -55,14 +55,22 @@ function updateDateUI(date) {
   _dateLabel.textContent = formatCalendar(date);
 
   const y = date.getUTCFullYear();
+  // Picker je otevřený nativní popup (má focus) → nepřepisovat .value/.disabled
+  // pod uživatelem při každém frame přehrávání, jinak to popup rozhodí. Label
+  // pod ním se ale aktualizuje dál.
+  const pickerFocused = document.activeElement === _datePicker;
   // <input type="date"> neumí BCE ani roky >9999 → mimo tento rozsah picker
   // disable, uživatel se spoléhá na label + presety.
   if (y < 1 || y > 9999) {
-    _datePicker.value = '';
-    _datePicker.disabled = true;
+    if (!pickerFocused) {
+      _datePicker.value = '';
+      _datePicker.disabled = true;
+    }
   } else {
-    _datePicker.disabled = false;
-    _datePicker.value = isoDateFromDate(date);
+    if (!pickerFocused) {
+      _datePicker.disabled = false;
+      _datePicker.value = isoDateFromDate(date);
+    }
   }
 
   if (y <= MIN_YEAR || y >= MAX_YEAR) {

@@ -553,6 +553,21 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     }
   });
 
+  // V4.4 F2 fix: scrub datumu (picker/preset) v DETAIL stavu jinak nikam nedosáhne —
+  // tick() v DETAIL nikdy nevolá updatePlanetOrbits (pozice ostatních těles i focus
+  // planety zůstávají zmrazené, viz komentář v tick()); jediný existující recompute
+  // vzor je výše v onModeChange. scrubTo() vždy nejdřív pauzne (pause() → setDate()
+  // → emit), takže gate na !isPlaying() zachytí přesně scrub a zároveň zaručí, že
+  // handler během normálního přehrávání (kdy onDateChange běží každý frame) nic
+  // nepočítá navíc — MAIN i DETAIL řeší pohyb během play beze změny tick().
+  simClock.onDateChange((d) => {
+    if (simClock.isPlaying()) return;
+    if (detailView && detailView.state() === DV_STATE.DETAIL) {
+      updatePlanetOrbits(anchors, PLANETS, d);
+      updateMoonOrbits(d);
+    }
+  });
+
   // Helper pro body world-position
   function getBodyPos(id) {
     const p = PLANET_BY_ID[id];
