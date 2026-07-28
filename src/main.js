@@ -141,6 +141,11 @@ let _sunFadeStart = null;
 // owner 0 až po zážehu, ať se fady nepřou (viz I1 fix).
 let sunRevealed = false;
 
+// Dim alpha pro tělesa mimo focus v detail view (sdíleno tick() zážehem +
+// fadeOthers) — když je zážeh Slunce dokončen v okamžiku, kdy je uživatel
+// v detailu jiného tělesa, fade musí mířit sem, ne na 1 (HIGH fix re-review).
+const DETAIL_DIM_ALPHA = 0.3;
+
 let picker = null;
 let tooltip = null;
 let infoPanel = null;
@@ -375,7 +380,11 @@ function tick() {
   }
   if (formationActive && _sunFadeStart !== null) {
     const fadeT = Math.min(1, (_realElapsed - _sunFadeStart) / 0.5);
-    pool.setOwnerAlpha(0, fadeT);
+    // Cíl fade musí respektovat aktivní detail view — pokud uživatel v
+    // okamžiku zážehu sleduje detail jiného tělesa než Slunce, fade má jít
+    // 0 → dim (ne 0 → 1 se skokem dolů při dalším fadeOthers volání).
+    const sunFadeTarget = dvState === 'DETAIL' && focusId !== 'sun' ? DETAIL_DIM_ALPHA : 1;
+    pool.setOwnerAlpha(0, fadeT * sunFadeTarget);
     if (fadeT >= 1) {
       _sunFadeStart = null;
       sunRevealed = true;
@@ -676,7 +685,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       // Ostatní planety zůstávají viditelné v detail (kvůli orientaci v soustavě),
       // ale dim — fade alpha 0.3, mesh stále render (ne skryt).
       const isDetail = alpha < 1;
-      const dimAlpha = 0.3;
+      const dimAlpha = DETAIL_DIM_ALPHA;
       for (const g of gatedMeshes) {
         const isFocus = g.key === focusId || (g.parentId && g.parentId === focusId);
         const ownerA = isDetail ? (isFocus ? 1 : dimAlpha) : 1;
