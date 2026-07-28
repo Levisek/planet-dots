@@ -75,3 +75,11 @@ test('getDate vrací kopii', () => {
   d.setUTCFullYear(1);
   assert.notEqual(clock.getDate().getUTCFullYear(), 1);
 });
+
+test('play sám o sobě datum nemění (no-jump kontrakt, chrání proti C1 regresi)', () => {
+  const x = new Date('2026-07-18T12:00:00Z');
+  clock.scrubTo(x); // pause() + setDate(x)
+  assert.equal(clock.getDate().getTime(), x.getTime());
+  clock.play();
+  assert.equal(clock.getDate().getTime(), x.getTime());
+});

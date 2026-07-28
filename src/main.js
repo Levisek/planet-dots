@@ -136,6 +136,11 @@ let formationActive = true;
 // v t=6.0) — null když fade neběží/skončil. Viz tick().
 let _sunFadeStart = null;
 
+// True jakmile ignition fade (0→1) doběhne — do té doby vlastní
+// ownerAlpha(0, …) formace (tick() níže), fadeOthers (detailView) sáhne na
+// owner 0 až po zážehu, ať se fady nepřou (viz I1 fix).
+let sunRevealed = false;
+
 let picker = null;
 let tooltip = null;
 let infoPanel = null;
@@ -178,8 +183,9 @@ function initAfterLoad() {
   // Sun tečky (owner 0, ON_SUN) ztlum na 0 hned po initu — zážeh (t=6.0, viz
   // tick()) je pak "rozsvítí" krátkým fade. initFullSun sama nastavuje
   // alpha[i]=0 per-částice, ale ownerAlphaMul zůstává 1 — bez tohohle by
-  // pozdější setOwnerAlpha(0, 1) volání (detailView.fadeOthers apod.) tečky
-  // odkryly předčasně.
+  // sunActivity (prominence/CME, viz sunActivity.js spawnProminence) hned od
+  // startu spawnovala tečky s ownerAlpha[i] = ownerAlphaMul[0] = 1, tedy
+  // plně viditelné dřív, než Slunce vůbec "zapálí".
   pool.setOwnerAlpha(0, 0);
 }
 
@@ -239,10 +245,11 @@ function tick() {
   if (formationActive && _realElapsed >= LIVE_START) {
     // Konec formace (F3) — simClock stojí od startu zamčený na dnešním datu
     // (scrubTo v Promise.all), takže přepnutí na live přehrávání nezpůsobí
-    // skok pozic. else-if níže záměrně nevolá simClock.tick() ve STEJNÉM
-    // frame (zabránilo by to mikroskopickému dvojímu posunu data).
+    // skok pozic. NEVOLAT simClock.setDate(new Date()) — simClock už na
+    // správném datu je; resample by po probuzení taby z pozadí (RAF suspend,
+    // hodiny reálného rozdílu) způsobil viditelný skok pozic (fix C1). Necháme
+    // jen play() — případné zpoždění doženě plynule běh (rate 36.5 dní/s).
     formationActive = false;
-    simClock.setDate(new Date());
     simClock.play();
     setFormationLock(false);
     if (formationLabelEl) formationLabelEl.style.display = 'none';
@@ -369,7 +376,10 @@ function tick() {
   if (formationActive && _sunFadeStart !== null) {
     const fadeT = Math.min(1, (_realElapsed - _sunFadeStart) / 0.5);
     pool.setOwnerAlpha(0, fadeT);
-    if (fadeT >= 1) _sunFadeStart = null;
+    if (fadeT >= 1) {
+      _sunFadeStart = null;
+      sunRevealed = true;
+    }
   }
 
   // Picker updatuje mesh pozice (musí po applyClusterRotation)
@@ -685,6 +695,16 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
           mesh.material.transparent = isDetail && !isFocus;
           mesh.material.opacity = isDetail && !isFocus ? dimAlpha : 1;
         }
+      }
+      // Slunce (owner 0) není v gatedMeshes (countSettled gating mu nefunguje,
+      // viz komentář u tick()), takže smyčka výše jeho ownerAlpha nikdy nesahá.
+      // Bez explicitní větve by sluneční aktivita (sunActivity — prominence/CME
+      // čtou ownerAlphaMul[0] při spawnu) zůstala na plný jas i v detailu jiného
+      // tělesa (I1 fix). Gate na sunRevealed: dokud neproběhl zážeh, ownerAlpha(0)
+      // vlastní formační fade (tick(), 0→1 přes t≈6.0–6.5) — kdybychom sem sahali
+      // dřív, přebili bychom ho.
+      if (sunRevealed) {
+        pool.setOwnerAlpha(0, isDetail && focusId !== 'sun' ? dimAlpha : 1);
       }
     },
     showPanel: (id, opts) => {
