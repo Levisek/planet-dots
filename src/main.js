@@ -15,8 +15,8 @@ import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { tickHyperion } from './hyperionChaos.js';
 import { getRelativePosition } from './positionProvider.js';
-import { getSimulationDate } from './simulationDate.js';
-import { toDisplayRelative, setMode as setSimMode, getMode as getSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, setTimeScale, _resetTimeScaleOverride, isRetrograde } from './simMode.js';
+import * as simClock from './simClock.js';
+import { toDisplayRelative, setMode as setSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, isRetrograde } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -115,11 +115,18 @@ scene.add(pool.mesh);
 const clock = new THREE.Clock();
 let elapsed = 0;
 
-// Dvojitý časový kanál (V4.3):
-// _simElapsed — akumuluje dt × getTimeScale(), použito pro orbity (může jít zpět)
+// Dvojitý časový kanál (V4.3 → V4.4 F2):
+// _simElapsed — pomocný akumulátor dt × getTimeScale() (simMode), NEŘÍDÍ orbity
+//   (to dělá simClock), ale krmí zbylé legacy konzumenty (asteroidBelt rotace,
+//   timeControls date label/slider) do jejich migrace v Tasku 5.
 // _realElapsed — akumuluje dt rovně, použito pro formation/sun/wind (vždy dopředu)
+//   a pro Hyperion chaos spin (monotónní čas, nesouvisí s datem).
 let _simElapsed = 0;
 let _realElapsed = 0;
+
+// TODO F3: zamknout scrubber během formace (intro). Zatím žádný takový flag
+// v main.js není, takže simClock.tick() běží vždy dopředu i teď.
+const formationActive = false;
 
 let picker = null;
 let tooltip = null;
@@ -175,7 +182,7 @@ function updateMoonOrbits(date) {
     const disp = toDisplayRelative(rel);
     moonAnchor.position.set(disp.x, disp.y, disp.z);
     if (m.chaoticRotation) {
-      tickHyperion(_simElapsed, moonAnchor);
+      tickHyperion(_realElapsed, moonAnchor);
     } else {
       // Tidal lock: stejná strana měsíce vždy směřuje k rodičovské planetě.
       moonAnchor.rotation.y = Math.atan2(rel.x, rel.z) + Math.PI;
@@ -212,11 +219,13 @@ function tick() {
   const dt = clock.getDelta();
   elapsed += dt;
 
-  // Dual time channel
-  const dtSim = dt * getTimeScale();
-  _simElapsed += dtSim;
-  _realElapsed += dt;
-  const simDate = getSimulationDate(_simElapsed);
+  // Dual time channel (V4.4 F2): simClock je jediná autorita simulačního data.
+  _realElapsed += dt;                              // formace/sun/wind běží dál na real-time
+  if (!formationActive) simClock.tick(dt * 1000);  // dt je v sekundách → simClock chce ms
+  const simDate = simClock.getDate();
+  // Pomocný akumulátor pro legacy konzumenty (asteroidBelt, timeControls) — viz
+  // komentář u deklarace výše. Neřídí orbity ani simDate.
+  _simElapsed += dt * getTimeScale();
 
   // Camera tween (pro fly-to) — jednotný přes cameraTween.js
   if (_activeCameraTween) {
@@ -528,9 +537,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     setAllMoonScaleReal(fyz);
     if (detailView && detailView.state() === DV_STATE.DETAIL) {
       // Přepočítej pozice těles na nový mode — v DETAIL se tick() updatePlanetOrbits nevolá.
-      const modeChangeDate = getSimulationDate(_simElapsed);
-      updatePlanetOrbits(anchors, PLANETS, modeChangeDate);
-      updateMoonOrbits(modeChangeDate);
+      const d = simClock.getDate();
+      updatePlanetOrbits(anchors, PLANETS, d);
+      updateMoonOrbits(d);
       // Teď přesuň kameru k aktuální (nové) pozici fokusovaného tělesa.
       detailView.refreshCamera();
     } else {
@@ -777,25 +786,27 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       detailView.exit();
     }
 
-    // timeScale keybinds: [ ] \ 0
+    // timeScale keybinds: [ ] \ 0 — simClock je od V4.4 F2 jediná autorita.
+    // POZOR: timeControls.js (UI slider) zatím čte/píše simMode.getTimeScale/
+    // setTimeScale (přepojení až Task 5) — dokud slider nesahá na simClock,
+    // klávesy a slider jedou po dvou nezávislých timeScale hodnotách (viz
+    // task-4-report.md, known transitional state).
     switch (e.key) {
       case '[':
-        setTimeScale(Math.max(0.1, Math.abs(getTimeScale()) - 0.1) * (getTimeScale() < 0 ? -1 : 1));
+        simClock.setTimeScale(Math.max(0.1, Math.abs(simClock.getTimeScale()) - 0.1) * (simClock.getTimeScale() < 0 ? -1 : 1));
         e.preventDefault();
         break;
       case ']':
-        setTimeScale(Math.min(5.0, Math.abs(getTimeScale()) + 0.1) * (getTimeScale() < 0 ? -1 : 1));
+        simClock.setTimeScale(Math.min(5.0, Math.abs(simClock.getTimeScale()) + 0.1) * (simClock.getTimeScale() < 0 ? -1 : 1));
         e.preventDefault();
         break;
       case '\\':
-        setTimeScale(-getTimeScale());
+        simClock.setTimeScale(-simClock.getTimeScale());
         e.preventDefault();
         break;
       case '0':
-        _resetTimeScaleOverride();
-        const defaultScale = getSimMode() === MODES.POCHOPENI ? 0.5 : 1.0;
-        setTimeScale(defaultScale);
-        _resetTimeScaleOverride();
+        simClock.setTimeScale(1);
+        simClock.play();
         e.preventDefault();
         break;
     }
