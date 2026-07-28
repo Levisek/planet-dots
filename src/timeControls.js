@@ -84,6 +84,7 @@ function tickSpeedUI() {
     _timeScaleSlider.value = speedToSlider(Math.abs(v));
     _speedLabel.textContent = `${v.toFixed(2)}×`;
   }
+  updatePlayPauseIcon();
   requestAnimationFrame(tickSpeedUI);
 }
 
@@ -150,18 +151,17 @@ export function initTimeControls() {
     if (!_datePicker.value) return;
     scrubTo(new Date(`${_datePicker.value}T00:00:00Z`));
     _presetSelect.value = '';
-    updatePlayPauseIcon();
   });
 
   _presetSelect.addEventListener('change', () => {
     const preset = DATE_PRESETS.find((p) => p.id === _presetSelect.value);
     if (!preset) return;
     scrubTo(preset.date);
-    updatePlayPauseIcon();
   });
 
   onDateChange((date) => {
     updateDateUI(date);
+    updatePlayPauseIcon();
   });
 
   tickSpeedUI();

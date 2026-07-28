@@ -781,10 +781,17 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // ESC handler
   window.addEventListener('keydown', (e) => {
     // Skip when typing in inputs
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
     if (e.key === 'Escape' && detailView.state() === DV_STATE.DETAIL) {
       detailView.exit();
+    }
+
+    // Space toggle play/pauza
+    if (e.key === ' ') {
+      simClock.isPlaying() ? simClock.pause() : simClock.play();
+      e.preventDefault();
+      return;
     }
 
     // timeScale keybinds: [ ] \ 0 — simClock je od V4.4 F2 jediná autorita.
