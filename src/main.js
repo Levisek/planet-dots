@@ -16,7 +16,7 @@ import { updateMoonWind } from './moonWind.js';
 import { tickHyperion } from './hyperionChaos.js';
 import { getRelativePosition } from './positionProvider.js';
 import * as simClock from './simClock.js';
-import { toDisplayRelative, setMode as setSimMode, onModeChange, isFyzikalni, MODES, getTimeScale, isRetrograde } from './simMode.js';
+import { toDisplayRelative, setMode as setSimMode, onModeChange, isFyzikalni, MODES, isRetrograde } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -115,10 +115,11 @@ scene.add(pool.mesh);
 const clock = new THREE.Clock();
 let elapsed = 0;
 
-// Dvojitý časový kanál (V4.3 → V4.4 F2):
-// _simElapsed — pomocný akumulátor dt × getTimeScale() (simMode), NEŘÍDÍ orbity
-//   (to dělá simClock), ale krmí zbylé legacy konzumenty (asteroidBelt rotace,
-//   timeControls date label/slider) do jejich migrace v Tasku 5.
+// Dvojitý časový kanál (V4.3 → V4.4 F2, sjednoceno v Tasku 5):
+// _simElapsed — pomocný akumulátor dt × simClock.getTimeScale(), NEŘÍDÍ orbity
+//   (to dělá simClock), ale krmí zbylého legacy konzumenta (asteroidBelt
+//   rotace). Sdílí timeScale se simClock, takže reversuje/zrychluje shodně
+//   s klávesami [ ] \ 0 i se sliderem v timeControls.
 // _realElapsed — akumuluje dt rovně, použito pro formation/sun/wind (vždy dopředu)
 //   a pro Hyperion chaos spin (monotónní čas, nesouvisí s datem).
 let _simElapsed = 0;
@@ -223,9 +224,9 @@ function tick() {
   _realElapsed += dt;                              // formace/sun/wind běží dál na real-time
   if (!formationActive) simClock.tick(dt * 1000);  // dt je v sekundách → simClock chce ms
   const simDate = simClock.getDate();
-  // Pomocný akumulátor pro legacy konzumenty (asteroidBelt, timeControls) — viz
-  // komentář u deklarace výše. Neřídí orbity ani simDate.
-  _simElapsed += dt * getTimeScale();
+  // Pomocný akumulátor pro legacy konzumenta (asteroidBelt) — viz komentář
+  // u deklarace výše. Neřídí orbity ani simDate.
+  _simElapsed += dt * simClock.getTimeScale();
 
   // Camera tween (pro fly-to) — jednotný přes cameraTween.js
   if (_activeCameraTween) {
@@ -787,10 +788,8 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     }
 
     // timeScale keybinds: [ ] \ 0 — simClock je od V4.4 F2 jediná autorita.
-    // POZOR: timeControls.js (UI slider) zatím čte/píše simMode.getTimeScale/
-    // setTimeScale (přepojení až Task 5) — dokud slider nesahá na simClock,
-    // klávesy a slider jedou po dvou nezávislých timeScale hodnotách (viz
-    // task-4-report.md, known transitional state).
+    // timeControls.js (UI slider/reverse) čte/píše stejné simClock API
+    // (přepojeno v Tasku 5), takže klávesy i slider sdílí jednu timeScale hodnotu.
     switch (e.key) {
       case '[':
         simClock.setTimeScale(Math.max(0.1, Math.abs(simClock.getTimeScale()) - 0.1) * (simClock.getTimeScale() < 0 ? -1 : 1));
@@ -813,7 +812,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   });
 
   // Initialize time controls UI
-  initTimeControls(() => _simElapsed);
+  initTimeControls();
 
   clock.start();
   requestAnimationFrame(tick);

@@ -174,17 +174,23 @@
       transform: translateX(-50%);
       display: flex;
       align-items: center;
-      gap: 12px;
+      flex-wrap: nowrap;
+      gap: 10px;
       padding: 8px 16px;
+      max-width: calc(100vw - 24px);
       background: rgba(0, 0, 0, 0.6);
       border: 1px solid #88aacc;
       font-family: 'Press Start 2P', monospace;
       font-size: 10px;
       color: #ccddee;
       z-index: 100;
+      overflow-x: auto;
+    }
+    #time-controls > * {
+      flex-shrink: 0;
     }
     #time-controls #speed-slider {
-      width: 200px;
+      width: 140px;
       height: 8px;
       appearance: none;
       background: #224466;
@@ -209,12 +215,54 @@
     #time-controls #reverse-btn:hover {
       background: #336688;
     }
+    #time-controls #play-pause-btn {
+      background: #224466;
+      color: #ffcc44;
+      border: 1px solid #88aacc;
+      padding: 4px 8px;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+    }
+    #time-controls #play-pause-btn:hover {
+      background: #336688;
+    }
     #time-controls #speed-label {
       min-width: 60px;
+      white-space: nowrap;
     }
     #time-controls #date-label {
       margin-left: 12px;
       color: #ffcc44;
+      white-space: nowrap;
+    }
+    #time-controls #date-picker {
+      background: #112238;
+      color: #ccddee;
+      border: 1px solid #88aacc;
+      font-family: inherit;
+      font-size: 8px;
+      padding: 3px 4px;
+      color-scheme: dark;
+    }
+    #time-controls #date-picker:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    #time-controls #preset-select {
+      background: #112238;
+      color: #ccddee;
+      border: 1px solid #88aacc;
+      font-family: inherit;
+      font-size: 8px;
+      padding: 3px 4px;
+      max-width: 150px;
+    }
+    #time-controls #date-range-note {
+      font-size: 7px;
+      color: #ff8844;
+      margin-left: 4px;
+      white-space: nowrap;
     }
   </style>
 </head>
