@@ -169,6 +169,10 @@ function releaseAllDust(pool) {
   }
   pool.alphaAttr.needsUpdate = true;
   pool.posAttr.needsUpdate = true;
+  // Po finálním release už není co dělat — nuluj, ať updateFormationIntro
+  // (volané dál po zbytek formationActive okna, F3 review MEDIUM) nesbíhá
+  // zbytečně 12k-prvkový no-op sken + needsUpdate každý frame.
+  _dustIndices = null;
 }
 
 /**

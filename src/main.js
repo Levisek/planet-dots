@@ -136,6 +136,13 @@ let formationActive = true;
 // v t=6.0) — null když fade neběží/skončil. Viz tick().
 let _sunFadeStart = null;
 
+// True jakmile proběhl zážeh (t≥6.0), NAVŽDY — jediný gate na spuštění fade.
+// Záměrně NEZÁVISLÉ na bodyMeshes.sun.userData.settled: ten flag může být
+// force-nastaven vstupem do detail view (F3 review HIGH fix) a kdyby na něm
+// zážeh závisel, klik na Slunce před t=6 by ho natrvalo přeskočil (fade by
+// se nikdy nespustil, sunActivity by zůstala navždy neviditelná).
+let _sunIgnited = false;
+
 // True jakmile ignition fade (0→1) doběhne — do té doby vlastní
 // ownerAlpha(0, …) formace (tick() níže), fadeOthers (detailView) sáhne na
 // owner 0 až po zážehu, ať se fady nepřou (viz I1 fix).
@@ -333,8 +340,16 @@ function tick() {
   }
 
   // Formation intro — akrece z disku (beat_disk/ignition/accretion), pak moon wind.
-  // Tyto systémy vždy jedou dopředu — používají _realElapsed.
-  if (isMainState) {
+  // Tyto systémy vždy jedou dopředu — používají _realElapsed. Gate na
+  // formationActive (NE isMainState, F3 review HIGH fix): pokud návštěvník
+  // stráví akreční okno (6.5–17s) nebo moon fáze (17–22s) v detail view,
+  // formace musí pokračovat na pozadí — jinak by okno proteklo bez emise a
+  // dané těleso by po formaci zůstalo navždy bez teček (total=0, nikdy
+  // settled). fadeOthers stejně dimuje non-focus ownery, takže i letící
+  // tečky do jiné planety jsou v detailu ztlumené. Po formaci (formationActive
+  // === false) obě funkce už nemají co dělat (updateFormationIntro jen
+  // no-op release, updateMoonWind ne-_moons fáze no-op) — gate je i levnější.
+  if (formationActive) {
     updateFormationIntro(pool, _realElapsed, dt, anchors, imageData);
     updateMoonWind(pool, _realElapsed, dt, anchors, moonAnchors, imageData, moonImageData);
   }
@@ -373,7 +388,15 @@ function tick() {
   // Sun proto není v gatedMeshes (viz Promise.all níže) a jeho reveal řídíme
   // explicitně na konci beat_ignition (t=6.0), s krátkým fade ownerAlpha 0→1
   // (gate na formationActive, ať se nepere s detailView.fadeOthers).
-  if (bodyMeshes.sun && _realElapsed >= 6.0 && !bodyMeshes.sun.userData.settled) {
+  // Gate ČISTĚ na _sunIgnited/_realElapsed — NE na bodyMeshes.sun.userData.settled
+  // (F3 review HIGH fix): detail view force-settluje focus mesh (viz fadeOthers
+  // níže) a kdyby klik na Slunce před t=6 nastavil settled=true, tenhle blok
+  // by se přeskočil navždy → _sunFadeStart by se nikdy nenastavil, sunRevealed
+  // by zůstalo false, ownerAlphaMul[0] (prominence/CME) by zůstalo 0 na celou
+  // session. Settled/visible se tu i tak nastaví (idempotentní, i kdyby už
+  // byly force-nastavené dřív) — jen SPUŠTĚNÍ fade na nich nezávisí.
+  if (bodyMeshes.sun && _realElapsed >= 6.0 && !_sunIgnited) {
+    _sunIgnited = true;
     bodyMeshes.sun.userData.settled = true;
     bodyMeshes.sun.visible = true;
     _sunFadeStart = _realElapsed;
