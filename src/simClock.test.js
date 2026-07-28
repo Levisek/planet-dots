@@ -52,7 +52,21 @@ test('tick na horní hranici zůstává v roce 8000', () => {
   clock.tick(100000);
   assert.equal(clock.getDate().getUTCFullYear(), 8000);
   const lastMoment = Date.UTC(8001, 0, 1) - 1;
-  assert.ok(clock.getDate().getTime() <= lastMoment);
+  assert.equal(clock.getDate().getTime(), lastMoment);
+});
+
+test('chybující listener nezastaví ostatní ani tick', () => {
+  let counter = 0;
+  const off1 = clock.onDateChange(() => {
+    throw new Error('boom');
+  });
+  const off2 = clock.onDateChange(() => {
+    counter++;
+  });
+  clock.scrubTo(new Date('2020-01-01T00:00:00Z'));
+  assert.equal(counter, 1);
+  off1();
+  off2();
 });
 
 test('getDate vrací kopii', () => {
