@@ -44,3 +44,20 @@ test('onDateChange se zavolá při scrubTo', () => {
   assert.ok(called >= 1);
   off();
 });
+
+test('tick na horní hranici zůstává v roce 8000', () => {
+  clock.scrubTo(new Date(Date.UTC(8000, 11, 31)));
+  clock.setTimeScale(1);
+  clock.play();
+  clock.tick(100000);
+  assert.equal(clock.getDate().getUTCFullYear(), 8000);
+  const lastMoment = Date.UTC(8001, 0, 1) - 1;
+  assert.ok(clock.getDate().getTime() <= lastMoment);
+});
+
+test('getDate vrací kopii', () => {
+  clock.scrubTo(new Date('2015-06-15T00:00:00Z'));
+  const d = clock.getDate();
+  d.setUTCFullYear(1);
+  assert.notEqual(clock.getDate().getUTCFullYear(), 1);
+});

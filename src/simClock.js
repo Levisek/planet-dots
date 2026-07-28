@@ -18,13 +18,21 @@ const _listeners = [];
 function clampDate(d) {
   const y = d.getUTCFullYear();
   if (y < MIN_YEAR) return new Date(Date.UTC(MIN_YEAR, 0, 1));
-  if (y > MAX_YEAR) return new Date(Date.UTC(MAX_YEAR, 11, 31));
+  if (y > MAX_YEAR) return new Date(Date.UTC(MAX_YEAR + 1, 0, 1) - 1);
   return d;
 }
 
-function emit() { for (const cb of _listeners) cb(_date); }
+function emit() {
+  for (const cb of _listeners) {
+    try {
+      cb(_date);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
 
-export function getDate() { return _date; }
+export function getDate() { return new Date(_date.getTime()); }
 export function isPlaying() { return _playing; }
 export function play() { _playing = true; }
 export function pause() { _playing = false; }
