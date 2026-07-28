@@ -264,6 +264,24 @@
       margin-left: 4px;
       white-space: nowrap;
     }
+    #time-controls.formation-locked {
+      opacity: 0.4;
+    }
+    #formation-label {
+      position: fixed;
+      top: 42px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ffdd88;
+      font: 9px/1.4 'Press Start 2P', monospace;
+      letter-spacing: 0.04em;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+      user-select: none;
+      z-index: 50;
+    }
   </style>
 </head>
 <body>
@@ -273,6 +291,7 @@
   </main>
   <div id="hud">R restart · Space pauza</div>
   <div id="stats">fps — · tick — ms · rot — ms</div>
+  <div id="formation-label"></div>
   <div id="tooltip"></div>
   <div id="infoPanel"></div>
   <div id="moonLabels"></div>

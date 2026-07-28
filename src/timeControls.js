@@ -13,6 +13,7 @@ let _rangeNote = null;
 let _container = null;
 
 let _lastTimeScale = null;
+let _formationLocked = false;
 
 // Piecewise log mapping: slider 0..100 → speed 0.1..5.0
 // pos=0..50 → 0.1..1.0, pos=50..100 → 1.0..5.0
@@ -59,9 +60,14 @@ function updateDateUI(date) {
   // pod uživatelem při každém frame přehrávání, jinak to popup rozhodí. Label
   // pod ním se ale aktualizuje dál.
   const pickerFocused = document.activeElement === _datePicker;
-  // <input type="date"> neumí BCE ani roky >9999 → mimo tento rozsah picker
-  // disable, uživatel se spoléhá na label + presety.
-  if (y < 1 || y > 9999) {
+  // Formation lock má přednost před BCE-range logikou — dokud běží formace,
+  // picker zůstává disabled bez ohledu na rok (setFormationLock volá tuto
+  // funkci znovu při unlocku, aby BCE-range logika převzala vládu zpět).
+  if (_formationLocked) {
+    if (!pickerFocused) _datePicker.disabled = true;
+  } else if (y < 1 || y > 9999) {
+    // <input type="date"> neumí BCE ani roky >9999 → mimo tento rozsah picker
+    // disable, uživatel se spoléhá na label + presety.
     if (!pickerFocused) {
       _datePicker.value = '';
       _datePicker.disabled = true;
@@ -173,4 +179,23 @@ export function initTimeControls() {
   });
 
   tickSpeedUI();
+}
+
+/**
+ * Zamkne/odemkne časové ovládání během formace (V4.4 F3) — date picker,
+ * preset select, play/pause, speed slider, reverse btn jdou disabled a
+ * kontejner dostane .formation-locked (opacity 0.4, viz index.html).
+ * Datum label i geologický popisek (main.js #formation-label) zůstávají
+ * viditelné/aktivní — lock je jen na ovládání, ne na čtení.
+ */
+export function setFormationLock(locked) {
+  _formationLocked = locked;
+  for (const el of [_datePicker, _presetSelect, _playPauseBtn, _timeScaleSlider, _reverseBtn]) {
+    if (el) el.disabled = locked;
+  }
+  if (_container) _container.classList.toggle('formation-locked', locked);
+  // Po unlocku musí BCE-range logika v updateDateUI zase převzít vládu nad
+  // picker.disabled (viz komentář tamtéž) — blanket disable výše by jinak
+  // zůstal poslední slovo i pro nesmyslné kombinace.
+  if (!locked) updateDateUI(getDate());
 }

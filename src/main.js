@@ -32,8 +32,10 @@ import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createTween } from './cameraTween.js';
-import { initTimeControls } from './timeControls.js';
+import { initTimeControls, setFormationLock } from './timeControls.js';
 import { icosphereRaw } from './geometry.js';
+import { timelineAt } from './formationTimeline.js';
+import { LIVE_START } from './animation.js';
 
 /**
  * Fallback barevná sféra pro tělesa bez cylindrické mapy (texture: null).
@@ -125,9 +127,14 @@ let elapsed = 0;
 let _simElapsed = 0;
 let _realElapsed = 0;
 
-// TODO F3: zamknout scrubber během formace (intro). Zatím žádný takový flag
-// v main.js není, takže simClock.tick() běží vždy dopředu i teď.
-const formationActive = false;
+// Formation lifecycle (V4.4 F3) — true od startu, dokud _realElapsed
+// nepřekročí LIVE_START (viz tick()). Během formace simClock stojí zamčený
+// na dnešním datu (startup scrubTo), takže přechod na live je bez skoku.
+let formationActive = true;
+
+// Kdy začal fade ownerAlpha 0→1 pro sun-tečky (zážeh, konec beat_ignition
+// v t=6.0) — null když fade neběží/skončil. Viz tick().
+let _sunFadeStart = null;
 
 let picker = null;
 let tooltip = null;
@@ -149,6 +156,7 @@ const gatedMeshes = [];
 
 // ——— Perf diag ———
 const statsEl = document.getElementById('stats');
+const formationLabelEl = document.getElementById('formation-label');
 let frameCount = 0;
 let tickMsAcc = 0;
 let rotMsAcc = 0;
@@ -167,6 +175,12 @@ function initAfterLoad() {
     sun.tickCount,
     sun.dotSize,
   );
+  // Sun tečky (owner 0, ON_SUN) ztlum na 0 hned po initu — zážeh (t=6.0, viz
+  // tick()) je pak "rozsvítí" krátkým fade. initFullSun sama nastavuje
+  // alpha[i]=0 per-částice, ale ownerAlphaMul zůstává 1 — bez tohohle by
+  // pozdější setOwnerAlpha(0, 1) volání (detailView.fadeOthers apod.) tečky
+  // odkryly předčasně.
+  pool.setOwnerAlpha(0, 0);
 }
 
 /**
@@ -222,11 +236,30 @@ function tick() {
 
   // Dual time channel (V4.4 F2): simClock je jediná autorita simulačního data.
   _realElapsed += dt;                              // formace/sun/wind běží dál na real-time
-  if (!formationActive) simClock.tick(dt * 1000);  // dt je v sekundách → simClock chce ms
+  if (formationActive && _realElapsed >= LIVE_START) {
+    // Konec formace (F3) — simClock stojí od startu zamčený na dnešním datu
+    // (scrubTo v Promise.all), takže přepnutí na live přehrávání nezpůsobí
+    // skok pozic. else-if níže záměrně nevolá simClock.tick() ve STEJNÉM
+    // frame (zabránilo by to mikroskopickému dvojímu posunu data).
+    formationActive = false;
+    simClock.setDate(new Date());
+    simClock.play();
+    setFormationLock(false);
+    if (formationLabelEl) formationLabelEl.style.display = 'none';
+  } else if (!formationActive) {
+    simClock.tick(dt * 1000);  // dt je v sekundách → simClock chce ms
+  }
   const simDate = simClock.getDate();
   // Pomocný akumulátor pro legacy konzumenta (asteroidBelt) — viz komentář
   // u deklarace výše. Neřídí orbity ani simDate.
   _simElapsed += dt * simClock.getTimeScale();
+
+  // Geologická osa HUD (F3) — jen během formace, levné (textContent jen při změně).
+  if (formationActive && formationLabelEl) {
+    const s = timelineAt(_realElapsed);
+    const text = s.age ? `${s.label} · ${s.age}` : s.label;
+    if (formationLabelEl.textContent !== text) formationLabelEl.textContent = text;
+  }
 
   // Camera tween (pro fly-to) — jednotný přes cameraTween.js
   if (_activeCameraTween) {
@@ -322,6 +355,23 @@ function tick() {
     }
   }
 
+  // Zážeh Slunce (F3) — generic countSettled gating výše NEFUNGUJE pro Slunce:
+  // ON_SUN tečky z initFullSun jsou "settled" hned od t=0 (initial fill, ne
+  // formation fly-in), takže by countSettled(0) hlásil 100 % na první frame.
+  // Sun proto není v gatedMeshes (viz Promise.all níže) a jeho reveal řídíme
+  // explicitně na konci beat_ignition (t=6.0), s krátkým fade ownerAlpha 0→1
+  // (gate na formationActive, ať se nepere s detailView.fadeOthers).
+  if (bodyMeshes.sun && _realElapsed >= 6.0 && !bodyMeshes.sun.userData.settled) {
+    bodyMeshes.sun.userData.settled = true;
+    bodyMeshes.sun.visible = true;
+    _sunFadeStart = _realElapsed;
+  }
+  if (formationActive && _sunFadeStart !== null) {
+    const fadeT = Math.min(1, (_realElapsed - _sunFadeStart) / 0.5);
+    pool.setOwnerAlpha(0, fadeT);
+    if (fadeT >= 1) _sunFadeStart = null;
+  }
+
   // Picker updatuje mesh pozice (musí po applyClusterRotation)
   if (picker) picker.update();
 
@@ -379,7 +429,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     mesh.visible = false;
     anchors[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
-    gatedMeshes.push({ key: p.id, ownerIdx: i, isPlanet: true, isMoon: false });
+    // Sun vyňat z gatedMeshes — jeho reveal řídí explicitní t>=6.0 gate v
+    // tick() (countSettled gating pro Slunce nefunguje, viz komentář tamtéž).
+    if (p.id !== 'sun') gatedMeshes.push({ key: p.id, ownerIdx: i, isPlanet: true, isMoon: false });
 
     if (p.id === 'saturn' && imageData.saturn_ring) {
       const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
@@ -805,6 +857,10 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       detailView.exit();
     }
 
+    // Formace zamyká jen ČAS (Space + [ ] \ 0) — detail view (Escape výše)
+    // zůstává funkční, formace není hard-lock UI (F3 decision 6).
+    if (formationActive) return;
+
     // Space toggle play/pauza
     if (e.key === ' ') {
       simClock.isPlaying() ? simClock.pause() : simClock.play();
@@ -838,6 +894,13 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
 
   // Initialize time controls UI
   initTimeControls();
+
+  // Formation lifecycle startup (F3): scrubTo pauzne simClock na dnešním
+  // datu — formation cíle (getPlanetTargets/anchor pozice) tak od začátku
+  // sedí na ephemeris pozicích a přechod na live v LIVE_START (tick()) je
+  // bez skoku. setFormationLock(true) disabluje time HUD po dobu formace.
+  simClock.scrubTo(new Date());
+  setFormationLock(true);
 
   clock.start();
   requestAnimationFrame(tick);
