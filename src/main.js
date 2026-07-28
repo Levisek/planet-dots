@@ -12,6 +12,7 @@ import { createAsteroidBelt } from './asteroidBelt.js';
 import { ASTEROIDS } from './asteroids.js';
 import { updateFormationIntro } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
+import { updateSunWind } from './sunWind.js';
 import { tickHyperion } from './hyperionChaos.js';
 import { getRelativePosition } from './positionProvider.js';
 import * as simClock from './simClock.js';
@@ -294,6 +295,10 @@ function tick() {
   }
 
   pool.updateFlight(_realElapsed, dt);
+
+  // Sluneční vítr — ambientní kosmetika, běží od zážehu dál (beat_ignition
+  // start = 4.0s). Natvrdo gatováno číslem (Task 5 může navázat na PHASES).
+  if (_realElapsed >= 4.0) updateSunWind(pool, _realElapsed, dt, PLANETS[0].radiusPx);
 
   // Sun activity — vždy aktivní, ale intenzita vyšší pokud je Slunce v detailu
   if (sunActivity) {
