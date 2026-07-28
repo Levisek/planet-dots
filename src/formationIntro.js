@@ -17,14 +17,17 @@
 // Sun mesh reveal (side-efekt zážehu) řeší main.js (Task 5) — tady se
 // pracuje jen s prachem/tečkami.
 
-import { phaseAt, ACCRETION_WINDOWS, resetPhaseEmissions } from './animation.js';
+import { phaseAt, PHASES, ACCRETION_WINDOWS, resetPhaseEmissions } from './animation.js';
 import { PLANETS, PLANET_BY_ID } from './planets.js';
 import { getPlanetTargets } from './planetTargets.js';
 import { PHASE } from './phase.js';
 
 const DUST_COUNT = 12000;
 const ROTATION_PERIOD = 30; // sec / full disk spin
-const SUN_ZONE_FACTOR = 0.55; // r < 0.55×r(Merkur) = sluneční zásoba (kolabuje v ignition)
+const SUN_ZONE_FACTOR = 0.55; // sluneční zásoba sahá do 0.55×r_min (kolabuje v ignition)
+const SUN_RESERVE_MIN_FACTOR = 0.15; // ... a začíná na 0.15×r_min (disk sahá jen od 0.75×r_min, takže
+                                      // zásoba MUSÍ být vyhrazena samostatně — jinak zone=-1 nikdy nenastane)
+const SUN_RESERVE_FRACTION = 0.15; // podíl DUST_COUNT vyhrazený jako sluneční zásoba
 const DISK_MIN_FACTOR = 0.75; // disk sahá 0.75×r_min .. 1.1×r_max
 const DISK_MAX_FACTOR = 1.1;
 const SOURCE_MIN_RADIUS_FACTOR = 8;  // anulus zdroje emise: 8×radiusPx .. 30×radiusPx
@@ -89,7 +92,9 @@ function initDisk(pool, anchors) {
   const rMax = zoneRadii[zoneRadii.length - 1];
   const diskMin = DISK_MIN_FACTOR * rMin;
   const diskMax = DISK_MAX_FACTOR * rMax;
-  const sunZoneMax = SUN_ZONE_FACTOR * rMin;
+  const sunMin = SUN_RESERVE_MIN_FACTOR * rMin;
+  const sunMax = SUN_ZONE_FACTOR * rMin;
+  const ignitionWindow = PHASES.find((p) => p.id === 'beat_ignition');
 
   const idle = pool.takeIdleIndices(DUST_COUNT);
   if (idle.length === 0) return;
@@ -103,10 +108,18 @@ function initDisk(pool, anchors) {
   _dustFromZ = new Float32Array(idle.length);
   _dustReleased = new Uint8Array(idle.length);
 
+  // Prvních ~15 % částic = vyhrazená sluneční zásoba (disk samotný sahá jen
+  // od 0.75×r_min, takže žádná disková částice nikdy nespadne pod sunMax —
+  // zásoba se MUSÍ vygenerovat zvlášť v [sunMin, sunMax]).
+  const sunCount = Math.round(idle.length * SUN_RESERVE_FRACTION);
+
   for (let k = 0; k < idle.length; k++) {
     const i = idle[k];
-    // Sqrt-uniform v anulu, ale invertované (denser dovnitř): u blízko 1 → r blízko diskMin.
-    const r = diskMax - (diskMax - diskMin) * Math.sqrt(Math.random());
+    const isSunReserve = k < sunCount;
+    // Sqrt-uniform v anulu, ale invertované (denser dovnitř): u blízko 1 → r blízko dolní meze.
+    const r = isSunReserve
+      ? sunMin + (sunMax - sunMin) * Math.sqrt(Math.random())
+      : diskMax - (diskMax - diskMin) * Math.sqrt(Math.random());
     const theta = Math.random() * Math.PI * 2;
     const x = r * Math.cos(theta);
     const z = r * Math.sin(theta);
@@ -124,8 +137,11 @@ function initDisk(pool, anchors) {
     pool.phase[i] = 99; // mimo standard PHASE enum — kustomní disk prach
     pool.owner[i] = -1;
 
-    if (r < sunZoneMax) {
+    if (isSunReserve) {
       _dustZone[k] = -1; // sluneční zásoba
+      // Rozprostři start kolapsu po celém beat_ignition okně (ne po akrečních
+      // oknech planet) — jinak by všechna zásoba kolabovala synchronně.
+      _dustMigrationStart[k] = ignitionWindow.start + Math.random() * (ignitionWindow.end - ignitionWindow.start);
     } else {
       const zoneIdx = assignZone(r, zoneRadii);
       _dustZone[k] = zoneIdx;
@@ -173,9 +189,19 @@ function updateDustFrame(pool, phId, currentTime, dt) {
     const zone = _dustZone[k];
 
     if (zone === -1) {
-      // Sluneční zásoba — rotuje během beat_disk, kolabuje během beat_ignition.
+      // Sluneční zásoba — rotuje během beat_disk, kolabuje během beat_ignition
+      // (start kolapsu rozprostřen po _dustMigrationStart, ne synchronně).
       if (phId === 'beat_ignition') {
-        const t = (currentTime - ignitionPh.start) / (ignitionPh.end - ignitionPh.start);
+        if (currentTime < _dustMigrationStart[k]) {
+          // Ještě rotuje jako součást disku, dokud nezačne její individuální kolaps.
+          const x = pool.position[3 * i];
+          const z = pool.position[3 * i + 2];
+          pool.position[3 * i] = x * cosA - z * sinA;
+          pool.position[3 * i + 2] = x * sinA + z * cosA;
+          continue;
+        }
+        const duration = Math.max(1e-6, ignitionPh.end - _dustMigrationStart[k]);
+        const t = Math.min(1, (currentTime - _dustMigrationStart[k]) / duration);
         const collapseFactor = (1 - t) * (1 - t);
         // Zachytí "poslední rotovanou" pozici jako lokální bázi při prvním vstupu.
         if (!_dustMigrating[k]) {
@@ -248,8 +274,14 @@ function randomAnnulusSource(center, radiusPx) {
   return { x: center.x + x, y: center.y + y, z: center.z + z };
 }
 
-/** Emise teček planet z lokálních zón disku (beat_accretion), per okno v ACCRETION_WINDOWS. */
+/**
+ * Emise teček planet z lokálních zón disku (beat_accretion), per okno v
+ * ACCRETION_WINDOWS. V peaku akrece běží až 8 oken souběžně — takeIdleIndices
+ * je O(pool.count), takže se volá NEJVÝŠ jednou za frame (součet emitCount
+ * všech aktivních oken najednou), ne jednou per okno.
+ */
 function emitAccretion(pool, currentTime, anchors, imageData) {
+  const active = [];
   for (const w of ACCRETION_WINDOWS) {
     if (currentTime < w.start) continue;
     const planet = PLANET_BY_ID[w.planetId];
@@ -265,12 +297,26 @@ function emitAccretion(pool, currentTime, anchors, imageData) {
     const emitCount = expected - _emitted[w.planetId];
     if (emitCount <= 0) continue;
 
+    active.push({ w, planet, anchor, targets, emitCount });
+  }
+  if (active.length === 0) return;
+
+  const totalEmit = active.reduce((sum, a) => sum + a.emitCount, 0);
+  const idleIndices = pool.takeIdleIndices(totalEmit);
+
+  let offset = 0;
+  for (const { w, planet, anchor, targets, emitCount } of active) {
+    // Pojistka: pokud pool nestíhal (idleIndices.length < totalEmit), rozděl
+    // se postupně v pořadí oken — chybějící se dožene v příštím frame
+    // (_emitted se navýší jen o skutečně přidělený počet).
+    const available = Math.min(emitCount, idleIndices.length - offset);
+    if (available <= 0) continue;
+
     const planetIdx = PLANETS.findIndex((p) => p.id === w.planetId);
     const cx = anchor.position.x, cy = anchor.position.y, cz = anchor.position.z;
 
-    const idleIndices = pool.takeIdleIndices(emitCount);
-    for (let k = 0; k < idleIndices.length; k++) {
-      const idx = idleIndices[k];
+    for (let k = 0; k < available; k++) {
+      const idx = idleIndices[offset + k];
       const t = targets[_emitted[w.planetId] + k];
       if (!t) break;
       const targetPos = { x: cx + t.localOffset.x, y: cy + t.localOffset.y, z: cz + t.localOffset.z };
@@ -282,7 +328,8 @@ function emitAccretion(pool, currentTime, anchors, imageData) {
         planet.alpha ?? 1.0, planet.dotSize ?? 6.0,
       );
     }
-    _emitted[w.planetId] += idleIndices.length;
+    _emitted[w.planetId] += available;
+    offset += available;
   }
 }
 

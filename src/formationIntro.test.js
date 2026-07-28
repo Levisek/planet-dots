@@ -21,7 +21,9 @@ function makeFakePool(size = 50000) {
     alphaAttr: { needsUpdate: false },
     sizeAttr: { needsUpdate: false },
     _spawnCalls: [],
+    _takeIdleCallCount: 0,
     takeIdleIndices(count) {
+      this._takeIdleCallCount++;
       const out = [];
       for (let i = 0; i < this.count && out.length < count; i++) {
         if (this.phase[i] === PHASE.IDLE) out.push(i);
@@ -126,4 +128,67 @@ test('emisní tempo: v polovině okna je emitováno ~50 % cílů (floor logika)'
   const total = 40962; // planet.tickCount (mercury) — viz planets.js
   const ratio = emitted / total;
   assert.ok(Math.abs(ratio - 0.5) < 0.02, `emitováno ${emitted}/${total} = ${ratio}, čekáno ~0.5`);
+});
+
+test('sluneční zásoba existuje a kolabuje při zážehu (beat_ignition)', () => {
+  const pool = makeFakePool();
+  resetFormationIntro(pool);
+
+  // Init disku proběhne v beat_disk (t < 4).
+  updateFormationIntro(pool, 1.0, 1 / 60, fakeAnchors, fakeImageData);
+
+  const rMin = 1318; // = fakeAnchors.mercury radius (nejmenší zóna)
+  const sunZoneMax = 0.55 * rMin;
+
+  function xzRadius(i) {
+    const x = pool.position[3 * i];
+    const z = pool.position[3 * i + 2];
+    return Math.sqrt(x * x + z * z);
+  }
+
+  // Najdi disk-prach (phase===99) uvnitř sluneční zásoby po initu.
+  const sunReserveIndices = [];
+  for (let i = 0; i < pool.count; i++) {
+    if (pool.phase[i] === 99 && xzRadius(i) < sunZoneMax) sunReserveIndices.push(i);
+  }
+  assert.ok(sunReserveIndices.length > 0, 'žádná částice sluneční zásoby po initu — beat_ignition nemá co zkolabovat');
+
+  updateFormationIntro(pool, 5.5, 1 / 60, fakeAnchors, fakeImageData);
+  const mid = sunReserveIndices.map((i) => ({ r: xzRadius(i), alpha: pool.alpha[i] }));
+
+  updateFormationIntro(pool, 6.4, 1 / 60, fakeAnchors, fakeImageData);
+  const late = sunReserveIndices.map((i) => ({ r: xzRadius(i), alpha: pool.alpha[i] }));
+
+  let anyStrictlyCloser = false;
+  for (let k = 0; k < sunReserveIndices.length; k++) {
+    // Monotonní kolaps: poloměr i alpha se mezi t=5.5 a t=6.4 nesmí zvýšit
+    // (tolerance relativní k hodnotě — částice ještě nekolabující jen rotují,
+    // Float32 rotace vnáší ~1e-7 relativní numerický šum).
+    const rTol = Math.max(1e-4, mid[k].r * 1e-4);
+    assert.ok(late[k].r <= mid[k].r + rTol, `poloměr vzrostl mezi 5.5 a 6.4 s (idx ${k}): ${mid[k].r} → ${late[k].r}`);
+    assert.ok(late[k].alpha <= mid[k].alpha + 1e-6, `alpha vzrostla mezi 5.5 a 6.4 s (idx ${k}): ${mid[k].alpha} → ${late[k].alpha}`);
+    if (late[k].r < mid[k].r - rTol) anyStrictlyCloser = true;
+  }
+  assert.ok(anyStrictlyCloser, 'sluneční zásoba mezi t=5.5 a t=6.4 vůbec nekolabuje k origin');
+});
+
+test('emise = jedno takeIdleIndices volání za frame (>=2 aktivní akreční okna)', () => {
+  const pool = makeFakePool();
+  resetFormationIntro(pool);
+
+  const anchorsWithMars = {
+    ...fakeAnchors,
+    mars: { position: { x: 2279, y: 0, z: 0 } },
+  };
+  const imageDataWithMars = { ...fakeImageData, mars: fakeTex };
+
+  // Init disku (beat_disk) — samostatné volání takeIdleIndices, nepočítáme ho.
+  updateFormationIntro(pool, 0.01, 1 / 60, anchorsWithMars, imageDataWithMars);
+  pool._takeIdleCallCount = 0;
+
+  // t=8.0 → mercury (6.5–12), venus (7.0–12.5), earth (7.5–13), mars (8.0–13.5)
+  // jsou všechny aktivní současně (≥2 okna, dle recenze konkrétně 4).
+  updateFormationIntro(pool, 8.0, 1 / 60, anchorsWithMars, imageDataWithMars);
+
+  assert.equal(pool._takeIdleCallCount, 1, `očekáváno přesně 1 volání takeIdleIndices za frame, bylo ${pool._takeIdleCallCount}`);
 });
