@@ -1,6 +1,6 @@
 // PLANETS — data všech 9 těles V4.2.
 // Referenční měřítko: Jupiter = 180 px průměr.
-// rotationPeriod v sekundách (reálné poměry, Země = 10 s).
+// rotationPeriod: délka dne × 10 s (Země = 10 s) — tj. dny × 10; tempo řídí rotation.js.
 // direction: 1 = prograde, -1 = retrograde — vůči IAU severnímu pólu (`pole`),
 //   proto Venuše a Uran mají -1 (axialTilt > 90 je jen informativní údaj).
 // pole: severní pól rotace (RA/Dec, J2000) — z něj se staví orientace tělesa.

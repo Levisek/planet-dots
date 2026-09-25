@@ -138,13 +138,20 @@ rozsah. `THREE.Clock` (deprecated) → `THREE.Timer` s Page Visibility, strop dt
 - **Preset Halley** nahrazen konjunkcí Jupiter–Saturn (21. 12. 2020), která
   v simulaci vidět je. Halley se vrátí s kometou ve V4.5.
 - **Výkonový HUD** jen s `?debug` v URL.
+- **Rotace planet podle simulačních hodin** (`rotation.js`,
+  `rotationDaysPerSec`) — dřív reálný čas: točily se i v pauze a při
+  zpětném chodu dopředu. Teď pauza = stojí, reverz = obráceně, tempo =
+  simulační dny/s se stropem 0,1 dne/s (Země 10 s/den jako dřív; bez stropu
+  by při 1× byla stroboskop 36 otáček/s). Pod stropem platí reálný poměr
+  k oběhům — v detailu Marsu Phobos oběhne za 8 s, Mars se otočí za 26 s.
+  Během formace (hodiny stojí) rotace běží na stropu. Ověřeno v prohlížeči:
+  úhel rotace = 2,241 rad proti 2,236 rad z posunu data za stejné okno.
+  Země v detailu zůstává na stropu (Luna 8 s, den 10 s) — reálný poměr 27:1
+  by znamenal buď stroboskop, nebo 4minutový oběh Luny.
 
 ## K rozhodnutí (návrhy, neimplementováno)
 
-1. **Rotace planet je v reálném čase** (Země 10 s/den bez ohledu na rychlost
-   simulace). V detailu se zpomaleným časem je pak „měsíc" (8 s) kratší než
-   „den" (10 s). Spojit rotaci se simulačním časem v detailu?
-2. Počty měsíců v `bodyData` jsou nejspíš zastaralé (Saturn 146 — v březnu 2025
+1. Počty měsíců v `bodyData` jsou nejspíš zastaralé (Saturn 146 — v březnu 2025
    ohlášeno 128 nových; Jupiter 95; Uran 28). Ověřit proti aktuálnímu zdroji.
 
 ## Technický dluh (beze změny)

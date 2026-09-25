@@ -5,7 +5,7 @@ import { createScene, createStarfield } from './scene.js';
 import { createPlanetAnchors } from './planetAnchors.js';
 import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
-import { rotateAnchors } from './rotation.js';
+import { rotateAnchors, rotationDaysPerSec } from './rotation.js';
 import { updatePlanetOrbits, orbitalPosition, auToDisplayRadius } from './planetOrbits.js';
 import { moonDisplaySemiMajor } from './moonScale.js';
 import { moonPeriodDays } from './moonOrbitLines.js';
@@ -245,7 +245,11 @@ function detailRateMultiplier(id) {
 /** Pozice → rotace → matrixWorld všech těles k datu (MAIN i DETAIL). */
 function updateBodies(date, dt) {
   updatePlanetOrbits(anchors, PLANETS, date);
-  rotateAnchors(spins, dt);
+  rotateAnchors(spins, dt, rotationDaysPerSec({
+    formation: formationActive,
+    playing: simClock.isPlaying(),
+    simDaysPerSec: simClock.getTimeScale() * simClock.getRateMultiplier() * simClock.DAYS_PER_REAL_SEC,
+  }));
   // Poziční anchor → kaskádou spin, prstenec, měsíce, orbit lines. Musí být
   // před updateMoonOrbits (ten čte matrixWorld rodiče).
   for (const p of PLANETS) anchors[p.id].updateMatrixWorld(true);
