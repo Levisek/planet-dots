@@ -10,6 +10,7 @@
 // `orbitRadiusReal` a `period`/`periodReal`. Getteři níže vrátí podle mode.
 
 import { auToDisplayRadius } from './scale.js';
+import { moonDisplayScale } from './moonScale.js';
 
 const MODE = {
   POCHOPENI: 'pochopeni',
@@ -150,18 +151,13 @@ export function toDisplay(pAU) {
   return { x: pAU.x * k, y: pAU.y * k, z: pAU.z * k };
 }
 
-const MOON_LINEAR_AU = 3846;      // Fyzikální stejné měřítko
-const MOON_COMPRESS = 60000;      // Pochopení: AU → px vůči rodiči (kalibrovat v F1)
-
-/** Scéna pozice měsíce relativně vůči rodiči (AU → scene units) podle aktuálního módu. */
-export function toDisplayRelative(relAU) {
-  if (isFyzikalni()) {
-    return { x: relAU.x * MOON_LINEAR_AU, y: relAU.y * MOON_LINEAR_AU, z: relAU.z * MOON_LINEAR_AU };
-  }
-  const r = Math.hypot(relAU.x, relAU.y, relAU.z);
-  if (r === 0) return { x: 0, y: 0, z: 0 };
-  const rDisp = Math.sqrt(r) * MOON_COMPRESS; // kompaktní, monotónní
-  const k = rDisp / r;
+/**
+ * Scéna pozice měsíce relativně vůči rodiči (AU → scene units) podle
+ * aktuálního módu. Lineární per-měsíc měřítko (viz moonScale.js) — dráha
+ * si zachová reálný tvar i sklon.
+ */
+export function toDisplayRelative(relAU, moon) {
+  const k = moonDisplayScale(moon, isFyzikalni());
   return { x: relAU.x * k, y: relAU.y * k, z: relAU.z * k };
 }
 

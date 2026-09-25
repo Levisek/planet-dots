@@ -44,8 +44,20 @@ void main() {
 `;
 
 export class ParticlePool {
-  constructor(count) {
+  /**
+   * @param {number} count — kapacita poolu
+   * @param {number} ownerCount — počet vlastníků (planety + měsíce); velikost
+   *   ownerAlphaMul. Dřív natvrdo 28 → měsíce s indexem ≥ 28 (Ariel…Proteus)
+   *   četly undefined a jejich tečky dostaly ownerAlpha = NaN.
+   */
+  constructor(count, ownerCount = 64) {
     this.count = count;
+    this.ownerAlphaMul = new Float32Array(ownerCount).fill(1);
+    // Horní hranice (exkluzivní) indexů, které kdy byly ne-IDLE. Per-frame
+    // smyčky, upload na GPU i draw range jedou jen do ní — po formaci
+    // (releaseSettled + compact) žije v poolu jen pár set částic větru
+    // a erupcí, ne 600k.
+    this.activeEnd = 0;
     // GPU-uploaded
     this.position = new Float32Array(count * 3);
     this.color = new Float32Array(count * 3);
@@ -104,14 +116,12 @@ export class ParticlePool {
     this.flushAll();
   }
 
-  ownerAlphaMul = new Float32Array(28).fill(1);
-
   /**
    * Nastaví ownerAlphaMul[ownerIdx] a propaguje hodnotu do per-particle ownerAlpha arrayu.
    */
   setOwnerAlpha(ownerIdx, value) {
     this.ownerAlphaMul[ownerIdx] = value;
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < this.activeEnd; i++) {
       if (this.owner[i] === ownerIdx) {
         this.ownerAlpha[i] = value;
       }
@@ -124,7 +134,7 @@ export class ParticlePool {
    * vlastní velikost). Volá se z detail view při vstupu / výstupu.
    */
   setOwnerSize(ownerIdx, size) {
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < this.activeEnd; i++) {
       if (this.owner[i] === ownerIdx && this.phase[i] !== PHASE.ON_RING) {
         this.size[i] = size;
       }
@@ -138,6 +148,59 @@ export class ParticlePool {
     this.sizeAttr.needsUpdate = true;
     this.alphaAttr.needsUpdate = true;
     this.ownerAlphaAttr.needsUpdate = true;
+  }
+
+  /** Rozšíří activeEnd, aby index i spadal do aktivního rozsahu. */
+  touch(i) {
+    if (i >= this.activeEnd) this.activeEnd = i + 1;
+  }
+
+  /**
+   * Zúží activeEnd na 1 + poslední ne-IDLE index (volat po hromadném uvolnění).
+   */
+  compact() {
+    let end = this.activeEnd;
+    while (end > 0 && this.phase[end - 1] === PHASE.IDLE) end--;
+    this.activeEnd = end;
+  }
+
+  /**
+   * Uvolní usazené tečky (ON_SUN/ON_PLANET/ON_MOON) do IDLE. Po příletu mají
+   * alpha 0 — povrch kreslí mesh — takže po formaci jsou jen mrtvá váha:
+   * ~576k teček, které se jinak každý frame transformovaly a posílaly na GPU.
+   * @returns {number} kolik teček se uvolnilo
+   */
+  releaseSettled() {
+    let n = 0;
+    for (let i = 0; i < this.activeEnd; i++) {
+      const ph = this.phase[i];
+      if (ph !== PHASE.ON_SUN && ph !== PHASE.ON_PLANET && ph !== PHASE.ON_MOON) continue;
+      this.phase[i] = PHASE.IDLE;
+      this.owner[i] = -1;
+      this.alpha[i] = 0;
+      n++;
+    }
+    this.compact();
+    this.flushAll();
+    return n;
+  }
+
+  /**
+   * Omezí upload atributů na GPU i vykreslování na [0, activeEnd). Volat
+   * jednou za frame těsně před renderem — needsUpdate si moduly nastavují
+   * samy, tady se jen zúží rozsah, který se při uploadu přenese.
+   */
+  prepareUpload() {
+    // Průběžné zúžení: částice na konci rozsahu mohly mezitím umřít (vítr
+    // alokovaný při plném poolu sedí na indexech ~599k). Dokud konec žije,
+    // je to O(1).
+    this.compact();
+    const n = this.activeEnd;
+    for (const attr of [this.posAttr, this.colorAttr, this.sizeAttr, this.alphaAttr, this.ownerAlphaAttr]) {
+      attr.clearUpdateRanges();
+      if (n > 0) attr.addUpdateRange(0, n * attr.itemSize);
+    }
+    this.geometry.setDrawRange(0, n);
   }
 
   dispose() {
@@ -184,6 +247,7 @@ export class ParticlePool {
       this.owner[i] = 0; // Sun = index 0 in PLANETS
       indices.push(i);
     }
+    this.touch(total - 1);
     this.flushAll();
     return indices;
   }
@@ -206,6 +270,7 @@ export class ParticlePool {
                finalColor, planetOwnerIdx, finalPhase, currentTime, travelTime,
                finalAlpha = 1.0, finalSize = null) {
     const i = sourceIdx;
+    this.touch(i);
     // start pozice = random na Sun surface
     const rx = (Math.random() - 0.5) * 2;
     const ry = (Math.random() - 0.5) * 2;
@@ -271,6 +336,7 @@ export class ParticlePool {
                 finalColor, ownerIdx, finalPhase, currentTime, travelTime,
                 finalAlpha = 1.0, finalSize = null) {
     const i = sourceIdx;
+    this.touch(i);
     const sx = sourcePos.x, sy = sourcePos.y, sz = sourcePos.z;
     this.position[3*i]     = sx;
     this.position[3*i + 1] = sy;
@@ -327,6 +393,7 @@ export class ParticlePool {
   spawnFromPlanet(sourceIdx, planetCenter, planetRadius, moonOrbitWorld, moonLocalOffset,
                   planetColor, moonColor, moonOwnerIdx, currentTime, travelTime, finalSize = 5.0) {
     const i = sourceIdx;
+    this.touch(i);
     // start pozice = random bod na povrchu planety
     const rx = (Math.random() - 0.5) * 2;
     const ry = (Math.random() - 0.5) * 2;
@@ -381,8 +448,10 @@ export class ParticlePool {
    *  - Settled (ON_PLANET / ON_MOON) → mesh canonical, alpha = 0. ON_RING zůstává visible.
    */
   updateFlight(currentTime, dt) {
-    for (let i = 0; i < this.count; i++) {
+    let any = false;
+    for (let i = 0; i < this.activeEnd; i++) {
       if (this.phase[i] !== PHASE.FLYING) continue;
+      any = true;
       this.position[3*i]     += this.velocity[3*i]     * dt;
       this.position[3*i + 1] += this.velocity[3*i + 1] * dt;
       this.position[3*i + 2] += this.velocity[3*i + 2] * dt;
@@ -402,6 +471,7 @@ export class ParticlePool {
       this.color[3*i + 2] = this.postArrivalColor[3*i + 2];
       this.alpha[i] = (fp === PHASE.ON_PLANET || fp === PHASE.ON_MOON) ? 0 : this.postArrivalAlpha[i];
     }
+    if (!any) return;
     this.posAttr.needsUpdate = true;
     this.colorAttr.needsUpdate = true;
     this.sizeAttr.needsUpdate = true;
@@ -414,12 +484,16 @@ export class ParticlePool {
    */
   applyClusterRotation(anchorsByIndex) {
     const tmp = _tmpVec3;
-    for (let i = 0; i < this.count; i++) {
+    let any = false;
+    for (let i = 0; i < this.activeEnd; i++) {
       const ph = this.phase[i];
       if (ph !== PHASE.ON_PLANET && ph !== PHASE.ON_RING && ph !== PHASE.ON_SUN && ph !== PHASE.ON_MOON) continue;
-      // Přeskočit neviditelné tečky (ownerAlpha=0 → vAlpha=0 → GPU je discarduje).
-      // Šetří ~90 % matrixWorld výpočtů v detail view kde fadeOthers = 0 pro ostatní.
-      if (this.ownerAlpha[i] === 0) continue;
+      // Přeskočit neviditelné tečky (vAlpha = alpha × ownerAlpha = 0 → GPU je
+      // zahodí). Usazené ON_PLANET/ON_MOON/ON_SUN mají alpha 0 vždy (povrch
+      // kreslí mesh) — bez tohohle se jich během formace transformovaly
+      // statisíce každý frame zbytečně.
+      if (this.alpha[i] === 0 || this.ownerAlpha[i] === 0) continue;
+      any = true;
       const oi = this.owner[i];
       if (oi < 0) continue;
       const anchor = anchorsByIndex[oi];
@@ -434,7 +508,7 @@ export class ParticlePool {
       this.position[3*i + 1] = tmp.y;
       this.position[3*i + 2] = tmp.z;
     }
-    this.posAttr.needsUpdate = true;
+    if (any) this.posAttr.needsUpdate = true;
   }
 
   /**
@@ -445,6 +519,7 @@ export class ParticlePool {
     for (let i = 0; i < this.count && out.length < count; i++) {
       if (this.phase[i] === PHASE.IDLE) out.push(i);
     }
+    if (out.length > 0) this.touch(out[out.length - 1]);
     return out;
   }
 
@@ -459,7 +534,7 @@ export class ParticlePool {
   countSettled(ownerIdx) {
     let settled = 0;
     let total = 0;
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < this.activeEnd; i++) {
       if (this.owner[i] !== ownerIdx) continue;
       if (this.phase[i] === PHASE.IDLE) continue;
       total++;

@@ -70,6 +70,9 @@ export function createPicker({ scene, camera, canvas }) {
     }
   }
 
+  // Pointer eventy (ne mouse*): jedna cesta pro myš, dotyk i pero, stejné
+  // eventy jako používá OrbitControls — nespoléhá se na kompatibilní mouse
+  // eventy, které prohlížeč k dotyku dosyntetizuje.
   // Drag detection: pokud se mezi mousedown a mouseup kurzor hodně pohnul,
   // není to "click" — uživatel dragoval. V detail view to je orbit-kamera.
   let _downX = 0;
@@ -94,9 +97,9 @@ export function createPicker({ scene, camera, canvas }) {
     if (id) clickCb && clickCb(id, ev);
   }
 
-  canvas.addEventListener('mousemove', handleMove);
-  canvas.addEventListener('mousedown', handleDown);
-  canvas.addEventListener('mouseup', handleUp);
+  canvas.addEventListener('pointermove', handleMove);
+  canvas.addEventListener('pointerdown', handleDown);
+  canvas.addEventListener('pointerup', handleUp);
 
   return {
     addBody,
@@ -105,9 +108,9 @@ export function createPicker({ scene, camera, canvas }) {
     onClick(cb) { clickCb = cb; },
     update() { updateMeshPositions(); },
     dispose() {
-      canvas.removeEventListener('mousemove', handleMove);
-      canvas.removeEventListener('mousedown', handleDown);
-      canvas.removeEventListener('mouseup', handleUp);
+      canvas.removeEventListener('pointermove', handleMove);
+      canvas.removeEventListener('pointerdown', handleDown);
+      canvas.removeEventListener('pointerup', handleUp);
       for (const b of bodies) {
         scene.remove(b.mesh);
         b.mesh.geometry.dispose();

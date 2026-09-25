@@ -1,5 +1,6 @@
 // sunActivity — stateful controller pro vitalní chování Slunce.
-// T10: sunspoty. T11 přidá prominence/CME.
+// Sunspoty (barvy meshe Slunce) + prominence/CME (částice z poolu).
+import { srgbToLinear } from './textureUtils.js';
 
 const SUNSPOT_FADE_IN = 3;
 const SUNSPOT_STABLE = 20;
@@ -7,7 +8,9 @@ const SUNSPOT_FADE_OUT = 8;
 const SUNSPOT_LIFETIME = SUNSPOT_FADE_IN + SUNSPOT_STABLE + SUNSPOT_FADE_OUT;
 const SUNSPOT_CLUSTER_MIN = 6;
 const SUNSPOT_CLUSTER_MAX = 18;
-const SUNSPOT_COLOR = [40/255, 20/255, 0/255];
+// Lineární (mesh vertex colors jsou lineární, viz textureUtils.srgbToLinear)
+// — odpovídá sRGB #281400. Bez převodu se tmavá hnědá zobrazila jako olivová.
+const SUNSPOT_COLOR = [40/255, 20/255, 0/255].map(srgbToLinear);
 
 function makeRng(seed = 1) {
   let s = seed >>> 0;
@@ -17,15 +20,21 @@ function makeRng(seed = 1) {
   };
 }
 
-export function parabolicArcPos(A, B, peak, t) {
+/**
+ * Bod na oblouku A→B vyklenutém ve směru `n` (jednotkový). Default +Y kvůli
+ * zpětné kompatibilitě; erupce předávají radiální normálu středu oblouku —
+ * s pevným +Y se oblouky na spodní polokouli Slunce nořily dovnitř.
+ */
+export function parabolicArcPos(A, B, peak, t, n = { x: 0, y: 1, z: 0 }) {
+  const h = Math.sin(Math.PI * t) * peak;
   return {
-    x: A.x + (B.x - A.x) * t,
-    y: A.y + (B.y - A.y) * t + Math.sin(Math.PI * t) * peak,
-    z: A.z + (B.z - A.z) * t,
+    x: A.x + (B.x - A.x) * t + n.x * h,
+    y: A.y + (B.y - A.y) * t + n.y * h,
+    z: A.z + (B.z - A.z) * t + n.z * h,
   };
 }
 
-export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now() & 0xffff } = {}) {
+export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now() & 0xffff, sunMesh = null } = {}) {
   const rng = makeRng(seed);
   const activeSpots = [];
 
@@ -60,14 +69,73 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
     return Math.max(0, 1 - fadeAge / SUNSPOT_FADE_OUT);
   }
 
-  function spawnSunspot(pool, time) {
-    const seedIdx = findSunSeed(pool);
-    if (seedIdx === -1) return null;
-    const clusterSize = SUNSPOT_CLUSTER_MIN + Math.floor(rng() * (SUNSPOT_CLUSTER_MAX - SUNSPOT_CLUSTER_MIN));
-    const indices = findKNearest(pool, seedIdx, clusterSize);
-    const origColors = indices.map((i) => [pool.color[3*i], pool.color[3*i+1], pool.color[3*i+2]]);
+  // ——— Sunspoty: tmavnou barvy trojúhelníků meshe Slunce ———
+  // Dřív se barvily tečky ON_SUN, jenže ty mají alpha 0 (povrch kreslí mesh)
+  // → skvrny nebyly nikdy vidět. Mesh je non-indexed icosphere, 3 vrcholy
+  // na face se stejnou barvou; pracuje se v lokálním frame meshe, takže
+  // skvrna rotuje se Sluncem.
+  let _faceDirs = null; // Float32Array faces×3 — jednotkové směry těžišť
+
+  function faceDirs() {
+    if (_faceDirs) return _faceDirs;
+    const pos = sunMesh.geometry.attributes.position;
+    const faces = pos.count / 3;
+    _faceDirs = new Float32Array(faces * 3);
+    for (let f = 0; f < faces; f++) {
+      let x = 0, y = 0, z = 0;
+      for (let k = 0; k < 3; k++) {
+        x += pos.getX(3 * f + k); y += pos.getY(3 * f + k); z += pos.getZ(3 * f + k);
+      }
+      const len = Math.hypot(x, y, z) || 1;
+      _faceDirs[3 * f] = x / len; _faceDirs[3 * f + 1] = y / len; _faceDirs[3 * f + 2] = z / len;
+    }
+    return _faceDirs;
+  }
+
+  /**
+   * Skupina 1–3 skvrn v pásu ±30° šířky (jako reálné sunspoty). Umbra =
+   * plné ztmavení, penumbra do 1,8× poloměru s poloviční silou.
+   */
+  function spawnSunspot(time) {
+    if (!sunMesh) return null;
+    const dirs = faceDirs();
+    const colorAttr = sunMesh.geometry.attributes.color;
+    const lat = (rng() - 0.5) * (Math.PI / 3);
+    const lon = rng() * Math.PI * 2;
+    const groupSize = 1 + Math.floor(rng() * 3);
+    const centers = [];
+    for (let g = 0; g < groupSize; g++) {
+      const la = lat + (rng() - 0.5) * 0.08;
+      const lo = lon + g * 0.07 + (rng() - 0.5) * 0.03;
+      centers.push({
+        x: Math.cos(la) * Math.cos(lo), y: Math.sin(la), z: Math.cos(la) * Math.sin(lo),
+        rho: 0.018 + rng() * 0.03, // rad; Slunce r≈995 → umbra ~18–48 j.
+      });
+    }
+    const faces = [];
+    const weights = [];
+    const nFaces = dirs.length / 3;
+    for (let f = 0; f < nFaces; f++) {
+      let w = 0;
+      for (const c of centers) {
+        const dot = dirs[3 * f] * c.x + dirs[3 * f + 1] * c.y + dirs[3 * f + 2] * c.z;
+        const theta = Math.acos(Math.min(1, dot));
+        if (theta < c.rho) w = Math.max(w, 1);
+        else if (theta < c.rho * 1.8) w = Math.max(w, 0.5 * (1 - (theta - c.rho) / (c.rho * 0.8)));
+      }
+      if (w > 0) { faces.push(f); weights.push(w); }
+    }
+    if (faces.length === 0) return null;
+    const origColors = new Float32Array(faces.length * 3);
+    for (let j = 0; j < faces.length; j++) {
+      const v = 3 * faces[j];
+      origColors[3 * j] = colorAttr.getX(v);
+      origColors[3 * j + 1] = colorAttr.getY(v);
+      origColors[3 * j + 2] = colorAttr.getZ(v);
+    }
     const spot = {
-      indices,
+      faces,
+      weights,
       origColors,
       bornAt: time,
       stableAt: time + SUNSPOT_FADE_IN,
@@ -77,82 +145,68 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
     return spot;
   }
 
-  function findSunSeed(pool) {
-    const candidates = [];
-    for (let i = 0; i < pool.count; i++) {
-      if (pool.owner[i] !== sunOwner) continue;
-      const ly = pool.localOffset[3*i + 1];
-      if (Math.abs(ly) < 0.5 * sunRadius) candidates.push(i);
-    }
-    if (candidates.length === 0) {
-      for (let i = 0; i < pool.count; i++) {
-        if (pool.owner[i] === sunOwner) candidates.push(i);
-        if (candidates.length >= 100) break;
+  function paintSpot(spot, k) {
+    const arr = sunMesh.geometry.attributes.color.array;
+    for (let j = 0; j < spot.faces.length; j++) {
+      const kk = k * spot.weights[j];
+      const r = spot.origColors[3 * j] + (SUNSPOT_COLOR[0] - spot.origColors[3 * j]) * kk;
+      const g = spot.origColors[3 * j + 1] + (SUNSPOT_COLOR[1] - spot.origColors[3 * j + 1]) * kk;
+      const b = spot.origColors[3 * j + 2] + (SUNSPOT_COLOR[2] - spot.origColors[3 * j + 2]) * kk;
+      const base = 9 * spot.faces[j];
+      for (let v = 0; v < 3; v++) {
+        arr[base + 3 * v] = r; arr[base + 3 * v + 1] = g; arr[base + 3 * v + 2] = b;
       }
     }
-    if (candidates.length === 0) return -1;
-    return candidates[Math.floor(rng() * candidates.length)];
   }
 
-  function findKNearest(pool, seedIdx, k) {
-    const sx = pool.localOffset[3*seedIdx];
-    const sy = pool.localOffset[3*seedIdx + 1];
-    const sz = pool.localOffset[3*seedIdx + 2];
-    const dists = [];
-    for (let i = 0; i < pool.count; i++) {
-      if (pool.owner[i] !== sunOwner) continue;
-      const dx = pool.localOffset[3*i] - sx;
-      const dy = pool.localOffset[3*i + 1] - sy;
-      const dz = pool.localOffset[3*i + 2] - sz;
-      dists.push([dx*dx + dy*dy + dz*dz, i]);
-    }
-    dists.sort((a, b) => a[0] - b[0]);
-    return dists.slice(0, k).map((d) => d[1]);
+  /** Bod A posunutý po povrchu o úhel theta náhodným tečným směrem. */
+  function rotateOnSurface(A, theta) {
+    const ax = A.x / sunRadius, ay = A.y / sunRadius, az = A.z / sunRadius;
+    // Tečný vektor: náhodný směr minus jeho složka podél A, normalizovat.
+    let tx = rng() - 0.5, ty = rng() - 0.5, tz = rng() - 0.5;
+    const d = tx * ax + ty * ay + tz * az;
+    tx -= d * ax; ty -= d * ay; tz -= d * az;
+    const tl = Math.hypot(tx, ty, tz) || 1;
+    tx /= tl; ty /= tl; tz /= tl;
+    const c = Math.cos(theta), sn = Math.sin(theta);
+    return {
+      x: (ax * c + tx * sn) * sunRadius,
+      y: (ay * c + ty * sn) * sunRadius,
+      z: (az * c + tz * sn) * sunRadius,
+    };
+  }
+
+  /** Náhodný bod na povrchu Slunce (world, Slunce v origin). */
+  function randomSurfacePoint() {
+    const u = rng() * 2 - 1;
+    const phi = rng() * Math.PI * 2;
+    const r = Math.sqrt(1 - u * u);
+    return { x: r * Math.cos(phi) * sunRadius, y: u * sunRadius, z: r * Math.sin(phi) * sunRadius };
   }
 
   function spawnProminence(pool, time) {
-    const sunDots = [];
-    for (let i = 0; i < pool.count && sunDots.length < 200; i++) {
-      if (pool.owner[i] === sunOwner) sunDots.push(i);
-    }
-    if (sunDots.length < 2) return null;
-    const aIdx = sunDots[Math.floor(rng() * sunDots.length)];
-    const A = {
-      x: pool.position[3*aIdx],
-      y: pool.position[3*aIdx + 1],
-      z: pool.position[3*aIdx + 2],
-    };
+    // Patky oblouku = náhodné body povrchu (dřív pozice teček ON_SUN — ty se
+    // po formaci uvolňují, povrch kreslí mesh).
+    const A = randomSurfacePoint();
 
     if (rng() < 0.75) {
       // Arch prominence
-      let bIdx = -1;
-      for (let tries = 0; tries < 40; tries++) {
-        const candidate = sunDots[Math.floor(rng() * sunDots.length)];
-        const B = {
-          x: pool.position[3*candidate],
-          y: pool.position[3*candidate + 1],
-          z: pool.position[3*candidate + 2],
-        };
-        const d = Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z);
-        if (d >= sunRadius * PROMINENCE_SPAN_MIN && d <= sunRadius * PROMINENCE_SPAN_MAX) {
-          bIdx = candidate;
-          break;
-        }
-      }
-      if (bIdx === -1) return null;
-      const B = {
-        x: pool.position[3*bIdx],
-        y: pool.position[3*bIdx + 1],
-        z: pool.position[3*bIdx + 2],
-      };
+      // B = A pootočené po povrchu o úhel, jehož tětiva je 0,35–0,55 R
+      // (deterministicky — dřív 40 náhodných pokusů, ~16 % selhalo).
+      const chord = PROMINENCE_SPAN_MIN + rng() * (PROMINENCE_SPAN_MAX - PROMINENCE_SPAN_MIN);
+      const theta = 2 * Math.asin(chord / 2);
+      const B = rotateOnSurface(A, theta);
       const idle = takeIdleIndices(pool, PROMINENCE_DOTS);
       if (idle.length === 0) return null;
       // Per-dot phase offsets vytvoří "stream" efekt — tečky se rozprostřou po oblouku
       // místo letění v jedné kouli.
       const phaseOffsets = idle.map((_, k) => (k / idle.length) * 0.45);
+      const mx = A.x + B.x, my = A.y + B.y, mz = A.z + B.z;
+      const ml = Math.hypot(mx, my, mz) || 1;
       const flare = {
         kind: 'arch',
         A, B,
+        normal: { x: mx / ml, y: my / ml, z: mz / ml },
         peak: sunRadius * PROMINENCE_PEAK_FACTOR,
         bornAt: time,
         dieAt: time + PROMINENCE_LIFETIME,
@@ -219,7 +273,7 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
           const i = flare.indices[k];
           const offset = flare.phaseOffsets ? flare.phaseOffsets[k] : 0;
           const pt = Math.max(0, Math.min(1, t - offset));
-          const pos = parabolicArcPos(flare.A, flare.B, flare.peak, pt);
+          const pos = parabolicArcPos(flare.A, flare.B, flare.peak, pt, flare.normal);
           pool.position[3*i] = pos.x;
           pool.position[3*i+1] = pos.y;
           pool.position[3*i+2] = pos.z;
@@ -256,32 +310,22 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
     }
     updateFlares(pool, time, dt);
 
-    if (time - lastSpawnAt >= spawnInterval && activeSpots.length < maxSpots) {
-      spawnSunspot(pool, time);
+    if (sunMesh && time - lastSpawnAt >= spawnInterval && activeSpots.length < maxSpots) {
+      spawnSunspot(time);
       lastSpawnAt = time;
     }
 
+    const spotsDirty = activeSpots.length > 0;
     for (let s = activeSpots.length - 1; s >= 0; s--) {
       const spot = activeSpots[s];
-      const k = intensityAt(spot, time);
-      for (let j = 0; j < spot.indices.length; j++) {
-        const i = spot.indices[j];
-        const oc = spot.origColors[j];
-        pool.color[3*i]     = oc[0] + (SUNSPOT_COLOR[0] - oc[0]) * k;
-        pool.color[3*i + 1] = oc[1] + (SUNSPOT_COLOR[1] - oc[1]) * k;
-        pool.color[3*i + 2] = oc[2] + (SUNSPOT_COLOR[2] - oc[2]) * k;
-      }
       if (time > spot.deathAt) {
-        for (let j = 0; j < spot.indices.length; j++) {
-          const i = spot.indices[j];
-          const oc = spot.origColors[j];
-          pool.color[3*i]     = oc[0];
-          pool.color[3*i + 1] = oc[1];
-          pool.color[3*i + 2] = oc[2];
-        }
+        paintSpot(spot, 0); // vrátit původní barvy
         activeSpots.splice(s, 1);
+      } else {
+        paintSpot(spot, intensityAt(spot, time));
       }
     }
+    if (spotsDirty) sunMesh.geometry.attributes.color.needsUpdate = true;
     pool.colorAttr.needsUpdate = true;
     if (pool.posAttr) pool.posAttr.needsUpdate = true;
     if (pool.alphaAttr) pool.alphaAttr.needsUpdate = true;
@@ -291,6 +335,7 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
   return {
     update,
     _spawnSunspot: spawnSunspot,
+    _randomSurfacePoint: randomSurfacePoint,
     _intensityAt: intensityAt,
     _activeSpots: () => activeSpots,
     _spawnProminence: spawnProminence,

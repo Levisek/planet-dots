@@ -82,3 +82,21 @@ test('showPanel je voláno s id po vstupu do detailu', () => {
   const panelCall = deps.calls.find((c) => c[0] === 'panel');
   assert.equal(panelCall[1], 'earth');
 });
+
+test('setReturnPose: exit letí na nově nastavenou pozici', async () => {
+  const { createDetailView } = await import('./detailView.js');
+  const calls = [];
+  const dv = createDetailView({
+    cameraFlyTo: (p, t, d, f) => calls.push(['fly', p, t, d, f]),
+    getCameraState: () => ({ pos: { x: 0, y: 5000, z: 9000 }, target: { x: 0, y: 0, z: 0 } }),
+    setPaused: () => {}, fadeOthers: () => {}, showPanel: () => {}, hidePanel: () => {},
+    enableOrbit: () => {}, getBodyPosition: () => ({ x: 100, y: 0, z: 0 }), getBodyRadius: () => 5,
+  });
+  dv.enter('mars');
+  dv.tick(1);
+  dv.setReturnPose({ x: 0, y: 90000, z: 160000 }, { x: 0, y: 0, z: 0 });
+  dv.exit();
+  const last = calls[calls.length - 1];
+  assert.deepEqual(last[1], { x: 0, y: 90000, z: 160000 });
+  assert.equal(last[4], undefined, 'návrat do MAIN není relativní k tělesu');
+});

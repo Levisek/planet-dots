@@ -13,6 +13,7 @@
 // Screenshoty se ukládají do .levis-tmp/visual-regression/ pro ruční kontrolu.
 //
 // Usage: node scripts/visual-regression.mjs            # spustí vlastní server :3003
+//        VR_BASE_URL=http://127.0.0.1:8765 node scripts/...  # proti běžícímu serveru (bez npx)
 //        node scripts/visual-regression.mjs --all      # audit VŠECH těles × oba módy
 //        VR_CHANNEL=chrome node scripts/...            # systémový Chrome místo bundled
 
@@ -29,6 +30,7 @@ const SHOT_DIR = path.join(ROOT, '.levis-tmp', ALL ? 'visual-audit-all' : 'visua
 await fs.mkdir(SHOT_DIR, { recursive: true });
 
 const PORT = 3003;
+const BASE_URL = process.env.VR_BASE_URL || `http://localhost:${PORT}`;
 const SUN_RADIUS = 995; // scene units, radius Slunce v Pochopení
 const FOV_DEG = 45;
 
@@ -43,16 +45,16 @@ const check = (cond, label) => {
 };
 
 // --- server ---
-const srv = spawn('npx', ['--yes', 'serve', '-l', String(PORT), '.'], {
+const srv = process.env.VR_BASE_URL ? null : spawn('npx', ['--yes', 'serve', '-l', String(PORT), '.'], {
   shell: process.platform === 'win32', stdio: 'ignore', cwd: ROOT,
 });
 // Poll dokud server neodpovídá (npx cold start umí trvat >4s).
 for (let i = 0; ; i++) {
   try {
-    await fetch(`http://localhost:${PORT}/`, { method: 'HEAD' });
+    await fetch(`${BASE_URL}/`, { method: 'HEAD' });
     break;
   } catch {
-    if (i >= 30) { console.error(`serve na :${PORT} nenastartoval do 30s`); process.exit(1); }
+    if (i >= 30) { console.error(`server ${BASE_URL} neodpovídá do 30s`); process.exit(1); }
     await new Promise((r) => setTimeout(r, 1000));
   }
 }
@@ -68,11 +70,11 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice
 page.on('pageerror', (e) => errors.push(`PAGE: ${String(e).slice(0, 200)}`));
 page.on('request', (r) => {
   const u = new URL(r.url());
-  if (u.hostname !== 'localhost') externalHosts.add(u.hostname);
+  if (u.host !== new URL(BASE_URL).host) externalHosts.add(u.hostname);
 });
 
-console.log(`Loading http://localhost:${PORT} ...`);
-await page.goto(`http://localhost:${PORT}`, { waitUntil: 'networkidle', timeout: 30000 });
+console.log(`Loading ${BASE_URL} ...`);
+await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
 await page.waitForTimeout(8000); // app boot + začátek formace (detail force-settluje mesh)
 
 console.log('\n[global]');
@@ -131,7 +133,10 @@ for (const { id, mode } of plan) {
     // World position — moon/asteroid anchory mají position lokální vůči rodiči.
     const p = anchor.getWorldPosition(new anchor.position.constructor());
     const dist = cam.position.distanceTo(p);
-    const meshes = anchor.children.filter((c) => c.isMesh);
+    // Planety: mesh + prstenec visí pod spin nodem (osa + rotace), anchor
+    // nese jen pozici. Měsíce/asteroidy mají mesh přímo pod anchorem.
+    const holder = anchor.userData?.spin ?? anchor;
+    const meshes = holder.children.filter((c) => c.isMesh);
     const visMesh = meshes.find((m) => m.visible && m.geometry?.type !== 'RingGeometry');
     if (visMesh && !visMesh.geometry.boundingSphere) visMesh.geometry.computeBoundingSphere();
     const ring = meshes.find((m) => m.geometry?.type === 'RingGeometry');
@@ -184,9 +189,9 @@ for (const { id, mode } of plan) {
 }
 
 await browser.close();
-srv.kill();
+if (srv) srv.kill();
 // serve přes npx shell na Windows přežije srv.kill() — dočisti podle portu
-if (process.platform === 'win32') {
+if (srv && process.platform === 'win32') {
   const { execSync } = await import('node:child_process');
   try {
     const out = execSync('netstat -ano', { encoding: 'utf8' });

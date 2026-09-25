@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MOONS, MOONS_BY_PARENT } from './moons.js';
 import { PLANET_BY_ID } from './planets.js';
 import { fibonacciSphere } from './geometry.js';
-import { phaseAt } from './animation.js';
+import { PHASES } from './animation.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { sampleColor, sphericalUV } from './textureUtils.js';
 
@@ -41,7 +41,8 @@ const _tmpVec = new THREE.Vector3();
 
 /**
  * Sub-fáze emise měsíců per rodina.
- * Aktivuje se během fází s id končícím `_moons` (viz animation.js Task 7).
+ * Aktivuje se fázemi s id končícím `_moons` (viz animation.js) — a doběhne
+ * i po jejich konci, dokud rodina nemá vyemitováno vše.
  * Každý frame: dopočítat expected počet teček podle phase progress, vzít IDLE,
  * pro každou vypočítat world pos cíle přes `moonAnchor.matrixWorld` (který je fresh
  * z main.js updateMoonOrbits), emitovat přes `pool.spawnFromPlanet`.
@@ -55,12 +56,21 @@ const _tmpVec = new THREE.Vector3();
  * @param {Object<string,ImageData>} moonImageData
  */
 export function updateMoonWind(pool, currentTime, dt, planetAnchors, moonAnchors, planetImageData, moonImageData) {
-  const ph = phaseAt(currentTime);
-  if (!ph || !ph.id.endsWith('_moons')) return;
+  // Projít VŠECHNY měsíční fáze, které už začaly a nemají vše vyemitováno —
+  // ne jen tu aktuální. Emise jede po krocích podle progressu; poslední frame
+  // fáze typicky přijde před jejím koncem (progress < 1) a zbytek by jinak
+  // propadl: při 5 fps dostala Sinope i Pasiphae 0 teček (mesh se nikdy
+  // neodkryl) a Oberon 691 z 10 242. Progress se clampuje na 1, takže
+  // dokončená fáze doemituje zbytek hned v prvním frame po svém konci.
+  for (const ph of PHASES) {
+    if (!ph.id.endsWith('_moons') || !ph.parentId) continue;
+    if (currentTime < ph.start || ph._done) continue;
+    emitMoonPhase(pool, ph, currentTime, planetAnchors, moonAnchors, planetImageData, moonImageData);
+  }
+}
 
+function emitMoonPhase(pool, ph, currentTime, planetAnchors, moonAnchors, planetImageData, moonImageData) {
   const parentId = ph.parentId;
-  if (!parentId) return;
-
   const parent = PLANET_BY_ID[parentId];
   const parentAnchor = planetAnchors[parentId];
   const parentTex = planetImageData[parentId];
@@ -133,6 +143,7 @@ export function updateMoonWind(pool, currentTime, dt, planetAnchors, moonAnchors
     );
   }
   ph._emittedCount += idleIndices.length;
+  if (ph._emittedCount >= allTargets.length) ph._done = true;
 }
 
 /** Reset per-moon targets cache (volá se při restartu animace). */

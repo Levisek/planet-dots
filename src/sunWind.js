@@ -90,6 +90,9 @@ export function updateSunWind(pool, currentTime, dt, sunRadius) {
       pool.alpha[i] = 0.9;
       pool.size[i] = SIZE;
       pool.owner[i] = -1;
+      // Index může být recyklovaný po tečce ztlumeného ownera (detail view) —
+      // bez resetu by vítr zdědil jeho ownerAlpha (0.3, nebo i 0).
+      if (pool.ownerAlpha) pool.ownerAlpha[i] = 1;
       pool.phase[i] = SUN_WIND_PHASE;
 
       _active.push({ idx: i, birth: currentTime });
@@ -100,6 +103,7 @@ export function updateSunWind(pool, currentTime, dt, sunRadius) {
   pool.colorAttr.needsUpdate = true;
   pool.alphaAttr.needsUpdate = true;
   pool.sizeAttr.needsUpdate = true;
+  if (pool.ownerAlphaAttr) pool.ownerAlphaAttr.needsUpdate = true;
 }
 
 /** Uvolní všechny aktivní částice zpět do IDLE (reset/restart animace). */

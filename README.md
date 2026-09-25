@@ -10,7 +10,8 @@ Edukativně-hravá vizualizace sluneční soustavy z 1500 teček.
 - **V4.1** (forward-fix): vrácen V3 flat-triangle rendering, přidán Saturn ring jako `RingGeometry`, picker meshes na Layer 1, formation gating mesh skrytý dokud nedoletí ≥95 % teček.
 - **V4.2** (hotová): 3D solar system — planety v kruhových orbitách kolem Slunce v origin, dva režimy **Pochopení** (vizuálně srozumitelný) / **Fyzikální** (real proporce 1:77 Mercury:Neptune + real periody + real eccentricity), real lighting toggle (Lambertian den/noc), formation intro Beat 1+2 (molekulární cloud + kolaps), orbit lines, klikatelný body list, planet labely, Triton retrograde, Neptune měsíce (Triton/Nereid/Proteus), pixel UI (Press Start 2P).
 - **V4.3** (hotová): Realismus orbit a tvarů — Kepler pro planety (eccentricity), inclination pro vše, suplementární clamp logika (planet 5°, moon 15°, irregular 30° s wrap-around pro retrograde), sjednocení retrograde mechaniky (přes inc>90° místo period×-1). Nové měsíce: Hyperion (chaotic tumbling + simplex displacement), Phoebe (Saturn retrograde), Sinope/Pasiphae (Jupiter Pasiphae group). Non-uniform tvary moonů přes shape.scale + simplex displacement. Texture completion kaskáda (mirror+blur fill chybějících hemisfér) + edu coverageNote ✻. Speed slider 0.1×–5× v dolním HUD (logaritmický piecewise) + simulační datum (J2000.0 epoch). Asteroid teaser: Ceres/Vesta/Pallas s vlastními orbit lines + 300-particle gaussian ring. Moon orbit lines v detail view (refresh při mode change). 121 testů. Spec: `docs/superpowers/specs/2026-05-05-dots-v4.3-realismus-design.md`, plán: `docs/superpowers/plans/2026-05-05-dots-v4.3-realismus.md`.
-- V4.4: Time scrubber + ephemeris (astronomy-engine, ±10 000 let, datum picker, edu presety Apollo 11 / Halley komet / transit Venuše). Formation Beat 3-6 (Sun ignite, planetesimály, akrece, materializace). Pixel UI polish.
+- **V4.4** (hotová): pozice z efemerid (astronomy-engine: planety, Luna, Galileovy měsíce) a reálných JPL elementů (ostatní), datum picker v rozsahu −4000 až 8000 (VSOP87), edu presety, formace jako akrece (disk → zážeh Slunce → hustnutí planet → měsíce) s geologickou osou.
+- **Audit 2026-09-25** (`docs/project-audit-2026-09-25.md`): soustavy měsíců v obou módech (měřítko, rovina prstence, nerotují s planetou), póly planet podle IAU, detail view se zpomaleným časem a kamerou jedoucí s tělesem, barvy textur bez dvojité gama korekce, prstenec Saturnu per-pixel, viditelné sluneční skvrny, výkon po formaci.
 - V4.5+: Plný asteroid systém (Kirkwoodovy mezery, Trojané, NEO, named asteroidy s sample-return mission texturami). Kuiperův pás, Oortův oblak, komety s ohony (eliptické orbity e>0.9 — Halley, Hale-Bopp, NEOWISE). Trpasličí planety (Pluto+Charon, Eris, Makemake, Haumea).
 
 ## Spuštění
@@ -48,11 +49,13 @@ spec nasazení: `docs/superpowers/specs/2026-07-26-sp3-vlastni-aplikace-design.m
 
 ## Ovládání
 
-- `R` — restart animace.
-- `Space` — pauza / resume.
+- `Space` — pauza / přehrávání (po skončení formace).
+- `[` / `]` — zpomalit / zrychlit, `\` — obrátit směr času, `0` — reset rychlosti na 1×.
 - Hover nad tělem — tooltip.
-- Klik na Slunce/planetu — detail view (ESC zavře).
-- V detailu: drag myší = orbit kamera, scroll = zoom, checkbox = reálné měřítko.
+- Klik na těleso (scéna, popisek nebo seznam vlevo) — detail view (ESC nebo × zavře).
+- V detailu: drag = orbit kamera, scroll = zoom. Čas se v detailu zpomalí tak,
+  aby nejrychlejší měsíc oběhl zhruba za 8 s; kamera jede s tělesem.
+- Nahoře: **Pochopení** / **Fyzikální** (měřítko vzdáleností a soustav měsíců), **Stíny** (den/noc).
 
 ## Testy
 
@@ -60,7 +63,9 @@ spec nasazení: `docs/superpowers/specs/2026-07-26-sp3-vlastni-aplikace-design.m
 npm test
 ```
 
-Spustí pure-JS unit testy (data, geometry, label sampling). Rendering se verifikuje vizuálně v prohlížeči.
+Spustí pure-JS unit testy (data, geometrie, poziční pipeline, částice). Rendering hlídá
+`npm run test:visual` (strukturální invarianty přes Playwright, běží v CI); proti už
+běžícímu serveru bez `npx`: `VR_BASE_URL=http://127.0.0.1:8765 node scripts/visual-regression.mjs`.
 
 ## Licence
 

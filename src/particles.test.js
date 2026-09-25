@@ -44,3 +44,33 @@ test('spawnFromDisk: finalColor jde do postArrivalColor, finalAlpha/finalSize re
   closeTo(pool.postArrivalAlpha[1], 0.5);
   assert.equal(pool.size[1], 3.0);
 });
+
+test('ownerAlphaMul má velikost podle počtu vlastníků (žádné NaN pro vysoké indexy)', () => {
+  const pool = new ParticlePool(8, 35);
+  assert.equal(pool.ownerAlphaMul.length, 35);
+  pool.spawnFromPlanet(0, { x: 0, y: 0, z: 0 }, 1, { x: 5, y: 0, z: 0 }, { x: 1, y: 0, z: 0 },
+    [1, 1, 1], [1, 1, 1], 34, 0, 0.3);
+  assert.equal(pool.ownerAlpha[0], 1);
+});
+
+test('releaseSettled uvolní usazené tečky a compact zúží activeEnd', () => {
+  const pool = new ParticlePool(10);
+  const idx = pool.takeIdleIndices(6);
+  assert.equal(pool.activeEnd, 6);
+  for (const i of idx) { pool.phase[i] = PHASE.ON_PLANET; pool.owner[i] = 1; }
+  pool.phase[2] = 98; // živá částice uprostřed (vítr)
+  const n = pool.releaseSettled();
+  assert.equal(n, 5);
+  assert.equal(pool.activeEnd, 3, 'konec rozsahu = poslední živá + 1');
+  pool.phase[2] = PHASE.IDLE;
+  pool.compact();
+  assert.equal(pool.activeEnd, 0);
+});
+
+test('updateFlight bez letících teček nenahrává atributy', () => {
+  const pool = new ParticlePool(8);
+  pool.takeIdleIndices(4);
+  const v = pool.posAttr.version;
+  pool.updateFlight(1, 0.016);
+  assert.equal(pool.posAttr.version, v);
+});

@@ -1,6 +1,6 @@
 // saturnRing — real 3D RingGeometry v ekvatoriální rovině Saturnu.
-// Per-vertex barva sampled z saturn_ring.png podle radiální pozice t.
-// Mesh je child Saturn anchoru → dědí axial tilt automaticky.
+// Barva + alfa per-pixel z radiálního profilu saturn_ring.png (DataTexture).
+// Mesh je child Saturnova spin nodu → leží v rovníku (IAU pól).
 
 import * as THREE from 'three';
 
@@ -15,54 +15,65 @@ export function sampleRingColor(imageData, t) {
 }
 
 /**
+ * 1D radiální profil (prostřední řádek PNG) jako DataTexture. Vzorkuje se
+ * per-pixel ve fragment shaderu — dřív per-vertex s 8 radiálními segmenty,
+ * takže z profilu zbylo 9 vzorků: Cassiniho dělení zmizelo a poslední vrchol
+ * (t=1, skoro průhledný modrý okraj PNG) táhl přes vnější 1/8 prstence
+ * modrofialový lem.
+ */
+function buildRingProfileTexture(imageData) {
+  const { data, width, height } = imageData;
+  const row = Math.floor(height / 2);
+  const out = new Uint8Array(width * 4);
+  out.set(data.subarray(row * width * 4, (row + 1) * width * 4));
+  const tex = new THREE.DataTexture(out, width, 1, THREE.RGBAFormat);
+  tex.colorSpace = THREE.NoColorSpace; // shader čte surové hodnoty jako dřív vertex colors
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter; // z dálky bez moaré
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
  * @param {ImageData} ringImageData
  * @param {number} innerRadius — vnitřní okraj (scene units)
  * @param {number} outerRadius — vnější okraj
  * @param {number} segments — angular segments (default 128)
- * @param {number} radialSegments — radial subdivisions (default 8)
  * @returns {THREE.Mesh}
  */
-export function buildSaturnRing(ringImageData, innerRadius, outerRadius, segments = 128, radialSegments = 8) {
-  const geom = new THREE.RingGeometry(innerRadius, outerRadius, segments, radialSegments);
-
-  // RingGeometry má atribut `position` v XY rovině. Per-vertex color + alpha
-  // sampled radiálně podle vzdálenosti od středu.
-  const posArr = geom.attributes.position;
-  const colorArr = new Float32Array(posArr.count * 3);
-  const alphaArr = new Float32Array(posArr.count);
-
-  for (let i = 0; i < posArr.count; i++) {
-    const x = posArr.getX(i);
-    const y = posArr.getY(i);
-    const r = Math.sqrt(x * x + y * y);
-    const t = (r - innerRadius) / (outerRadius - innerRadius);
-    const [cr, cg, cb, ca] = sampleRingColor(ringImageData, t);
-    colorArr[i * 3] = cr;
-    colorArr[i * 3 + 1] = cg;
-    colorArr[i * 3 + 2] = cb;
-    alphaArr[i] = ca;
-  }
-  geom.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
-  geom.setAttribute('ringAlpha', new THREE.BufferAttribute(alphaArr, 1));
-
+export function buildSaturnRing(ringImageData, innerRadius, outerRadius, segments = 128) {
+  const geom = new THREE.RingGeometry(innerRadius, outerRadius, segments, 1);
   const material = new THREE.ShaderMaterial({
-    uniforms: {},
+    uniforms: {
+      ringTex: { value: buildRingProfileTexture(ringImageData) },
+      innerR: { value: innerRadius },
+      outerR: { value: outerRadius },
+      // Ztlumení v detailu jiného tělesa — ShaderMaterial ignoruje
+      // material.opacity, fadeOthers proto sahá sem (viz main.js).
+      opacity: { value: 1 },
+    },
     vertexShader: /* glsl */ `
-      attribute vec3 color;
-      attribute float ringAlpha;
-      varying vec3 vColor;
-      varying float vAlpha;
+      varying vec2 vLocal;
       void main() {
-        vColor = color;
-        vAlpha = ringAlpha;
+        vLocal = position.xy;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: /* glsl */ `
-      varying vec3 vColor;
-      varying float vAlpha;
+      uniform sampler2D ringTex;
+      uniform float innerR;
+      uniform float outerR;
+      uniform float opacity;
+      varying vec2 vLocal;
       void main() {
-        gl_FragColor = vec4(vColor, vAlpha);
+        float t = (length(vLocal) - innerR) / (outerR - innerR);
+        if (t < 0.0 || t > 1.0) discard;
+        vec4 c = texture2D(ringTex, vec2(t, 0.5));
+        if (c.a < 0.01) discard;
+        gl_FragColor = vec4(c.rgb, c.a * opacity);
       }
     `,
     transparent: true,

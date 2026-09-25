@@ -15,7 +15,9 @@ const TRANSITION_DURATION = 0.8;
 
 /**
  * Stav manager detailního pohledu. Tween (pohyb kamery) řeší main.js přes
- * `deps.cameraFlyTo(pos, target, duration)`. Tenhle modul drží jen state machine
+ * `deps.cameraFlyTo(pos, target, duration, followId)` — followId = těleso, ke
+ * kterému je cíl relativní (simulace běží i v detailu, těleso se hýbe; null =
+ * návrat do MAIN na pevnou pozici). Tenhle modul drží jen state machine
  * a časovač pro přechody mezi stavy (musí odpovídat délce tween v main.js).
  */
 export function createDetailView(deps) {
@@ -63,7 +65,7 @@ export function createDetailView(deps) {
     _timer = 0;
     deps.setPaused(true);
     deps.fadeOthers(id, 0);
-    deps.cameraFlyTo(pos, target, TRANSITION_DURATION);
+    deps.cameraFlyTo(pos, target, TRANSITION_DURATION, id);
   }
 
   function showMoonLines() {
@@ -139,7 +141,7 @@ export function createDetailView(deps) {
       deps.hidePanel();
       deps.enableOrbit(false, null);
       deps.fadeOthers(id, 0);
-      deps.cameraFlyTo(pos, target, TRANSITION_DURATION);
+      deps.cameraFlyTo(pos, target, TRANSITION_DURATION, id);
     },
     exit() {
       if (_state !== STATE.DETAIL) return;
@@ -149,8 +151,18 @@ export function createDetailView(deps) {
     refreshCamera() {
       if (_state === STATE.DETAIL && _focusId) {
         const { pos, target } = computeDetailCameraOffset(_focusId);
-        deps.cameraFlyTo(pos, target, 0.6);
+        deps.cameraFlyTo(pos, target, 0.6, _focusId);
       }
+    },
+    /** Přepíše kam se kamera vrátí při exit (změna módu během detailu). */
+    setReturnPose(pos, target) {
+      if (_returnPos === null) return;
+      _returnPos = { ...pos };
+      _returnTarget = { ...target };
+    },
+    /** Znovu aplikuje dim ostatních těles (mesh dosedlý až během detailu). */
+    refreshFade() {
+      if (_state === STATE.DETAIL && _focusId) deps.fadeOthers(_focusId, 0);
     },
     tick(dt) {
       if (_state === STATE.TRANSITION_IN || _state === STATE.TRANSITION_OUT) {

@@ -13,6 +13,9 @@ const MS_PER_REAL_MS = (DAYS_PER_SEC * 86400 * 1000) / 1000; // sim-ms na real-m
 let _date = new Date(J2000_MS);
 let _playing = true;
 let _timeScale = 1;
+// Násobitel nezávislý na uživatelské rychlosti — detail view zpomaluje čas,
+// aby oběhy měsíců nebyly stroboskop (Io by při 1× oběhlo 20× za sekundu).
+let _rateMul = 1;
 const _listeners = [];
 
 function clampDate(d) {
@@ -38,13 +41,16 @@ export function play() { _playing = true; }
 export function pause() { _playing = false; }
 export function getTimeScale() { return _timeScale; }
 export function setTimeScale(x) { _timeScale = x; }
+export function getRateMultiplier() { return _rateMul; }
+export function setRateMultiplier(m) { _rateMul = m; }
+export const DAYS_PER_REAL_SEC = DAYS_PER_SEC;
 
 export function setDate(date) { _date = clampDate(new Date(date.getTime())); emit(); }
 export function scrubTo(date) { pause(); setDate(date); }
 
 export function tick(dtRealMs) {
   if (!_playing) return;
-  const deltaSimMs = dtRealMs * _timeScale * MS_PER_REAL_MS;
+  const deltaSimMs = dtRealMs * _timeScale * _rateMul * MS_PER_REAL_MS;
   _date = clampDate(new Date(_date.getTime() + deltaSimMs));
   emit();
 }

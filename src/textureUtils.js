@@ -29,3 +29,15 @@ export function sampleColorPoleSafe(imageData, u, v) {
   const uSafe = Math.max(0.005, Math.min(0.995, u));
   return sampleColor(imageData, uSafe, vSafe);
 }
+
+/**
+ * sRGB složka (0..1, jak leží v ImageData) → lineární. Vertex colors meshů
+ * three.js bere jako lineární a při výstupu do sRGB je gama-koriguje — bez
+ * převodu šla korekce dvakrát a textury byly vybledlé (světle modrý oceán,
+ * mdlý Jupiter) a mesh při odkrytí po formaci „poskočil" jasem oproti
+ * tečkám. Tečky a prstenec (ShaderMaterial) převod NEPOTŘEBUJÍ — jejich
+ * shader výstup nekóduje, takže surové sRGB hodnoty projdou beze změny.
+ */
+export function srgbToLinear(c) {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}

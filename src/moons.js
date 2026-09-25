@@ -1,8 +1,9 @@
-// MOONS — data 22 měsíců.
+// MOONS — data 26 měsíců.
 // Pochopení mode (default): vizuálně srozumitelný — period a eccentricity
 //   zveličené ať uživatel vidí orbitální oblouk.
 // Fyzikální mode: real astronomická data (`periodReal`, `eReal`).
-// `a` = semi-major axis jako násobek parent radius (decorative comp.).
+// `a` = zobrazená velká poloosa v Pochopení jako násobek poloměru rodiče
+//   (ručně laděná komprese, viz moonScale.js). Fyzikální bere realSemiMajorAxisKm.
 // `phaseOffset` deterministický offset (rad) pro staggered start.
 
 const MOON_TICK = 10242;
@@ -115,7 +116,9 @@ export const MOONS = [
   { id: 'iapetus', name: 'IAPETUS', parent: 'saturn',
     diameterKm: 1470, radiusPx: 0.95, tickCount: MOON_TICK,
     texture: 'textures/iapetus.jpg',
-    a: 4.4, e: 0.2, eReal: 0.0286, period: 60, periodReal: 252.6, phaseOffset: 2.5,
+    // a: 5.2 (dřív 4.4 < Hyperion 4.6 — pořadí drah bylo prohozené, reálně je
+    // Iapetus 2,4× dál než Hyperion).
+    a: 5.2, e: 0.2, eReal: 0.0286, period: 60, periodReal: 252.6, phaseOffset: 2.5,
     realSemiMajorAxisKm: 3_560_820,
     category: 'irregular', inclinationDeg: 14.72,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (608 @ 500@699).

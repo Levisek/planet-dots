@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { icosphereRaw } from './geometry.js';
-import { sampleColorPoleSafe, sphericalUV } from './textureUtils.js';
-import { applySimplexDisplacement } from './displacement.js';
+import { sampleColorPoleSafe, sphericalUV, srgbToLinear } from './textureUtils.js';
+import { applySimplexDisplacement, makeSeededSimplex } from './displacement.js';
 
 /**
  * Vytvoří mesh pro tělo: icosphere trojúhelníky s per-face barvou sampled
@@ -33,7 +33,8 @@ export function buildBodyMesh(imageData, radius, minVertices) {
     const cz = (va[2] + vb[2] + vc[2]) / 3;
     const clen = Math.sqrt(cx * cx + cy * cy + cz * cz) || 1;
     const [u, v] = sphericalUV(cx / clen, cy / clen, cz / clen, 1);
-    const [cr, cg, cb] = sampleColorPoleSafe(imageData, u, v);
+    const [sr, sg, sb] = sampleColorPoleSafe(imageData, u, v);
+    const cr = srgbToLinear(sr), cg = srgbToLinear(sg), cb = srgbToLinear(sb);
 
     const base = i * 9;
     posArray[base + 0] = va[0] * radius;
@@ -80,6 +81,53 @@ export function buildBodyMesh(imageData, radius, minVertices) {
   const mesh = new THREE.Mesh(geometry, material);
   // Ulož cached lambert pro toggle (lazy init: vytvoří se při prvním ON).
   mesh.userData._flatMaterial = material;
+  return mesh;
+}
+
+/**
+ * Fallback sféra pro tělesa bez cylindrické mapy (texture: null — Hyperion,
+ * Phoebe). Stejná icosphere jako buildBodyMesh, barva z body.color jemně
+ * skvrněná šumem (±15 %) — s jednolitou barvou a vypnutými stíny byl tvar
+ * nečitelný, jen plochá silueta.
+ */
+export function buildFallbackMesh(radius, hexColor, minVertices, seed = 'fallback') {
+  const { vertices, faces } = icosphereRaw(minVertices);
+  const noise = makeSeededSimplex(`${seed}-albedo`);
+  const numTris = faces.length;
+  const posArray = new Float32Array(numTris * 9);
+  const colorArray = new Float32Array(numTris * 9);
+  const normalArray = new Float32Array(numTris * 9);
+  const c = new THREE.Color(hexColor); // z hex → lineární (ColorManagement)
+  for (let i = 0; i < numTris; i++) {
+    const [a, b, cc] = faces[i];
+    const va = vertices[a], vb = vertices[b], vc = vertices[cc];
+    const cx = (va[0] + vb[0] + vc[0]) / 3;
+    const cy = (va[1] + vb[1] + vc[1]) / 3;
+    const cz = (va[2] + vb[2] + vc[2]) / 3;
+    const k = 1 + 0.15 * (0.7 * noise(cx * 3, cy * 3, cz * 3) + 0.3 * noise(cx * 9, cy * 9, cz * 9));
+    const base = i * 9;
+    const verts = [va, vb, vc];
+    for (let v = 0; v < 3; v++) {
+      const p = verts[v];
+      posArray[base + v * 3] = p[0] * radius;
+      posArray[base + v * 3 + 1] = p[1] * radius;
+      posArray[base + v * 3 + 2] = p[2] * radius;
+      normalArray[base + v * 3] = p[0];
+      normalArray[base + v * 3 + 1] = p[1];
+      normalArray[base + v * 3 + 2] = p[2];
+      colorArray[base + v * 3] = c.r * k;
+      colorArray[base + v * 3 + 1] = c.g * k;
+      colorArray[base + v * 3 + 2] = c.b * k;
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+  geo.computeBoundingSphere();
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: false, opacity: 1.0 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData._flatMaterial = mat;
   return mesh;
 }
 

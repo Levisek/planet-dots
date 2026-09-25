@@ -56,5 +56,6 @@ export function phaseProgress(t) {
 export function resetPhaseEmissions() {
   for (const ph of PHASES) {
     delete ph._emittedCount;
+    delete ph._done;
   }
 }

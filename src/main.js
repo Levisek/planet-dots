@@ -5,8 +5,10 @@ import { createScene, createStarfield } from './scene.js';
 import { createPlanetAnchors } from './planetAnchors.js';
 import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
-import { rotateAnchors, rotateOne } from './rotation.js';
+import { rotateAnchors } from './rotation.js';
 import { updatePlanetOrbits, orbitalPosition, auToDisplayRadius } from './planetOrbits.js';
+import { moonDisplaySemiMajor } from './moonScale.js';
+import { moonPeriodDays } from './moonOrbitLines.js';
 import { createAsteroidAnchors } from './asteroidAnchors.js';
 import { createAsteroidBelt } from './asteroidBelt.js';
 import { ASTEROIDS } from './asteroids.js';
@@ -16,7 +18,7 @@ import { updateSunWind } from './sunWind.js';
 import { tickHyperion } from './hyperionChaos.js';
 import { getRelativePosition } from './positionProvider.js';
 import * as simClock from './simClock.js';
-import { toDisplayRelative, setMode as setSimMode, onModeChange, isFyzikalni, MODES, isRetrograde } from './simMode.js';
+import { toDisplayRelative, setMode as setSimMode, onModeChange, isFyzikalni, MODES } from './simMode.js';
 import { createPicker } from './picking.js';
 import { createTooltip } from './tooltip.js';
 import { createInfoPanel } from './infoPanel.js';
@@ -27,56 +29,18 @@ import { createPlanetLabels } from './planetLabels.js';
 import { createAsteroidLabels } from './asteroidLabels.js';
 import { createBodyList } from './bodyList.js';
 import { createOrbitLines, createAsteroidOrbitLines } from './orbitLines.js';
-import { buildBodyMesh, applyShape } from './bodyMesh.js';
+import { buildBodyMesh, buildFallbackMesh, applyShape } from './bodyMesh.js';
 import { buildSaturnRing } from './saturnRing.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
-import { createTween } from './cameraTween.js';
-import { initTimeControls, setFormationLock } from './timeControls.js';
-import { icosphereRaw } from './geometry.js';
+import { createTween, easeInOutCubic } from './cameraTween.js';
+import { initTimeControls, setFormationLock, setDetailRateNote } from './timeControls.js';
 import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
 
-/**
- * Fallback barevná sféra pro tělesa bez cylindrické mapy (texture: null).
- * Používá stejnou icosphere subdivizi jako buildBodyMesh, ale všechny vrcholy
- * mají pevnou barvu (z body.color) místo textury.
- */
-function buildFallbackMesh(radius, hexColor, minVertices) {
-  const { vertices, faces } = icosphereRaw(minVertices);
-  const numTris = faces.length;
-  const posArray = new Float32Array(numTris * 3 * 3);
-  const colorArray = new Float32Array(numTris * 3 * 3);
-  const normalArray = new Float32Array(numTris * 3 * 3);
-  const c = new THREE.Color(hexColor);
-  for (let i = 0; i < numTris; i++) {
-    const [a, b, cc] = faces[i];
-    const va = vertices[a], vb = vertices[b], vc = vertices[cc];
-    const base = i * 9;
-    posArray[base+0]=va[0]*radius; posArray[base+1]=va[1]*radius; posArray[base+2]=va[2]*radius;
-    posArray[base+3]=vb[0]*radius; posArray[base+4]=vb[1]*radius; posArray[base+5]=vb[2]*radius;
-    posArray[base+6]=vc[0]*radius; posArray[base+7]=vc[1]*radius; posArray[base+8]=vc[2]*radius;
-    for (let k = 0; k < 3; k++) {
-      colorArray[base+k*3+0]=c.r; colorArray[base+k*3+1]=c.g; colorArray[base+k*3+2]=c.b;
-    }
-    normalArray[base+0]=va[0]; normalArray[base+1]=va[1]; normalArray[base+2]=va[2];
-    normalArray[base+3]=vb[0]; normalArray[base+4]=vb[1]; normalArray[base+5]=vb[2];
-    normalArray[base+6]=vc[0]; normalArray[base+7]=vc[1]; normalArray[base+8]=vc[2];
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-  geo.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
-  geo.computeBoundingSphere();
-  const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: false, opacity: 1.0 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.userData._flatMaterial = mat;
-  return mesh;
-}
-
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
 createStarfield(scene);
-const { anchors, imageData, loaded } = createPlanetAnchors(scene);
+const { anchors, spins, imageData, loaded } = createPlanetAnchors(scene);
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
 const { anchors: asteroidAnchors, imageData: asteroidImageData, loaded: asteroidsLoaded } = createAsteroidAnchors(scene);
 const asteroidBelt = createAsteroidBelt(scene);
@@ -105,27 +69,33 @@ function updateAsteroidOrbits(date) {
   }
 }
 
-// Unified anchor array — planety 0..8, měsíce 9..27 (MOON_OWNER_BASE=9). Používá applyClusterRotation.
+// Unified owner array — planety 0..8 (jejich SPIN nody: tečky povrchu rotují
+// s planetou), měsíce 9..34 (MOON_OWNER_BASE=9). Používá applyClusterRotation.
 const anchorsByIndex = [
-  ...PLANETS.map(p => anchors[p.id]),
+  ...PLANETS.map(p => spins[p.id]),
   ...MOONS.map(m => moonAnchors[m.id]),
 ];
 
-const pool = new ParticlePool(POOL_SIZE);
+const pool = new ParticlePool(POOL_SIZE, anchorsByIndex.length);
 scene.add(pool.mesh);
 
-const clock = new THREE.Clock();
-let elapsed = 0;
+// Timer (THREE.Clock je v r184 deprecated) napojený na Page Visibility API:
+// po návratu na záložku nepřijde jedno obří dt za celou dobu na pozadí
+// (formace by přeskočila, simClock skočil o roky).
+const clock = new THREE.Timer();
+clock.connect(document);
+// Strop dt — záseky GC / přepnutí okna nesmí přeskočit fázi formace.
+const MAX_DT = 0.25;
 
-// Dvojitý časový kanál (V4.3 → V4.4 F2, sjednoceno v Tasku 5):
-// _simElapsed — pomocný akumulátor dt × simClock.getTimeScale(), NEŘÍDÍ orbity
-//   (to dělá simClock), ale krmí zbylého legacy konzumenta (asteroidBelt
-//   rotace). Sdílí timeScale se simClock, takže reversuje/zrychluje shodně
-//   s klávesami [ ] \ 0 i se sliderem v timeControls.
-// _realElapsed — akumuluje dt rovně, použito pro formation/sun/wind (vždy dopředu)
-//   a pro Hyperion chaos spin (monotónní čas, nesouvisí s datem).
-let _simElapsed = 0;
+// Dvojitý časový kanál: simulační datum drží simClock (orbity, pás asteroidů),
+// _realElapsed akumuluje dt rovně — formace, Slunce, vítr (vždy dopředu)
+// a Hyperion chaos spin (monotónní čas, nesouvisí s datem).
 let _realElapsed = 0;
+
+// Úklid po formaci: tečky měsíců Neptunu letí ještě MOON_TRAVEL_TIME (0.3 s)
+// po LIVE_START — usazené tečky se uvolní až po doletu (viz tick()).
+const FORMATION_CLEANUP_AT = LIVE_START + 1.0;
+let _formationCleaned = false;
 
 // Formation lifecycle (V4.4 F3) — true od startu, dokud _realElapsed
 // nepřekročí LIVE_START (viz tick()). Během formace simClock stojí zamčený
@@ -163,7 +133,13 @@ let planetLabels = null;
 let asteroidLabels = null;
 const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo (+ 'saturn_ring')
 let _activeCameraTween = null;
+// Kamera v DETAIL jede s fokusovaným tělesem (simulace běží dál, těleso se
+// hýbe) — { id, last: {x,y,z} }. Během tweenu přebírá drift tween sám.
+let _follow = null;
 const controlsTarget = { x: 0, y: 0, z: 0 };
+// Mesh-e a linie, které se ukážou až po formaci (před 4,6 mld let nebyly
+// ani popisky planet, ani pojmenované asteroidy a jejich dráhy).
+const _revealAfterFormation = [];
 
 // Unified mesh ↔ owner mapping pro formation gating + fadeOthers loops.
 // Postaveno v initAfterLoad po build mesh-ů.
@@ -205,14 +181,15 @@ function initAfterLoad() {
  * Aktualizuje pozice + tidal-lock rotaci měsíců ke konkrétnímu datu, z
  * positionProvideru (V4.4 — nahrazuje starý orbit.js Kepler solver napojený
  * na elapsed). Pozice je relativní vůči rodičovské planetě (moon anchor je
- * child planet anchoru, takže lokální position = disp stačí).
+ * child POZIČNÍHO anchoru planety — bez rotace — takže lokální position =
+ * disp v ekliptickém frame stačí).
  */
 function updateMoonOrbits(date) {
   for (const m of MOONS) {
     const moonAnchor = moonAnchors[m.id];
     if (!moonAnchor) continue;
     const rel = getRelativePosition(m.id, date);
-    const disp = toDisplayRelative(rel);
+    const disp = toDisplayRelative(rel, m);
     moonAnchor.position.set(disp.x, disp.y, disp.z);
     if (m.chaoticRotation) {
       tickHyperion(_realElapsed, moonAnchor);
@@ -224,33 +201,42 @@ function updateMoonOrbits(date) {
   }
 }
 
-let moonScaleFactors = {}; // { [moonId]: { a, period } }, pokud klíč chybí → {a:1, period:1}
-
-function computeRealFactor(m) {
-  const parent = PLANET_BY_ID[m.parent];
-  if (!parent.realDiameterKm || !m.realSemiMajorAxisKm) return 1;
-  const kmPerPx = parent.realDiameterKm / (parent.radiusPx * 2);
-  const realAPx = m.realSemiMajorAxisKm / kmPerPx;
-  const compressedAPx = m.a * parent.radiusPx;
-  return realAPx / compressedAPx;
-}
-
-function setAllMoonScaleReal(realOn) {
-  for (const m of MOONS) {
-    if (realOn) {
-      const aFactor = computeRealFactor(m);
-      // Keplerův zákon: T² ∝ a³ → T = a^1.5. Real scale = real time.
-      moonScaleFactors[m.id] = { a: aFactor, period: Math.pow(aFactor, 1.5) };
-    } else {
-      moonScaleFactors[m.id] = { a: 1, period: 1 };
-    }
+/**
+ * Zpomalení času v detail view (násobitel simClocku): nejrychlejší
+ * zobrazený oběh má trvat ~DETAIL_ORBIT_SEC sekund. Při 1× (36,5 dne/s) by
+ * Io oběhlo Jupiter 20× za sekundu — stroboskop místo oběhu.
+ */
+const DETAIL_ORBIT_SEC = 8;
+const DETAIL_DEFAULT_DAYS_PER_SEC = 1; // Slunce, Merkur, Venuše, asteroidy
+function detailRateMultiplier(id) {
+  let periodDays = null;
+  const moon = MOONS.find((m) => m.id === id);
+  if (moon) {
+    periodDays = moonPeriodDays(moon);
+  } else if (PLANET_BY_ID[id]) {
+    const regular = MOONS.filter((m) => m.parent === id && m.category !== 'irregular');
+    if (regular.length) periodDays = Math.min(...regular.map(moonPeriodDays));
   }
+  const daysPerSec = periodDays ? periodDays / DETAIL_ORBIT_SEC : DETAIL_DEFAULT_DAYS_PER_SEC;
+  return Math.min(1, daysPerSec / simClock.DAYS_PER_REAL_SEC);
 }
 
-function tick() {
+/** Pozice → rotace → matrixWorld všech těles k datu (MAIN i DETAIL). */
+function updateBodies(date, dt) {
+  updatePlanetOrbits(anchors, PLANETS, date);
+  rotateAnchors(spins, dt);
+  // Poziční anchor → kaskádou spin, prstenec, měsíce, orbit lines. Musí být
+  // před updateMoonOrbits (ten čte matrixWorld rodiče).
+  for (const p of PLANETS) anchors[p.id].updateMatrixWorld(true);
+  updateMoonOrbits(date);
+  updateAsteroidOrbits(date);
+  asteroidBelt.update(date);
+}
+
+function tick(timestamp) {
   const tickStart = performance.now();
-  const dt = clock.getDelta();
-  elapsed += dt;
+  clock.update(timestamp);
+  const dt = Math.min(clock.getDelta(), MAX_DT);
 
   // Dual time channel (V4.4 F2): simClock je jediná autorita simulačního data.
   _realElapsed += dt;                              // formace/sun/wind běží dál na real-time
@@ -262,16 +248,17 @@ function tick() {
     // hodiny reálného rozdílu) způsobil viditelný skok pozic (fix C1). Necháme
     // jen play() — případné zpoždění doženě plynule běh (rate 36.5 dní/s).
     formationActive = false;
+    // Poslední emise měsíců: fáze neptune_moons končí přesně v LIVE_START,
+    // takže její zbytek by jinak propadl (gate formationActive níže).
+    updateMoonWind(pool, _realElapsed, dt, anchors, moonAnchors, imageData, moonImageData);
     simClock.play();
     setFormationLock(false);
     if (formationLabelEl) formationLabelEl.style.display = 'none';
+    revealAfterFormation();
   } else if (!formationActive) {
     simClock.tick(dt * 1000);  // dt je v sekundách → simClock chce ms
   }
   const simDate = simClock.getDate();
-  // Pomocný akumulátor pro legacy konzumenta (asteroidBelt) — viz komentář
-  // u deklarace výše. Neřídí orbity ani simDate.
-  _simElapsed += dt * simClock.getTimeScale();
 
   // Geologická osa HUD (F3) — jen během formace, levné (textContent jen při změně).
   if (formationActive && formationLabelEl) {
@@ -280,75 +267,63 @@ function tick() {
     if (formationLabelEl.textContent !== text) formationLabelEl.textContent = text;
   }
 
-  // Camera tween (pro fly-to) — jednotný přes cameraTween.js
+  // Detail view state
+  if (detailView) detailView.tick(dt);
+  const dvState = detailView ? detailView.state() : 'MAIN';
+  const focusId = detailView ? detailView.focusId() : null;
+
+  // Simulace běží v MAIN i v DETAIL (detail má jen zpomalený čas, viz
+  // detailRateMultiplier) — kamera jede s fokusovaným tělesem. Dřív se
+  // v detailu planety zmrazily, zatímco datum běželo dál: po návratu
+  // do MAIN všechny planety naráz skočily o roky.
+  updateBodies(simDate, dt);
+
+  // Camera tween (fly-to) — po update pozic, aby tween cílil na aktuální
+  // polohu tělesa: cíl je relativní k tělesu (drift od startu tweenu se
+  // přičítá úměrně easingu), takže přílet sedí, i když se těleso mezitím
+  // posunulo.
   if (_activeCameraTween) {
-    _activeCameraTween.t += dt;
-    const s = _activeCameraTween.tween.sample(_activeCameraTween.t);
+    const ct = _activeCameraTween;
+    ct.t += dt;
+    const s = ct.tween.sample(ct.t);
+    if (ct.followId) {
+      const now = getBodyPosNow(ct.followId);
+      const e = easeInOutCubic(Math.min(1, ct.t / ct.tween.duration));
+      const dx = (now.x - ct.bodyStart.x) * e;
+      const dy = (now.y - ct.bodyStart.y) * e;
+      const dz = (now.z - ct.bodyStart.z) * e;
+      s.pos.x += dx; s.pos.y += dy; s.pos.z += dz;
+      s.target.x += dx; s.target.y += dy; s.target.z += dz;
+    }
     camera.position.set(s.pos.x, s.pos.y, s.pos.z);
     controlsTarget.x = s.target.x;
     controlsTarget.y = s.target.y;
     controlsTarget.z = s.target.z;
     camera.lookAt(controlsTarget.x, controlsTarget.y, controlsTarget.z);
     if (controls.enabled) controls.target.set(controlsTarget.x, controlsTarget.y, controlsTarget.z);
-    if (_activeCameraTween.tween.isComplete(_activeCameraTween.t)) {
+    if (ct.tween.isComplete(ct.t)) {
       _activeCameraTween = null;
+      _follow = ct.followId ? { id: ct.followId, last: getBodyPosNow(ct.followId) } : null;
     }
-  }
-
-  // Detail view state
-  if (detailView) detailView.tick(dt);
-  const dvState = detailView ? detailView.state() : 'MAIN';
-  const isMainState = dvState === 'MAIN';
-
-  // Rotace v MAIN: všechny planety. V DETAIL: jen focus body (planeta nebo měsíc) —
-  // user si prohlíží jak se točí. Cizí tělesa stojí (matrixWorld stále refresh).
-  const focusId = detailView ? detailView.focusId() : null;
-  const isMoonDetail = focusId && MOONS.some((m) => m.id === focusId);
-  if (isMainState) {
-    updatePlanetOrbits(anchors, PLANETS, simDate);
-    rotateAnchors(anchors, dt);
-    updateMoonOrbits(simDate);
-    updateAsteroidOrbits(simDate);
-    asteroidBelt.update(_simElapsed);
-  } else if (isMoonDetail) {
-    // Moon-detail: focus měsíc rotuje, ostatní stojí.
-    for (const p of PLANETS) {
-      const a = anchors[p.id];
-      if (a) a.updateMatrixWorld(true);
-    }
-    for (const m of MOONS) {
-      const a = moonAnchors[m.id];
-      if (!a) continue;
-      if (m.id === focusId) {
-        rotateOne(a, { rotationPeriod: m.period ?? 10, direction: isRetrograde(m) ? -1 : 1 }, dt);
-      } else {
-        a.updateMatrixWorld(true);
-      }
-    }
-  } else {
-    // Planet-detail: focus planeta rotuje, ostatní planety stojí, měsíce focused planety obíhají.
-    for (const p of PLANETS) {
-      const a = anchors[p.id];
-      if (!a) continue;
-      if (p.id === focusId) {
-        rotateOne(a, p, dt);
-      } else {
-        a.updateMatrixWorld(true);
-      }
-    }
-    updateMoonOrbits(simDate);
+  } else if (_follow && dvState === DV_STATE.DETAIL) {
+    // Kamera (i orbit target) se posune o pohyb tělesa za frame — relativní
+    // pohled, který si uživatel natočil, zůstává.
+    const now = getBodyPosNow(_follow.id);
+    const dx = now.x - _follow.last.x, dy = now.y - _follow.last.y, dz = now.z - _follow.last.z;
+    camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
+    controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
+    controlsTarget.x += dx; controlsTarget.y += dy; controlsTarget.z += dz;
+    _follow.last = now;
   }
 
   // Formation intro — akrece z disku (beat_disk/ignition/accretion), pak moon wind.
   // Tyto systémy vždy jedou dopředu — používají _realElapsed. Gate na
-  // formationActive (NE isMainState, F3 review HIGH fix): pokud návštěvník
+  // formationActive (NE na stav detailu, F3 review HIGH fix): pokud návštěvník
   // stráví akreční okno (6.5–17s) nebo moon fáze (17–22s) v detail view,
   // formace musí pokračovat na pozadí — jinak by okno proteklo bez emise a
   // dané těleso by po formaci zůstalo navždy bez teček (total=0, nikdy
   // settled). fadeOthers stejně dimuje non-focus ownery, takže i letící
-  // tečky do jiné planety jsou v detailu ztlumené. Po formaci (formationActive
-  // === false) obě funkce už nemají co dělat (updateFormationIntro jen
-  // no-op release, updateMoonWind ne-_moons fáze no-op) — gate je i levnější.
+  // tečky do jiné planety jsou v detailu ztlumené.
   if (formationActive) {
     updateFormationIntro(pool, _realElapsed, dt, anchors, imageData);
     updateMoonWind(pool, _realElapsed, dt, anchors, moonAnchors, imageData, moonImageData);
@@ -362,7 +337,7 @@ function tick() {
 
   // Sun activity — vždy aktivní, ale intenzita vyšší pokud je Slunce v detailu
   if (sunActivity) {
-    const isSunDetail = dvState === 'DETAIL' && detailView.focusId() === 'sun';
+    const isSunDetail = dvState === 'DETAIL' && focusId === 'sun';
     sunActivity.update(pool, _realElapsed, dt, { intensity: isSunDetail ? 'high' : 'low' });
   }
 
@@ -372,13 +347,34 @@ function tick() {
 
   // Formation gating — mesh.userData.settled = true až ≥95 % teček dosedlo.
   // Skutečnou visibility řídí fadeOthers (kombinuje settled + focus).
-  for (const g of gatedMeshes) {
-    const m = bodyMeshes[g.key];
-    if (!m || m.userData.settled) continue;
-    const { settled, total } = pool.countSettled(g.ownerIdx);
-    if (total > 0 && settled / total >= 0.95) {
+  if (!_formationCleaned) {
+    for (const g of gatedMeshes) {
+      const m = bodyMeshes[g.key];
+      if (!m || m.userData.settled) continue;
+      const { settled, total } = pool.countSettled(g.ownerIdx);
+      if (total > 0 && settled / total >= 0.95) {
+        m.userData.settled = true;
+        m.visible = true;
+      }
+    }
+  }
+
+  // Úklid po formaci: odkrýt všechno, co gating nestihl (těleso bez teček,
+  // pomalý stroj), a uvolnit usazené tečky — mají alpha 0 (povrch kreslí
+  // mesh), ale jinak by se ~576k z nich transformovalo a nahrávalo na GPU
+  // každý frame až do zavření záložky.
+  if (!_formationCleaned && _realElapsed >= FORMATION_CLEANUP_AT) {
+    _formationCleaned = true;
+    for (const g of gatedMeshes) {
+      const m = bodyMeshes[g.key];
+      if (!m || m.userData.settled) continue;
       m.userData.settled = true;
       m.visible = true;
+    }
+    pool.releaseSettled();
+    // Mesh-e dosedlé až teď: v detailu je musí fadeOthers ztlumit jako ostatní.
+    if (detailView && detailView.state() === DV_STATE.DETAIL) {
+      detailView.refreshFade();
     }
   }
 
@@ -427,6 +423,7 @@ function tick() {
   if (planetLabels) planetLabels.update();
   if (asteroidLabels) asteroidLabels.update();
 
+  pool.prepareUpload();
   renderer.render(scene, camera);
 
   const tickEnd = performance.now();
@@ -445,6 +442,32 @@ function tick() {
   }
 
   requestAnimationFrame(tick);
+}
+
+/** World pozice tělesa (planeta / měsíc / asteroid) z aktuálních matrixWorld. */
+const _posTmp = new THREE.Vector3();
+function getBodyPosNow(id) {
+  const node = anchors[id] || moonAnchors[id] || asteroidAnchors[id];
+  if (!node) return { x: 0, y: 0, z: 0 };
+  node.getWorldPosition(_posTmp);
+  return { x: _posTmp.x, y: _posTmp.y, z: _posTmp.z };
+}
+
+/** Skutečný (neclampovaný) poloměr tělesa — pro kameru a minDistance. */
+function getBodyRadiusRaw(id) {
+  const p = PLANET_BY_ID[id];
+  if (p) return p.radiusPx;
+  const m = MOONS.find((mm) => mm.id === id);
+  if (m) return m.radiusPx * (m.shape?.scale ? Math.max(...m.shape.scale) : 1);
+  const a = ASTEROIDS.find((aa) => aa.id === id);
+  return a ? a.radiusPx : 1;
+}
+
+/** Konec formace: popisky, dráhy, asteroidy a pás se objeví až „dnes". */
+function revealAfterFormation() {
+  for (const obj of _revealAfterFormation) obj.visible = true;
+  if (planetLabels) planetLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
+  if (asteroidLabels) asteroidLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
 }
 
 Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
@@ -469,7 +492,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       });
     }
     mesh.visible = false;
-    anchors[p.id].add(mesh);
+    spins[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
     // Sun vyňat z gatedMeshes — jeho reveal řídí explicitní t>=6.0 gate v
     // tick() (countSettled gating pro Slunce nefunguje, viz komentář tamtéž).
@@ -478,7 +501,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     if (p.id === 'saturn' && imageData.saturn_ring) {
       const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
       ring.visible = false;
-      anchors.saturn.add(ring);
+      spins.saturn.add(ring);
       bodyMeshes['saturn_ring'] = ring;
       gatedMeshes.push({ key: 'saturn_ring', ownerIdx: SATURN_IDX, isPlanet: false, isMoon: false, parentId: 'saturn' });
     }
@@ -496,7 +519,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       continue;
     } else {
       // texture: null záměrně — fallback barevná sféra
-      mesh = buildFallbackMesh(m.radiusPx, m.color || '#808080', 10242);
+      mesh = buildFallbackMesh(m.radiusPx, m.color || '#808080', 10242, m.id);
       isFallback = true;
     }
     applyShape(mesh, m);
@@ -511,7 +534,8 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       gatedMeshes.push({ key: m.id, ownerIdx: MOON_OWNER_BASE + i, isPlanet: false, isMoon: true, parentId: m.parent });
     }
   }
-  // Asteroid meshes (Ceres / Vesta / Pallas) — vždy viditelné, nejsou gated (žádný particle owner).
+  // Asteroid meshes (Ceres / Vesta / Pallas) — nejsou gated (žádný particle
+  // owner); objeví se až po formaci (revealAfterFormation).
   for (const a of ASTEROIDS) {
     const tex = asteroidImageData[a.id] ?? null;
     let mesh;
@@ -522,10 +546,11 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       continue;
     } else {
       // texture: null záměrně — fallback barevná sféra
-      mesh = buildFallbackMesh(a.radiusPx, a.color || '#808080', 2562);
+      mesh = buildFallbackMesh(a.radiusPx, a.color || '#808080', 2562, a.id);
     }
     applyShape(mesh, a);
-    mesh.visible = true;
+    mesh.visible = false;
+    _revealAfterFormation.push(mesh);
     asteroidAnchors[a.id].add(mesh);
     bodyMeshes[a.id] = mesh;
   }
@@ -566,7 +591,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
 
   tooltip = createTooltip({ camera, canvas: renderer.domElement });
   infoPanel = createInfoPanel();
-  sunActivity = createSunActivity({ sunOwner: 0, sunRadius: PLANETS[0].radiusPx });
+  sunActivity = createSunActivity({ sunOwner: 0, sunRadius: PLANETS[0].radiusPx, sunMesh: bodyMeshes.sun });
   moonLabels = createMoonLabels({ camera, canvas: renderer.domElement, moonAnchors });
   planetLabels = createPlanetLabels({
     camera,
@@ -585,6 +610,17 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   });
   const orbitLines = createOrbitLines(scene);
   const asteroidOrbitLines = createAsteroidOrbitLines(scene);
+  // Během formace (před 4,6 mld let) ještě nejsou dnešní dráhy ani popisky.
+  planetLabels.setVisible(false);
+  asteroidLabels.setVisible(false);
+  orbitLines.setVisible(false);
+  asteroidOrbitLines.setVisible(false);
+  asteroidBelt.points.visible = false;
+  _revealAfterFormation.push(
+    { set visible(v) { orbitLines.setVisible(v); } },
+    { set visible(v) { asteroidOrbitLines.setVisible(v); } },
+    asteroidBelt.points,
+  );
 
   // Lighting toggle button — přepíná material na všech body mesh-ích:
   // VYP → MeshBasicMaterial (flat, plné barvy, ignoruje světla).
@@ -631,62 +667,40 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // default kamera (0,5000,9000) je pak nedostatečná. Auto-zoom out.
   onModeChange((mode) => {
     const fyz = mode === MODES.FYZIKALNI;
-    // Real měřítko měsíců — Triton, Iapetus, Nereid uletí daleko od rodiče.
-    setAllMoonScaleReal(fyz);
+    const mainPos = fyz ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 5000, z: 9000 };
     if (detailView && detailView.state() === DV_STATE.DETAIL) {
-      // Přepočítej pozice těles na nový mode — v DETAIL se tick() updatePlanetOrbits nevolá.
-      const d = simClock.getDate();
-      updatePlanetOrbits(anchors, PLANETS, d);
-      updateMoonOrbits(d);
-      // Teď přesuň kameru k aktuální (nové) pozici fokusovaného tělesa.
+      // Pozice se přepočtou v příštím tick() (běží i v DETAIL); tween kamery
+      // je relativní k tělesu, takže doletí k jeho NOVÉ poloze.
       detailView.refreshCamera();
+      // ESC se má vrátit na přehled NOVÉHO módu — dřív zůstala uložená
+      // kamera z módu, ve kterém se do detailu vstoupilo.
+      detailView.setReturnPose(mainPos, { x: 0, y: 0, z: 0 });
     } else {
-      if (fyz) {
-        camera.position.set(0, 90000, 160000);
-      } else {
-        camera.position.set(0, 5000, 9000);
-      }
+      // Během odletu z detailu (TRANSITION_OUT) by návratový tween kameru
+      // v dalším frame přepsal na pozici STARÉHO módu — zrušit ho.
+      if (_activeCameraTween && !_activeCameraTween.followId) _activeCameraTween = null;
+      camera.position.set(mainPos.x, mainPos.y, mainPos.z);
+      controlsTarget.x = 0; controlsTarget.y = 0; controlsTarget.z = 0;
+      controls.target.set(0, 0, 0);
       camera.lookAt(0, 0, 0);
     }
   });
 
-  // V4.4 F2 fix: scrub datumu (picker/preset) v DETAIL stavu jinak nikam nedosáhne —
-  // tick() v DETAIL nikdy nevolá updatePlanetOrbits (pozice ostatních těles i focus
-  // planety zůstávají zmrazené, viz komentář v tick()); jediný existující recompute
-  // vzor je výše v onModeChange. scrubTo() vždy nejdřív pauzne (pause() → setDate()
-  // → emit), takže gate na !isPlaying() zachytí přesně scrub a zároveň zaručí, že
-  // handler během normálního přehrávání (kdy onDateChange běží každý frame) nic
-  // nepočítá navíc — MAIN i DETAIL řeší pohyb během play beze změny tick().
-  simClock.onDateChange((d) => {
-    if (simClock.isPlaying()) return;
-    if (detailView && detailView.state() === DV_STATE.DETAIL) {
-      updatePlanetOrbits(anchors, PLANETS, d);
-      updateMoonOrbits(d);
-    }
-  });
-
-  // Helper pro body world-position
-  function getBodyPos(id) {
-    const p = PLANET_BY_ID[id];
-    if (p) return { x: anchors[id].position.x, y: anchors[id].position.y, z: anchors[id].position.z };
-    const mAnchor = moonAnchors[id];
-    if (mAnchor) {
-      const v = new THREE.Vector3();
-      mAnchor.getWorldPosition(v);
-      return { x: v.x, y: v.y, z: v.z };
-    }
-    const aAnchor = asteroidAnchors[id];
-    if (aAnchor) {
-      const v = new THREE.Vector3();
-      aAnchor.getWorldPosition(v);
-      return { x: v.x, y: v.y, z: v.z };
-    }
-    return { x: 0, y: 0, z: 0 };
+  // Detail view: zpomalený čas (oběhy měsíců viditelné, ne stroboskop) —
+  // násobitel simClocku podle fokusovaného tělesa, zpět na 1 v MAIN.
+  function applyDetailRate(id) {
+    const mul = id ? detailRateMultiplier(id) : 1;
+    simClock.setRateMultiplier(mul);
+    setDetailRateNote(mul);
   }
+
+  const getBodyPos = getBodyPosNow;
 
   // Detail view wiring
   detailView = createDetailView({
-    cameraFlyTo: (toPos, toTarget, duration) => {
+    cameraFlyTo: (toPos, toTarget, duration, followId = null) => {
+      // followId: cíl je relativní k tělesu — tick() přičítá jeho drift.
+      _follow = null;
       _activeCameraTween = {
         tween: createTween({
           fromPos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
@@ -696,7 +710,10 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
           duration,
         }),
         t: 0,
+        followId,
+        bodyStart: followId ? getBodyPosNow(followId) : null,
       };
+      applyDetailRate(followId);
     },
     getCameraState: () => ({
       pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
@@ -723,9 +740,15 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         }
         // Mesh visible vždy (po settle), opacity dim pro non-focus v detail.
         mesh.visible = !!mesh.userData.settled;
-        if (mesh.material) {
-          mesh.material.transparent = isDetail && !isFocus;
-          mesh.material.opacity = isDetail && !isFocus ? dimAlpha : 1;
+        const a = isDetail && !isFocus ? dimAlpha : 1;
+        if (mesh.material?.uniforms?.opacity) {
+          // Prstenec (ShaderMaterial) je průhledný VŽDY — přepnutí na
+          // transparent=false vypnulo blending a tmavý vnitřní prstenec C se
+          // kreslil jako neprůhledný pás přes spodek Saturnu.
+          mesh.material.uniforms.opacity.value = a;
+        } else if (mesh.material) {
+          mesh.material.transparent = a < 1;
+          mesh.material.opacity = a;
         }
       }
       // Slunce (owner 0) není v gatedMeshes (countSettled gating mu nefunguje,
@@ -779,8 +802,8 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     hidePanel: () => {
       infoPanel.hide();
       picker.setActiveIds(new Set(PLANETS.map((p) => p.id)));
-      if (planetLabels) planetLabels.setVisible(true);
-      if (asteroidLabels) asteroidLabels.setVisible(true);
+      if (planetLabels && !formationActive) planetLabels.setVisible(true);
+      if (asteroidLabels && !formationActive) asteroidLabels.setVisible(true);
       bodyList.setActive(null);
       // Obnovit všechny planet i moon dotSize na main-scene hodnoty.
       for (let i = 0; i < PLANETS.length; i++) {
@@ -798,12 +821,11 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         controlsTarget.x = target.x;
         controlsTarget.y = target.y;
         controlsTarget.z = target.z;
-        // Dynamické minDistance: kamera nesmí dovnitř tělesa. Pro Jupiter radius 90 = min 110, pro Sun 995 = 1200.
-        const focusId = detailView.focusId();
-        const p = PLANET_BY_ID[focusId];
-        const m = MOONS.find((mm) => mm.id === focusId);
-        const radius = p ? p.radiusPx : (m ? m.radiusPx : 10);
-        controls.minDistance = radius * 1.2 + 10; // povrch + buffer
+        // Dynamické minDistance: kamera nesmí dovnitř tělesa (ani near plane = 1
+        // za povrch). Dřív radius×1.2 + 10 — u měsíců s radiusPx 0.5 to
+        // nedovolilo přiblížit se víc než na 21 poloměrů.
+        const radius = getBodyRadiusRaw(detailView.focusId());
+        controls.minDistance = Math.max(radius * 1.3, radius + 1.5);
         controls.maxDistance = 500000;
       } else {
         // MAIN state — orbit kolem Slunce (origin)
@@ -816,39 +838,28 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       }
     },
     getBodyPosition: getBodyPos,
-    getBodyRadius: (id) => {
-      const p = PLANET_BY_ID[id];
-      if (p) return p.radiusPx;
-      const m = MOONS.find((mm) => mm.id === id);
-      if (m) return Math.max(m.radiusPx, 3);
-      const a = ASTEROIDS.find((aa) => aa.id === id);
-      return a ? Math.max(a.radiusPx, 3) : 1;
-    },
+    getBodyRadius: getBodyRadiusRaw,
     getCameraDistance: (id, scaleOn) => {
       // Pro planety se zahrnou i jejich měsíce (camera z-offset zahrne max moon dist).
       const p = PLANET_BY_ID[id];
       if (!p) {
-        // Moon detail — rozumný offset. Floor 12 (ne 30): měsíce s radiusPx 0.5
-        // (Phobos, Mimas, Proteus...) byly na dist 30 jen ~1.9° záběru — sub-pixel
-        // detail (VISUAL-AUDIT I3). Floor musí zůstat > controls.minDistance
-        // (radius*1.2 + 10) a > camera.near (1).
-        const m = MOONS.find((mm) => mm.id === id);
-        return m ? Math.max(m.radiusPx * 8, 12) : 40;
+        // Měsíc / asteroid — těleso má zabrat zhruba třetinu výšky záběru.
+        // Dřív floor 12 (měsíc) resp. natvrdo 40 (asteroid): měsíc s radiusPx
+        // 0.5 pak měl na obrazovce ~4° z 45°.
+        const r = getBodyRadiusRaw(id);
+        return Math.max(r * 6, r + 2);
       }
       const baseDist = p.radiusPx * 4.5;
-      // Irregular měsíce (Phoebe a=13.5, Sinope a=16, Pasiphae, Iapetus, Nereid...)
-      // se do distance nepočítají v ŽÁDNÉM módu — jejich orbity jsou řádově větší
-      // než regulární měsíce. V Pochopení hnaly Saturn dist na 2910 (base 337),
-      // kamera pak skončila u Slunce a to photobombilo detail view (VISUAL-AUDIT I2).
-      // Uživatel může zoom-out, chce-li vidět irregular orbity.
+      // Irregular měsíce (Phoebe, Sinope, Pasiphae, Iapetus, Nereid...) se do
+      // distance nepočítají v ŽÁDNÉM módu — jejich orbity jsou řádově větší
+      // než regulární měsíce (VISUAL-AUDIT I2). Uživatel může zoom-out.
       const childMoons = MOONS.filter(
         (mm) => mm.parent === id && mm.category !== 'irregular',
       );
       if (childMoons.length === 0) return baseDist;
       let maxMoonDist = 0;
       for (const m of childMoons) {
-        const factor = scaleOn ? computeRealFactor(m) : 1;
-        const moonDist = m.a * p.radiusPx * factor;
+        const moonDist = moonDisplaySemiMajor(m, scaleOn);
         if (moonDist > maxMoonDist) maxMoonDist = moonDist;
       }
       // Camera musí být dál než nejvzdálenější měsíc a celý orbit musí být ve viewportu.
@@ -861,7 +872,6 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
     isFyzikalni,
     planetAnchors: anchors,
-    getMoonScaleFactors: () => moonScaleFactors,
   });
 
   // Inicializuj OrbitControls pro MAIN stav (orbit kolem Slunce)
@@ -954,10 +964,10 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   simClock.scrubTo(new Date());
   setFormationLock(true);
 
-  clock.start();
+  clock.reset(); // první dt od teď, ne od konstrukce (load textur trvá sekundy)
   requestAnimationFrame(tick);
 }).catch((err) => {
   console.error('Texture preload failed:', err);
-  clock.start();
+  clock.reset();
   requestAnimationFrame(tick);
 });

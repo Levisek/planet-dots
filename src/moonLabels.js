@@ -21,7 +21,7 @@ export function createMoonLabels({ camera, canvas, moonAnchors }) {
     el.className = 'moonLabel';
     const name = BODY_DATA[m.id]?.name || m.name;
     const distStr = m.realSemiMajorAxisKm
-      ? `· ${(m.realSemiMajorAxisKm / 1000).toLocaleString('cs-CZ')} tis. km`
+      ? `· ${Math.round(m.realSemiMajorAxisKm / 1000).toLocaleString('cs-CZ')} tis. km`
       : '';
     el.innerHTML = `${escapeHtml(name)}<span class="dist">${escapeHtml(distStr)}</span>`;
     container.appendChild(el);

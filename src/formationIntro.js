@@ -21,6 +21,9 @@ import { phaseAt, PHASES, ACCRETION_WINDOWS, resetPhaseEmissions } from './anima
 import { PLANETS, PLANET_BY_ID } from './planets.js';
 import { getPlanetTargets } from './planetTargets.js';
 import { PHASE } from './phase.js';
+import { Vector3 } from 'three';
+
+const _tmpTarget = new Vector3();
 
 const DUST_COUNT = 12000;
 const ROTATION_PERIOD = 30; // sec / full disk spin
@@ -318,12 +321,21 @@ function emitAccretion(pool, currentTime, anchors, imageData) {
 
     const planetIdx = PLANETS.findIndex((p) => p.id === w.planetId);
     const cx = anchor.position.x, cy = anchor.position.y, cz = anchor.position.z;
+    // localOffset je v frame spin nodu (osa + rotace planety) — cíl letu musí
+    // být tam, kam tečku po přistání posadí applyClusterRotation.
+    const spinMatrix = anchor.userData?.spin?.matrixWorld ?? null;
 
     for (let k = 0; k < available; k++) {
       const idx = idleIndices[offset + k];
       const t = targets[_emitted[w.planetId] + k];
       if (!t) break;
-      const targetPos = { x: cx + t.localOffset.x, y: cy + t.localOffset.y, z: cz + t.localOffset.z };
+      let targetPos;
+      if (spinMatrix) {
+        _tmpTarget.set(t.localOffset.x, t.localOffset.y, t.localOffset.z).applyMatrix4(spinMatrix);
+        targetPos = { x: _tmpTarget.x, y: _tmpTarget.y, z: _tmpTarget.z };
+      } else {
+        targetPos = { x: cx + t.localOffset.x, y: cy + t.localOffset.y, z: cz + t.localOffset.z };
+      }
       const sourcePos = randomAnnulusSource(anchor.position, planet.radiusPx);
       const travelTime = TRAVEL_TIME_MIN + Math.random() * (TRAVEL_TIME_MAX - TRAVEL_TIME_MIN);
       pool.spawnFromDisk(

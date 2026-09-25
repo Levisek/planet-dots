@@ -1,7 +1,9 @@
 // PLANETS — data všech 9 těles V4.2.
 // Referenční měřítko: Jupiter = 180 px průměr.
 // rotationPeriod v sekundách (reálné poměry, Země = 10 s).
-// direction: 1 = prograde, -1 = retrograde.
+// direction: 1 = prograde, -1 = retrograde — vůči IAU severnímu pólu (`pole`),
+//   proto Venuše a Uran mají -1 (axialTilt > 90 je jen informativní údaj).
+// pole: severní pól rotace (RA/Dec, J2000) — z něj se staví orientace tělesa.
 // orbitRadius: vzdálenost od Slunce (= origin) v scene units.
 //   Mapping: auToDisplayRadius(au) = 1100 + 200×sqrt(au).
 // orbitalPeriodSec: kolik sekund trvá jedno obíhání.
@@ -19,6 +21,7 @@ export const PLANETS = [
     emissive: true,
     tickCount: 40962,
     axialTilt: 7.25,
+    pole: { raDeg: 286.13, decDeg: 63.87 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 270, // 27 dní real (Earth = 1 den = 10s, Sun = 27d = 270s)
     direction: 1,
     orbitRadius: 0,
@@ -38,6 +41,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 0.03,
+    pole: { raDeg: 281.0103, decDeg: 61.4155 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 586,
     direction: 1,
     category: 'planet',
@@ -63,6 +67,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 177.4,
+    pole: { raDeg: 272.76, decDeg: 67.16 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 2430,
     direction: -1,
     category: 'planet',
@@ -88,6 +93,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 23.44,
+    pole: { raDeg: 0, decDeg: 90 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 10,
     direction: 1,
     category: 'planet',
@@ -113,6 +119,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 25.19,
+    pole: { raDeg: 317.269, decDeg: 54.433 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 10.25,
     direction: 1,
     category: 'planet',
@@ -138,6 +145,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 3.13,
+    pole: { raDeg: 268.057, decDeg: 64.495 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 4.1,
     direction: 1,
     category: 'planet',
@@ -166,6 +174,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 26.73,
+    pole: { raDeg: 40.589, decDeg: 83.537 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 4.5,
     direction: 1,
     category: 'planet',
@@ -191,6 +200,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 97.77,
+    pole: { raDeg: 257.311, decDeg: -15.175 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 7.2,
     direction: -1,
     category: 'planet',
@@ -216,6 +226,7 @@ export const PLANETS = [
     emissive: false,
     tickCount: 40962,
     axialTilt: 28.32,
+    pole: { raDeg: 299.36, decDeg: 43.46 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 6.7,
     direction: 1,
     category: 'planet',

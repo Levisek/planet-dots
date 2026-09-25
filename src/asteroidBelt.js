@@ -12,11 +12,14 @@ function auToDisplayMode(au) {
 /**
  * Vytvoří particle ring jako THREE.Points.
  * 300 asteroidů s gaussian distribucí kolem 2.8 AU (Peak asteroid belt).
- * Statický v lokálním frame, rotuje kolem Y osy s periodou ~30s.
- * Reaguje na simMode (Pochopení/Fyzikální) — přepočítá pozice při mode change.
+ * Každá částice obíhá Keplerovou rychlostí podle své vzdálenosti (T = a^1.5
+ * roku) a úhel se počítá ze simulačního data — pás tak drží krok s Ceres/
+ * Vestou/Pallas, respektuje scrub i reverse. Dřív rotoval jako tuhý disk
+ * s periodou 30 s akumulovaného času (Ceres 17 s) a scrub ho ignoroval.
+ * Reaguje na simMode (Pochopení/Fyzikální) — poloměr podle módu.
  *
  * @param {THREE.Scene} scene
- * @returns {{points: THREE.Points, update: (simElapsed: number) => void}}
+ * @returns {{points: THREE.Points, update: (date: Date) => void}}
  */
 export function createAsteroidBelt(scene) {
   const { count, innerAU, outerAU, peakAU, sigmaAU, sizeRange, colorRange } = ASTEROID_BELT;
@@ -63,7 +66,7 @@ export function createAsteroidBelt(scene) {
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage)); // update() každý frame
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
@@ -77,24 +80,31 @@ export function createAsteroidBelt(scene) {
   const points = new THREE.Points(geometry, material);
   scene.add(points);
 
-  // Při změně simMode přepočítej pozice všech particles
-  onModeChange(() => {
+  // Poloměr podle módu (cache, přepočet při změně simMode) + úhlová
+  // rychlost per částice (rad/den) z Keplerova 3. zákona.
+  const particleRadius = new Float32Array(count);
+  const particleOmega = new Float32Array(count);
+  function recomputeRadii() {
+    for (let i = 0; i < count; i++) particleRadius[i] = auToDisplayMode(particleAU[i]);
+  }
+  recomputeRadii();
+  for (let i = 0; i < count; i++) {
+    const periodDays = 365.25 * Math.pow(particleAU[i], 1.5);
+    // Prograde v scene frame = záporný úhel v X-Z (viz coordinateFrame).
+    particleOmega[i] = -(2 * Math.PI) / periodDays;
+  }
+  onModeChange(recomputeRadii);
+
+  const J2000_MS = Date.UTC(2000, 0, 1, 12);
+  function update(date) {
+    const days = (date.getTime() - J2000_MS) / 86400000;
     const posArr = geometry.attributes.position.array;
     for (let i = 0; i < count; i++) {
-      const radius = auToDisplayMode(particleAU[i]);
-      posArr[i * 3] = radius * Math.cos(particleAngle[i]);
-      posArr[i * 3 + 2] = radius * Math.sin(particleAngle[i]);
-      // Y zůstává stejný (particleY[i] nezávisí na mode)
+      const ang = particleAngle[i] + ((days * particleOmega[i]) % (2 * Math.PI));
+      posArr[i * 3] = particleRadius[i] * Math.cos(ang);
+      posArr[i * 3 + 2] = particleRadius[i] * Math.sin(ang);
     }
     geometry.attributes.position.needsUpdate = true;
-  });
-
-  // Belt rotuje kolem Y osy s periodou ~30s sim (průměrný asteroid period ve Pochopení tempu)
-  const ROTATION_PERIOD_SEC = 30;
-  const omega = (2 * Math.PI) / ROTATION_PERIOD_SEC;
-
-  function update(simElapsed) {
-    points.rotation.y = simElapsed * omega;
   }
 
   return { points, update };

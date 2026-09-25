@@ -10,6 +10,7 @@ let _playPauseBtn = null;
 let _datePicker = null;
 let _presetSelect = null;
 let _rangeNote = null;
+let _detailNote = null;
 let _container = null;
 
 let _lastTimeScale = null;
@@ -46,8 +47,19 @@ function isoDateFromDate(date) {
   return `${y}-${m}-${d}`;
 }
 
+// Ikony jako inline SVG — Press Start 2P nemá ⏸ ▶ ◀ a bez systémového
+// fallback fontu (headless, kiosky, TV) z nich byly prázdné čtverečky.
+const ICON_PAUSE = '<svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M2 1h2v8H2zM6 1h2v8H6z" fill="currentColor"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>';
+const ICON_REVERSE = '<svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M8 1L1 5l7 4z" fill="currentColor"/></svg>';
+
+let _iconPlaying = null;
 function updatePlayPauseIcon() {
-  _playPauseBtn.textContent = isPlaying() ? '⏸' : '▶';
+  const playing = isPlaying();
+  if (playing === _iconPlaying) return; // volá se každý frame — DOM sahat jen při změně
+  _iconPlaying = playing;
+  _playPauseBtn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+  _playPauseBtn.setAttribute('aria-label', playing ? 'Pauza' : 'Přehrát');
 }
 
 // Datum label + picker + rozsahová poznámka — aktualizováno reaktivně z
@@ -97,6 +109,7 @@ function tickSpeedUI() {
     _lastTimeScale = v;
     _timeScaleSlider.value = speedToSlider(Math.abs(v));
     _speedLabel.textContent = `${v.toFixed(2)}×`;
+    _reverseBtn.classList.toggle('active', v < 0);
   }
   updatePlayPauseIcon();
   requestAnimationFrame(tickSpeedUI);
@@ -110,8 +123,8 @@ export function initTimeControls() {
   _container = document.createElement('div');
   _container.id = 'time-controls';
   _container.innerHTML = `
-    <button id="play-pause-btn" title="Přehrát/pauza (mezerník)">⏸</button>
-    <button id="reverse-btn" title="Reverse playback (\\)">◀</button>
+    <button id="play-pause-btn" title="Přehrát/pauza (mezerník)"></button>
+    <button id="reverse-btn" title="Obrátit směr času (\\)" aria-label="Obrátit směr času">${ICON_REVERSE}</button>
     <input type="range" id="speed-slider" min="0" max="100" value="50" />
     <span id="speed-label">0.5×</span>
     <input type="date" id="date-picker" />
@@ -120,6 +133,7 @@ export function initTimeControls() {
       <option value="">— přejít na událost —</option>
     </select>
     <span id="date-range-note"></span>
+    <span id="detail-rate-note" title="V detailu se čas zpomalí, aby byly vidět oběhy měsíců"></span>
   `;
   document.body.appendChild(_container);
 
@@ -131,6 +145,7 @@ export function initTimeControls() {
   _dateLabel = _container.querySelector('#date-label');
   _presetSelect = _container.querySelector('#preset-select');
   _rangeNote = _container.querySelector('#date-range-note');
+  _detailNote = _container.querySelector('#detail-rate-note');
 
   for (const preset of DATE_PRESETS) {
     const opt = document.createElement('option');
@@ -179,6 +194,20 @@ export function initTimeControls() {
   });
 
   tickSpeedUI();
+}
+
+/**
+ * Poznámka o zpomaleném čase v detail view (násobitel simClocku z main.js).
+ * @param {number} mul — 1 = normální běh (poznámka zmizí)
+ */
+export function setDetailRateNote(mul) {
+  if (!_detailNote) return;
+  if (mul >= 1) {
+    _detailNote.textContent = '';
+    return;
+  }
+  const factor = Math.round(1 / mul);
+  _detailNote.textContent = `detail: čas ${factor.toLocaleString('cs-CZ')}× pomaleji`;
 }
 
 /**

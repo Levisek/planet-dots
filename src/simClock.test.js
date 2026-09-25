@@ -83,3 +83,16 @@ test('play sám o sobě datum nemění (no-jump kontrakt, chrání proti C1 regr
   clock.play();
   assert.equal(clock.getDate().getTime(), x.getTime());
 });
+
+test('rate multiplier zpomalí tick nezávisle na timeScale', async () => {
+  const c = await import('./simClock.js');
+  c.setTimeScale(1);
+  c.setRateMultiplier(0.5);
+  c.setDate(new Date(Date.UTC(2020, 0, 1)));
+  c.play();
+  const t0 = c.getDate().getTime();
+  c.tick(1000); // 1 s reálně = 36.525 dne × 0.5
+  const days = (c.getDate().getTime() - t0) / 86400000;
+  assert.ok(Math.abs(days - 365.25 / 10 / 2) < 1e-6, `days = ${days}`);
+  c.setRateMultiplier(1);
+});

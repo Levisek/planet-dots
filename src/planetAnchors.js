@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { PLANETS } from './planets.js';
 import { orbitalPosition } from './planetOrbits.js';
+import { poleToScene } from './coordinateFrame.js';
+
+const _UP = new THREE.Vector3(0, 1, 0);
 
 /**
  * Načte texturu jako HTMLImageElement, vykreslí ji na offscreen canvas
@@ -24,28 +27,38 @@ function loadImageData(url) {
 }
 
 /**
- * Vytvoří anchory (Object3D) pro 9 těles — pouze pozice + axial tilt,
- * žádná geometrie ani textura v sceně. Textury se načtou jako ImageData
- * pro color sampling na tečky.
+ * Vytvoří anchory (Object3D) pro 9 těles — `anchors` (pozice) + `spins`
+ * (orientace osy + rotace, child anchoru). Žádná geometrie ani textura ve
+ * scéně. Textury se načtou jako ImageData pro color sampling na tečky.
  *
  * @param {THREE.Scene} scene
- * @returns {{ anchors: Object, imageData: Object, loaded: Promise<void> }}
+ * @returns {{ anchors: Object, spins: Object, imageData: Object, loaded: Promise<void> }}
  */
 export function createPlanetAnchors(scene) {
   const anchors = {};
+  const spins = {};
   const imageData = {};
   const loadPromises = [];
 
   for (const p of PLANETS) {
-    // Anchor = prázdný Object3D na pozici planety v 3D soustavě (kruhová orbita
-    // kolem origin, axial tilt aplikovaný). updatePlanetOrbits hýbe pozicí v MAIN.
+    // Dvě úrovně: `anchor` nese jen POZICI (bez rotace) — pod ním visí měsíce
+    // a jejich orbit lines, jejichž relativní pozice jsou v ekliptickém frame.
+    // `spin` (child) nese orientaci osy (IAU pól) + vlastní rotaci planety;
+    // pod ním je mesh, prstenec a tečky povrchu. Dřív byly měsíce přímo pod
+    // rotujícím anchorem → jejich dráhy se točily s planetou (u Jupiteru
+    // jednou za 4 s) a sklon osy se k reálnému sklonu drah přičítal podruhé.
     const anchor = new THREE.Object3D();
-    const pos = orbitalPosition(p, 0);
+    const pos = orbitalPosition(p, new Date());
     anchor.position.set(pos.x, pos.y, pos.z);
-    anchor.rotation.x = THREE.MathUtils.degToRad(p.axialTilt);
     anchor.userData.planet = p;
+    const spin = new THREE.Object3D();
+    const pole = poleToScene(p.pole.raDeg, p.pole.decDeg);
+    spin.quaternion.setFromUnitVectors(_UP, new THREE.Vector3(pole.x, pole.y, pole.z));
+    anchor.add(spin);
+    anchor.userData.spin = spin;
     scene.add(anchor);
     anchors[p.id] = anchor;
+    spins[p.id] = spin;
 
     // Load texture as ImageData.
     loadPromises.push(
@@ -65,5 +78,5 @@ export function createPlanetAnchors(scene) {
   }
 
   const loaded = Promise.all(loadPromises).then(() => {});
-  return { anchors, imageData, loaded };
+  return { anchors, spins, imageData, loaded };
 }

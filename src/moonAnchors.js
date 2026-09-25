@@ -47,7 +47,7 @@ export function createMoonAnchors(_scene, planetAnchors) {
     // pozice (x, 0, z) se updatuje per-frame v main.js z orbitPosition
     anchor.position.set(0, 0, 0);
     anchor.userData.moon = m;
-    parent.add(anchor); // child of planet anchor → dědí axial tilt
+    parent.add(anchor); // child POZIČNÍHO anchoru planety — záměrně bez její rotace a sklonu osy (ty nese sourozenec `spin`)
     anchors[m.id] = anchor;
 
     loadPromises.push(

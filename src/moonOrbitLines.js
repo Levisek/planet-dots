@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { getRelativePosition } from './positionProvider.js';
 import { toDisplayRelative } from './simMode.js';
+import { getDate as getSimDate } from './simClock.js';
 
 const ORBIT_LINE_MATERIAL = new THREE.LineBasicMaterial({
   color: 0x6688aa,
@@ -20,7 +21,7 @@ const MOON_PERIOD_DAYS = {
   luna: 27.322, io: 1.769, europa: 3.551, ganymede: 7.155, callisto: 16.689,
 };
 
-function periodDaysOf(moon) {
+export function moonPeriodDays(moon) {
   return moon.elements ? moon.elements.periodDays : MOON_PERIOD_DAYS[moon.id];
 }
 
@@ -30,12 +31,12 @@ function periodDaysOf(moon) {
  * Pure function nad providerem — vrací THREE.Vector3[] v relativních scene units.
  */
 function sampleMoonCurve(moon, baseDate, segments = SEGMENTS) {
-  const period = periodDaysOf(moon);
+  const period = moonPeriodDays(moon);
   const points = [];
   for (let i = 0; i <= segments; i++) {
     const d = new Date(baseDate.getTime() + (i / segments) * period * 86400000);
     const rel = getRelativePosition(moon.id, d);
-    const disp = toDisplayRelative(rel);
+    const disp = toDisplayRelative(rel, moon);
     points.push(new THREE.Vector3(disp.x, disp.y, disp.z));
   }
   return points;
@@ -43,7 +44,8 @@ function sampleMoonCurve(moon, baseDate, segments = SEGMENTS) {
 
 /**
  * Vytvoří moon orbit lines pro všechny moony jedné planety.
- * Lines jsou children planet anchoru (dědí axial tilt), vzorkované z reálného
+ * Lines jsou children planet anchoru (jen pozice, bez rotace planety — stejný
+ * frame jako moon anchors), vzorkované z reálného
  * position provideru — kryjí se s moon dot pozicí by construction.
  *
  * @param {string} planetId
@@ -55,7 +57,9 @@ export function showFor(planetId, planetAnchors, moonsByPlanet) {
   const planet = planetAnchors[planetId];
   if (!planet) return [];
   const moons = moonsByPlanet[planetId] || [];
-  const baseDate = new Date();
+  // Vzorkovat od simulačního data, ne od dnešního — po scrubu o tisíce let
+  // by jinak (precese uzlů) dráha neseděla s polohou měsíce.
+  const baseDate = getSimDate();
   const lines = [];
   for (const m of moons) {
     const points = sampleMoonCurve(m, baseDate);
