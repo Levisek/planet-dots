@@ -74,3 +74,18 @@ test('updateFlight bez letících teček nenahrává atributy', () => {
   pool.updateFlight(1, 0.016);
   assert.equal(pool.posAttr.version, v);
 });
+
+test('setOwnerSize platí i pro tečky vypuštěné až po něm (detail během formace)', () => {
+  const pool = new ParticlePool(8, 4);
+  pool.setOwnerSize(3, 0.05);
+  pool.spawnFromDisk(0, { x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }, { x: 1, y: 0, z: 0 },
+    [1, 1, 1], 3, PHASE.ON_PLANET, 0, 1, 1, 6.0);
+  assert.ok(Math.abs(pool.size[0] - 0.05) < 1e-6);
+  // Prstenec si drží vlastní velikost, jiný vlastník výchozí.
+  pool.spawnFromDisk(1, { x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }, { x: 1, y: 0, z: 0 },
+    [1, 1, 1], 3, PHASE.ON_RING, 0, 1, 1, 4.5);
+  assert.equal(pool.size[1], 4.5);
+  pool.spawnFromDisk(2, { x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }, { x: 1, y: 0, z: 0 },
+    [1, 1, 1], 2, PHASE.ON_PLANET, 0, 1, 1, 6.0);
+  assert.equal(pool.size[2], 6.0);
+});

@@ -11,6 +11,20 @@ export function createBodyList({ onClick }) {
   root.id = 'bodyList';
   document.body.appendChild(root);
 
+  // Na telefonu je seznam schovaný za tlačítkem (CSS @media v index.html);
+  // na desktopu tlačítko není vidět a seznam je otevřený vždy.
+  const toggle = document.createElement('button');
+  toggle.id = 'bodyListToggle';
+  toggle.textContent = 'Tělesa'; // Press Start 2P nemá velké Ě
+  toggle.setAttribute('aria-controls', 'bodyList');
+  toggle.setAttribute('aria-expanded', 'false');
+  document.body.appendChild(toggle);
+  function setOpen(open) {
+    root.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+  }
+  toggle.addEventListener('click', () => setOpen(!root.classList.contains('open')));
+
   const items = {};
 
   function addItem(id, name, label) {
@@ -18,7 +32,10 @@ export function createBodyList({ onClick }) {
     el.className = 'item';
     el.textContent = label || name;
     el.title = name;
-    el.addEventListener('click', () => onClick && onClick(id));
+    el.addEventListener('click', () => {
+      setOpen(false); // na telefonu po výběru uvolnit scénu
+      if (onClick) onClick(id);
+    });
     items[id] = el;
     return el;
   }
@@ -59,6 +76,7 @@ export function createBodyList({ onClick }) {
     },
     dispose() {
       root.remove();
+      toggle.remove();
     },
   };
 }

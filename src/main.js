@@ -762,7 +762,6 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
       target: { x: controlsTarget.x, y: controlsTarget.y, z: controlsTarget.z },
     }),
-    setPaused: () => { /* placeholder — pauza se řídí přes detailView.state() v tick() */ },
     fadeOthers: (focusId, alpha) => {
       // alpha < 1 = detail focus, alpha = 1 = MAIN view.
       // Ostatní planety zůstávají viditelné v detail (kvůli orientaci v soustavě),

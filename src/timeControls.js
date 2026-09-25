@@ -62,10 +62,19 @@ function updatePlayPauseIcon() {
   _playPauseBtn.setAttribute('aria-label', playing ? 'Pauza' : 'Přehrát');
 }
 
+// Zápis do DOM jen při změně — onDateChange při přehrávání chodí každý
+// frame, ale label/picker se mění nejvýš jednou za simulační den a
+// disabled/poznámka skoro nikdy.
+function setText(el, text) { if (el.textContent !== text) el.textContent = text; }
+function setPicker(value, disabled) {
+  if (_datePicker.value !== value) _datePicker.value = value;
+  if (_datePicker.disabled !== disabled) _datePicker.disabled = disabled;
+}
+
 // Datum label + picker + rozsahová poznámka — aktualizováno reaktivně z
 // onDateChange (ne per-frame RAF, viz task-5 brief).
 function updateDateUI(date) {
-  _dateLabel.textContent = formatCalendar(date);
+  setText(_dateLabel, formatCalendar(date));
 
   const y = date.getUTCFullYear();
   // Picker je otevřený nativní popup (má focus) → nepřepisovat .value/.disabled
@@ -76,26 +85,16 @@ function updateDateUI(date) {
   // picker zůstává disabled bez ohledu na rok (setFormationLock volá tuto
   // funkci znovu při unlocku, aby BCE-range logika převzala vládu zpět).
   if (_formationLocked) {
-    if (!pickerFocused) _datePicker.disabled = true;
+    if (!pickerFocused) setPicker(_datePicker.value, true);
   } else if (y < 1 || y > 9999) {
     // <input type="date"> neumí BCE ani roky >9999 → mimo tento rozsah picker
     // disable, uživatel se spoléhá na label + presety.
-    if (!pickerFocused) {
-      _datePicker.value = '';
-      _datePicker.disabled = true;
-    }
+    if (!pickerFocused) setPicker('', true);
   } else {
-    if (!pickerFocused) {
-      _datePicker.disabled = false;
-      _datePicker.value = isoDateFromDate(date);
-    }
+    if (!pickerFocused) setPicker(isoDateFromDate(date), false);
   }
 
-  if (y <= MIN_YEAR || y >= MAX_YEAR) {
-    _rangeNote.textContent = 'rozsah modelu VSOP87';
-  } else {
-    _rangeNote.textContent = '';
-  }
+  setText(_rangeNote, y <= MIN_YEAR || y >= MAX_YEAR ? 'rozsah modelu VSOP87' : '');
 }
 
 // Rychlostní slider/label nemá v simClock event ekvivalent onTimeScaleChange

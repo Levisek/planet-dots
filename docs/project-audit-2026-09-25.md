@@ -160,17 +160,26 @@ rozsah. `THREE.Clock` (deprecated) → `THREE.Timer` s Page Visibility, strop dt
 - **Popisky měsíců** v detailu: za kotoučem rodiče se nekreslí a rozmisťují se
   stejným declutterem jako planety (DIONE/TETHYS u Saturnu přes sebe).
 
-## Technický dluh (beze změny)
+## Technický dluh
 
-- `simMode.js` drží legacy gettery (`getOrbitRadius`, `getInclination`, …)
-  a vlastní `timeScale`, které už nic mimo testy nevolá (autorita je `simClock`);
-  `simulationDate.getSimulationDate/formatRelative`, `reset*` funkce pro
-  neexistující restart, `setPaused` placeholder, `detailDotSize`/`setOwnerSize`
-  (tečky jsou po příletu neviditelné, nemá to efekt).
+Vyřešeno 2026-09-25 (třetí kolo):
+
+- Legacy část `simMode.js` (gettery `getOrbitRadius`, `getInclination`, …,
+  vlastní `timeScale`), `getSimulationDate`/`formatRelative`, `sampleRingColor`
+  a placeholder `setPaused` odstraněny — mimo testy je nic nevolalo. Testy
+  jen tohoto kódu (19) šly s ním.
+- `detailDotSize` efekt má (během formace jsou tečky na tělese vidět, než se
+  odkryje mesh). Tečky vypuštěné až po vstupu do detailu teď dostanou
+  velikost detailu — `ParticlePool.ownerSize` + `_spawnSize`.
+- `timeControls` zapisuje do DOM jen změněné hodnoty.
+- Telefon (≤ 700 px): seznam těles za tlačítkem „Tělesa", info panel
+  a časová lišta na šířku displeje, lišta se zalamuje, nápověda kláves skrytá.
+  Dřív panel 32 px za levým okrajem a lišta širší než displej.
+
+Zbývá:
+
 - `main.js` ~1 000 řádků — kompoziční kořen dál bobtná.
-- `timeControls` sahá na DOM každý frame (datum + `picker.value` přes
-  `onDateChange` při přehrávání).
-- Layout na telefonu: seznam těles, info panel a časový HUD se překrývají.
-- Klik do detailu během formace: tečky, které k tělesu teprve letí, mají velikost
-  z přehledu (`dotSize`), ne `detailDotSize` — `setOwnerSize` se volá jen při
-  vstupu. Existovalo i před auditem (formace v detailu běžela už od F3).
+- `reset*` funkce (`resetSunWind`, `resetHyperion`, …) slouží jen testům
+  k izolaci stavu modulu — nechané záměrně.
+- Pole dat pro pre-V4.4 cestu (`orbitRadius`, `orbitalPeriodSec`, `period`,
+  `e`/`eReal` …) v `planets.js`/`moons.js` — část čtou testy schématu.

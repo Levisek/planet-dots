@@ -1,13 +1,12 @@
-// simMode — dva režimy simulace.
+// simMode — dva režimy zobrazení. Od V4.4 jsou pozice, periody i dráhy
+// reálné z efemerid (positionProvider) v obou módech; mód mění jen měřítko:
 //
-//   POCHOPENÍ (default): vizuálně srozumitelný — outer planety zrychlené,
-//     compressed sqrt mapping vzdáleností, eccentricity moonů max 0.05.
-//   FYZIKÁLNÍ: real proporce. Linear AU mapping (Neptune ~10× dál než Earth),
-//     real periody (Iapetus 84× pomalejší než Mimas), real eccentricity včetně
-//     extrémní Nereid e=0.75.
+//   POCHOPENÍ (default): komprimované vzdálenosti (1100 + 350·√AU), soustavy
+//     měsíců podle ručně laděného `m.a`, Slunce zmenšené (main.js).
+//   FYZIKÁLNÍ: lineární AU, soustavy měsíců ve věrném poměru k rodiči.
 //
-// Každá data zdroj (planets.js, moons.js) drží oba sady polí: `orbitRadius`/
-// `orbitRadiusReal` a `period`/`periodReal`. Getteři níže vrátí podle mode.
+// Pre-V4.4 gettery (getOrbitRadius, getInclination, …) a vlastní timeScale
+// byly odstraněny 2026-09-25 — autoritou času je simClock.
 
 import { auToDisplayRadius } from './scale.js';
 import { moonDisplayScale } from './moonScale.js';
@@ -20,25 +19,12 @@ const MODE = {
 let _current = MODE.POCHOPENI;
 const _listeners = [];
 
-// timeScale — globální scalar pro time simulation (0.1x – 5x, default 0.5)
-let _timeScale = 0.5;
-let _userOverrideTimeScale = false;
-const _timeScaleListeners = [];
-
 export function getMode() { return _current; }
 
 export function setMode(id) {
   if (id !== MODE.POCHOPENI && id !== MODE.FYZIKALNI) return;
   if (_current === id) return;
   _current = id;
-  // Auto-default timeScale per mode pokud user nemá explicit override
-  if (!_userOverrideTimeScale) {
-    const newScale = id === MODE.POCHOPENI ? 0.5 : 1.0;
-    if (newScale !== _timeScale) {
-      _timeScale = newScale;
-      for (const cb of _timeScaleListeners) cb(_timeScale);
-    }
-  }
   for (const cb of _listeners) cb(_current);
 }
 
@@ -51,89 +37,6 @@ export function onModeChange(cb) {
 }
 
 export function isFyzikalni() { return _current === MODE.FYZIKALNI; }
-
-// --- Data resolvers ---
-
-// LEGACY (pre-V4.4): používá stará animační cesta; odstranit po plné migraci na positionProvider.
-
-/** Aktuální orbitRadius planety podle mode. Sun (orbitRadius=0) vždy 0. */
-export function getOrbitRadius(planet) {
-  if (planet.orbitRadius === 0) return 0;
-  return _current === MODE.FYZIKALNI && planet.orbitRadiusReal !== undefined
-    ? planet.orbitRadiusReal
-    : planet.orbitRadius;
-}
-
-/** Aktuální period planety. */
-export function getOrbitalPeriod(planet) {
-  return _current === MODE.FYZIKALNI && planet.orbitalPeriodSecReal !== undefined
-    ? planet.orbitalPeriodSecReal
-    : planet.orbitalPeriodSec;
-}
-
-/** Univerzální getter pro eccentricity — vrátí eReal v FYZIKALNI mode, jinak e. */
-export function getEccentricity(body) {
-  if (_current === MODE.FYZIKALNI && body.eReal !== undefined) return body.eReal;
-  return body.e ?? 0;
-}
-
-// Backward-compat alias — deprecate v F4 cleanup
-export const getMoonE = getEccentricity;
-
-/** Aktuální period moonu (kolem rodičovské planety). */
-export function getMoonPeriod(moon) {
-  return _current === MODE.FYZIKALNI && moon.periodReal !== undefined
-    ? moon.periodReal
-    : moon.period;
-}
-
-// --- Inclination with per-category clamp ---
-
-// LEGACY (pre-V4.4): používá stará animační cesta; odstranit po plné migraci na positionProvider.
-const INCLINATION_CAPS = {
-  planet: 5,
-  moon: 15,
-  irregular: 30,
-  dwarf: 30,
-};
-
-export function getInclination(body) {
-  const real = body.inclinationDeg;
-  if (real === undefined) return 0;
-  if (_current === MODE.FYZIKALNI) return real;
-
-  const cap = INCLINATION_CAPS[body.category] ?? 15;
-  const effective = real > 90 ? 180 - real : real;
-  const clamped = Math.min(effective, cap);
-  return real > 90 ? 180 - clamped : clamped;
-}
-
-/** Derived helper — true pokud má těleso retrográdní oběh (inclinationDeg > 90). */
-export function isRetrograde(body) {
-  return (body.inclinationDeg ?? 0) > 90;
-}
-
-// --- timeScale getter/setter + listeners ---
-
-export function getTimeScale() { return _timeScale; }
-
-export function setTimeScale(x) {
-  if (x === _timeScale) return;
-  _timeScale = x;
-  _userOverrideTimeScale = true;
-  for (const cb of _timeScaleListeners) cb(_timeScale);
-}
-
-export function onTimeScaleChange(cb) {
-  _timeScaleListeners.push(cb);
-  return () => {
-    const i = _timeScaleListeners.indexOf(cb);
-    if (i >= 0) _timeScaleListeners.splice(i, 1);
-  };
-}
-
-export function _resetTimeScaleOverride() { _userOverrideTimeScale = false; }
-export function _isTimeScaleOverridden() { return _userOverrideTimeScale; }
 
 // --- Mód jako zobrazovací transformace (V4.4 position path) ---
 

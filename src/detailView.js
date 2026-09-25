@@ -63,7 +63,6 @@ export function createDetailView(deps) {
     }
     const { pos, target } = computeDetailCameraOffset(id);
     _timer = 0;
-    deps.setPaused(true);
     deps.fadeOthers(id, 0);
     deps.cameraFlyTo(pos, target, TRANSITION_DURATION, id);
   }
@@ -119,7 +118,6 @@ export function createDetailView(deps) {
     _focusId = null;
     _returnPos = null;
     _returnTarget = null;
-    deps.setPaused(false);
   }
 
   return {

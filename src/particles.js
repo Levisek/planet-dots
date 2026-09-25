@@ -53,6 +53,10 @@ export class ParticlePool {
   constructor(count, ownerCount = 64) {
     this.count = count;
     this.ownerAlphaMul = new Float32Array(ownerCount).fill(1);
+    // Aktuální velikost teček vlastníka (0 = výchozí z dat). setOwnerSize ji
+    // nastaví při vstupu do detailu — spawn ji pak použije i pro tečky, které
+    // k tělesu teprve vyletí (dřív dostaly velikost z přehledu).
+    this.ownerSize = new Float32Array(ownerCount);
     // Horní hranice (exkluzivní) indexů, které kdy byly ne-IDLE. Per-frame
     // smyčky, upload na GPU i draw range jedou jen do ní — po formaci
     // (releaseSettled + compact) žije v poolu jen pár set částic větru
@@ -132,14 +136,22 @@ export class ParticlePool {
   /**
    * Přepíše size[i] pro všechny tečky daného ownera — kromě ON_RING (ring má
    * vlastní velikost). Volá se z detail view při vstupu / výstupu.
+   * Zapamatuje si ji i pro budoucí spawn (viz _spawnSize).
    */
   setOwnerSize(ownerIdx, size) {
+    this.ownerSize[ownerIdx] = size;
     for (let i = 0; i < this.activeEnd; i++) {
       if (this.owner[i] === ownerIdx && this.phase[i] !== PHASE.ON_RING) {
         this.size[i] = size;
       }
     }
     this.sizeAttr.needsUpdate = true;
+  }
+
+  /** Velikost nově vypuštěné tečky: aktuální velikost vlastníka, jinak z dat. */
+  _spawnSize(ownerIdx, finalPhase, requested) {
+    const cur = this.ownerSize[ownerIdx];
+    return cur > 0 && finalPhase !== PHASE.ON_RING ? cur : requested;
   }
 
   flushAll() {
@@ -312,11 +324,8 @@ export class ParticlePool {
     this.ownerAlpha[i] = this.ownerAlphaMul[planetOwnerIdx];
     this.phase[i] = PHASE.FLYING;
     this.finalPhase[i] = finalPhase; // ON_PLANET nebo ON_RING — ukládáme explicitně
-    if (finalSize !== null) {
-      this.size[i] = finalSize;
-    } else {
-      this.size[i] = (finalPhase === PHASE.ON_RING) ? 4.5 : 6.0;
-    }
+    this.size[i] = this._spawnSize(planetOwnerIdx, finalPhase,
+      finalSize !== null ? finalSize : (finalPhase === PHASE.ON_RING ? 4.5 : 6.0));
   }
 
   /**
@@ -371,7 +380,7 @@ export class ParticlePool {
     this.ownerAlpha[i] = this.ownerAlphaMul[ownerIdx];
     this.phase[i] = PHASE.FLYING;
     this.finalPhase[i] = finalPhase;
-    this.size[i] = finalSize !== null ? finalSize : 6.0;
+    this.size[i] = this._spawnSize(ownerIdx, finalPhase, finalSize !== null ? finalSize : 6.0);
   }
 
   /**
@@ -438,7 +447,7 @@ export class ParticlePool {
     this.ownerAlpha[i] = this.ownerAlphaMul[moonOwnerIdx];
     this.phase[i] = PHASE.FLYING;
     this.finalPhase[i] = PHASE.ON_MOON;
-    this.size[i] = finalSize;
+    this.size[i] = this._spawnSize(moonOwnerIdx, PHASE.ON_MOON, finalSize);
   }
 
   /**

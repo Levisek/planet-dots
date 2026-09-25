@@ -8,7 +8,6 @@ function makeMockDeps() {
     calls,
     cameraFlyTo: (toPos, toTarget, duration) => { calls.push(['fly', toPos, toTarget, duration]); },
     getCameraState: () => ({ pos: { x: 0, y: 40, z: 2000 }, target: { x: 0, y: 0, z: 0 } }),
-    setPaused: (v) => { calls.push(['paused', v]); },
     fadeOthers: (focusId, alpha) => { calls.push(['fade', focusId, alpha]); },
     showPanel: (id, opts) => { calls.push(['panel', id, opts]); },
     hidePanel: () => { calls.push(['hidePanel']); },
@@ -89,7 +88,7 @@ test('setReturnPose: exit letí na nově nastavenou pozici', async () => {
   const dv = createDetailView({
     cameraFlyTo: (p, t, d, f) => calls.push(['fly', p, t, d, f]),
     getCameraState: () => ({ pos: { x: 0, y: 5000, z: 9000 }, target: { x: 0, y: 0, z: 0 } }),
-    setPaused: () => {}, fadeOthers: () => {}, showPanel: () => {}, hidePanel: () => {},
+    fadeOthers: () => {}, showPanel: () => {}, hidePanel: () => {},
     enableOrbit: () => {}, getBodyPosition: () => ({ x: 100, y: 0, z: 0 }), getBodyRadius: () => 5,
   });
   dv.enter('mars');
