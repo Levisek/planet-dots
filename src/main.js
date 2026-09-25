@@ -444,7 +444,10 @@ function tick(timestamp) {
   // Tooltip follow (updatuje screen pos)
   if (tooltip) tooltip.update();
   // Moon labels (viditelné v planet-detail)
-  if (moonLabels) moonLabels.update();
+  if (moonLabels) {
+    const shownMoonLabels = moonLabels.update();
+    if (shownMoonLabels.length) applyDeclutter(shownMoonLabels);
+  }
   // Popisky planet a planetek se rozmisťují společně — kolidují spolu
   // (CERES/PALLAS přes ZEMI/MARS v Pochopení).
   const shownLabels = [
@@ -622,7 +625,13 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   tooltip = createTooltip({ camera, canvas: renderer.domElement });
   infoPanel = createInfoPanel();
   sunActivity = createSunActivity({ sunOwner: 0, sunRadius: getSunRadius(), sunMesh: bodyMeshes.sun });
-  moonLabels = createMoonLabels({ camera, canvas: renderer.domElement, moonAnchors });
+  moonLabels = createMoonLabels({
+    camera,
+    canvas: renderer.domElement,
+    moonAnchors,
+    isOccluded: (worldPos, parentId) => isBehindSphere(
+      camera.position, worldPos, getBodyPosNow(parentId), getBodyRadiusRaw(parentId)),
+  });
   planetLabels = createPlanetLabels({
     camera,
     canvas: renderer.domElement,

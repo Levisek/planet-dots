@@ -149,10 +149,16 @@ rozsah. `THREE.Clock` (deprecated) → `THREE.Timer` s Page Visibility, strop dt
   Země v detailu zůstává na stropu (Luna 8 s, den 10 s) — reálný poměr 27:1
   by znamenal buď stroboskop, nebo 4minutový oběh Luny.
 
-## K rozhodnutí (návrhy, neimplementováno)
-
-1. Počty měsíců v `bodyData` jsou nejspíš zastaralé (Saturn 146 — v březnu 2025
-   ohlášeno 128 nových; Jupiter 95; Uran 28). Ověřit proti aktuálnímu zdroji.
+- **Počty měsíců** (`bodyData`) podle JPL SSD a Wikipedie, stav 2026-09:
+  Jupiter 95 → 115 (MPC 9. 4. 2026), Saturn 146 → 293 (6/2026), Uran 28 → 29
+  (JWST, 8/2025), Neptun 16 beze změny. Hodnoty nesou „k roku 2026".
+  Pozor: oznámení IAU z 26. 3. 2026 (Jupiter 101, Saturn 285) už je
+  překonané dubnovými a červnovými přírůstky.
+- **Info panel nad časovou lištou** — obě ležely u spodního okraje a při šířce
+  pod ~1 560 px se překrývaly (už před auditem; poznámka o zpomalení detailu
+  lištu rozšířila).
+- **Popisky měsíců** v detailu: za kotoučem rodiče se nekreslí a rozmisťují se
+  stejným declutterem jako planety (DIONE/TETHYS u Saturnu přes sebe).
 
 ## Technický dluh (beze změny)
 

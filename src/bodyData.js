@@ -102,7 +102,10 @@ export const BODY_DATA = {
       { label: 'Hmota', value: '1,90×10²⁷ kg (318× Země)' },
       { label: 'Den', value: '9 h 56 min' },
       { label: 'Rok', value: '11,86 let' },
-      { label: 'Počet měsíců', value: '95 známých (4 hlavní galilejské)' },
+      // Počty měsíců: JPL SSD + Minor Planet Center, stav 2026-09 (Jupiter 115
+      // od 9. 4. 2026, Saturn 293 od 6/2026, Uran 29 od 8/2025, Neptun 16).
+      // Rostou s každou přehlídkou — „k roku“ ukazuje, jak staré číslo je.
+      { label: 'Počet měsíců', value: '115 známých k roku 2026 (4 galilejské)' },
       { label: 'Atmosféra', value: 'vodík 90 %, helium 10 %' },
       { label: 'Povrchová teplota', value: '−145 °C (vrchol mraků)' },
       { label: 'Gravitace', value: '24,8 m/s²' },
@@ -120,7 +123,7 @@ export const BODY_DATA = {
       { label: 'Hmota', value: '5,68×10²⁶ kg (95× Země)' },
       { label: 'Den', value: '10 h 42 min' },
       { label: 'Rok', value: '29,5 let' },
-      { label: 'Počet měsíců', value: '146 známých (Titan největší)' },
+      { label: 'Počet měsíců', value: '293 známých k roku 2026 (Titan největší)' },
       { label: 'Atmosféra', value: 'vodík 96 %, helium 3 %' },
       { label: 'Povrchová teplota', value: '−178 °C' },
       { label: 'Gravitace', value: '10,4 m/s²' },
@@ -138,7 +141,7 @@ export const BODY_DATA = {
       { label: 'Hmota', value: '8,68×10²⁵ kg (14,5× Země)' },
       { label: 'Den', value: '17 h 14 min (retrográdně)' },
       { label: 'Rok', value: '84 let' },
-      { label: 'Počet měsíců', value: '28 známých' },
+      { label: 'Počet měsíců', value: '29 známých k roku 2026' },
       { label: 'Atmosféra', value: 'vodík, helium, metan' },
       { label: 'Povrchová teplota', value: '−224 °C' },
       { label: 'Gravitace', value: '8,87 m/s²' },
@@ -156,7 +159,7 @@ export const BODY_DATA = {
       { label: 'Hmota', value: '1,02×10²⁶ kg (17× Země)' },
       { label: 'Den', value: '16 hodin' },
       { label: 'Rok', value: '165 let' },
-      { label: 'Počet měsíců', value: '16 známých (Triton největší)' },
+      { label: 'Počet měsíců', value: '16 známých k roku 2026 (Triton největší)' },
       { label: 'Atmosféra', value: 'vodík, helium, metan' },
       { label: 'Povrchová teplota', value: '−218 °C' },
       { label: 'Gravitace', value: '11,15 m/s²' },

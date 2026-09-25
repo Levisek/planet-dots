@@ -49,10 +49,12 @@
     #tooltip.visible { opacity: 1; }
     #infoPanel {
       position: fixed;
-      bottom: 20px;
+      /* Nad časovou lištou (#time-controls: bottom 16 px + ~38 px výška) —
+         dřív bottom 20 px a lišta při šířce pod ~1560 px ležela přes panel. */
+      bottom: 64px;
       right: 20px;
       width: 360px;
-      max-height: 75vh;
+      max-height: calc(100vh - 124px);
       overflow-y: auto;
       background: rgba(0, 0, 0, 0.82);
       border: 1px solid rgba(255, 255, 255, 0.15);
