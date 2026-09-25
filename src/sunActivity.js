@@ -34,9 +34,11 @@ export function parabolicArcPos(A, B, peak, t, n = { x: 0, y: 1, z: 0 }) {
   };
 }
 
-export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now() & 0xffff, sunMesh = null } = {}) {
+export function createSunActivity({ sunOwner = 0, sunRadius: sunRadius0 = 1, seed = Date.now() & 0xffff, sunMesh = null } = {}) {
   const rng = makeRng(seed);
   const activeSpots = [];
+  // Poloměr se mění s módem (Slunce v Pochopení zmenšené) — viz setSunRadius.
+  let sunRadius = sunRadius0;
 
   const PROMINENCE_LIFETIME = 3.0;
   const CME_LIFETIME = 2.2;
@@ -109,7 +111,7 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
       const lo = lon + g * 0.07 + (rng() - 0.5) * 0.03;
       centers.push({
         x: Math.cos(la) * Math.cos(lo), y: Math.sin(la), z: Math.cos(la) * Math.sin(lo),
-        rho: 0.018 + rng() * 0.03, // rad; Slunce r≈995 → umbra ~18–48 j.
+        rho: 0.018 + rng() * 0.03, // rad; Slunce r≈995 → umbra ~18–48 j. (Pochopení r 400 → 7–19)
       });
     }
     const faces = [];
@@ -334,6 +336,7 @@ export function createSunActivity({ sunOwner = 0, sunRadius = 1, seed = Date.now
 
   return {
     update,
+    setSunRadius(r) { sunRadius = r; },
     _spawnSunspot: spawnSunspot,
     _randomSurfacePoint: randomSurfacePoint,
     _intensityAt: intensityAt,

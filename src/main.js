@@ -27,6 +27,7 @@ import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
 import { createPlanetLabels } from './planetLabels.js';
 import { createAsteroidLabels } from './asteroidLabels.js';
+import { applyDeclutter, isBehindSphere } from './labelDeclutter.js';
 import { createBodyList } from './bodyList.js';
 import { createOrbitLines, createAsteroidOrbitLines } from './orbitLines.js';
 import { buildBodyMesh, buildFallbackMesh, applyShape } from './bodyMesh.js';
@@ -41,6 +42,23 @@ import { LIVE_START } from './animation.js';
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
 createStarfield(scene);
 const { anchors, spins, imageData, loaded } = createPlanetAnchors(scene);
+
+// Slunce v Pochopení zmenšené — s r = 995 (věrný poměr 109 R⊕) sahalo skoro
+// k dráze Merkuru (1 318), vnitřní planety byly z výchozí kamery za ním a
+// jejich popisky ležely přes kotouč. Fyzikální drží věrný poměr k planetám.
+// Škáluje se `spin` node: mesh i tečky pod ním se zmenší samy.
+const SUN_RADIUS_POCHOPENI = 400;
+function sunScale() {
+  return isFyzikalni() ? 1 : SUN_RADIUS_POCHOPENI / PLANETS[0].radiusPx;
+}
+function getSunRadius() {
+  return PLANETS[0].radiusPx * sunScale();
+}
+/** Popisek tělesa za kotoučem Slunce se nekreslí (dřív ležel přes něj). */
+function labelOccludedBySun(worldPos) {
+  return isBehindSphere(camera.position, worldPos, anchors.sun.position, getSunRadius());
+}
+spins.sun.scale.setScalar(sunScale());
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
 const { anchors: asteroidAnchors, imageData: asteroidImageData, loaded: asteroidsLoaded } = createAsteroidAnchors(scene);
 const asteroidBelt = createAsteroidBelt(scene);
@@ -147,8 +165,11 @@ const SATURN_IDX = PLANETS.findIndex((p) => p.id === 'saturn');
 /** @type {Array<{ key: string, ownerIdx: number, isPlanet: boolean, isMoon: boolean, parentId?: string }>} */
 const gatedMeshes = [];
 
-// ——— Perf diag ———
-const statsEl = document.getElementById('stats');
+// ——— Perf diag ——— (HUD jen s ?debug v URL, návštěvník ho nepotřebuje)
+const statsEl = new URLSearchParams(location.search).has('debug')
+  ? document.getElementById('stats')
+  : null;
+if (statsEl) statsEl.hidden = false;
 const formationLabelEl = document.getElementById('formation-label');
 let frameCount = 0;
 let tickMsAcc = 0;
@@ -333,7 +354,7 @@ function tick(timestamp) {
 
   // Sluneční vítr — ambientní kosmetika, běží od zážehu dál (beat_ignition
   // start = 4.0s). Natvrdo gatováno číslem (Task 5 může navázat na PHASES).
-  if (_realElapsed >= 4.0) updateSunWind(pool, _realElapsed, dt, PLANETS[0].radiusPx);
+  if (_realElapsed >= 4.0) updateSunWind(pool, _realElapsed, dt, getSunRadius());
 
   // Sun activity — vždy aktivní, ale intenzita vyšší pokud je Slunce v detailu
   if (sunActivity) {
@@ -420,8 +441,13 @@ function tick(timestamp) {
   if (tooltip) tooltip.update();
   // Moon labels (viditelné v planet-detail)
   if (moonLabels) moonLabels.update();
-  if (planetLabels) planetLabels.update();
-  if (asteroidLabels) asteroidLabels.update();
+  // Popisky planet a planetek se rozmisťují společně — kolidují spolu
+  // (CERES/PALLAS přes ZEMI/MARS v Pochopení).
+  const shownLabels = [
+    ...(planetLabels ? planetLabels.update() : []),
+    ...(asteroidLabels ? asteroidLabels.update() : []),
+  ];
+  if (shownLabels.length) applyDeclutter(shownLabels);
 
   pool.prepareUpload();
   renderer.render(scene, camera);
@@ -456,7 +482,7 @@ function getBodyPosNow(id) {
 /** Skutečný (neclampovaný) poloměr tělesa — pro kameru a minDistance. */
 function getBodyRadiusRaw(id) {
   const p = PLANET_BY_ID[id];
-  if (p) return p.radiusPx;
+  if (p) return id === 'sun' ? getSunRadius() : p.radiusPx;
   const m = MOONS.find((mm) => mm.id === id);
   if (m) return m.radiusPx * (m.shape?.scale ? Math.max(...m.shape.scale) : 1);
   const a = ASTEROIDS.find((aa) => aa.id === id);
@@ -567,7 +593,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       x: anchors[p.id].position.x,
       y: anchors[p.id].position.y,
       z: anchors[p.id].position.z,
-    }), pickRadius);
+    }), pickRadius, p.id === 'sun' ? sunScale : null);
   }
   for (const m of MOONS) {
     const moonAnchor = moonAnchors[m.id];
@@ -591,11 +617,12 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
 
   tooltip = createTooltip({ camera, canvas: renderer.domElement });
   infoPanel = createInfoPanel();
-  sunActivity = createSunActivity({ sunOwner: 0, sunRadius: PLANETS[0].radiusPx, sunMesh: bodyMeshes.sun });
+  sunActivity = createSunActivity({ sunOwner: 0, sunRadius: getSunRadius(), sunMesh: bodyMeshes.sun });
   moonLabels = createMoonLabels({ camera, canvas: renderer.domElement, moonAnchors });
   planetLabels = createPlanetLabels({
     camera,
     canvas: renderer.domElement,
+    isOccluded: labelOccludedBySun,
     anchors,
     onClick: (id) => detailView && detailView.enter(id),
   });
@@ -604,6 +631,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     canvas: renderer.domElement,
     asteroidAnchors,
     onClick: (id) => detailView && detailView.enter(id),
+    isOccluded: labelOccludedBySun,
   });
   const bodyList = createBodyList({
     onClick: (id) => detailView && detailView.enter(id),
@@ -667,6 +695,8 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // default kamera (0,5000,9000) je pak nedostatečná. Auto-zoom out.
   onModeChange((mode) => {
     const fyz = mode === MODES.FYZIKALNI;
+    spins.sun.scale.setScalar(sunScale());
+    if (sunActivity) sunActivity.setSunRadius(getSunRadius());
     const mainPos = fyz ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 5000, z: 9000 };
     if (detailView && detailView.state() === DV_STATE.DETAIL) {
       // Pozice se přepočtou v příštím tick() (běží i v DETAIL); tween kamery
@@ -849,7 +879,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         const r = getBodyRadiusRaw(id);
         return Math.max(r * 6, r + 2);
       }
-      const baseDist = p.radiusPx * 4.5;
+      const baseDist = getBodyRadiusRaw(id) * 4.5;
       // Irregular měsíce (Phoebe, Sinope, Pasiphae, Iapetus, Nereid...) se do
       // distance nepočítají v ŽÁDNÉM módu — jejich orbity jsou řádově větší
       // než regulární měsíce (VISUAL-AUDIT I2). Uživatel může zoom-out.

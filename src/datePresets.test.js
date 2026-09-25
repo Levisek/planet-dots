@@ -13,9 +13,9 @@ test('presety mají id, label, platné Date v rozsahu', () => {
   }
 });
 
-test('obsahuje Apollo 11, Halley, transit Venuše', () => {
+test('obsahuje Apollo 11, konjunkci 2020, transit Venuše', () => {
   const ids = DATE_PRESETS.map((p) => p.id);
-  for (const id of ['apollo11', 'halley1986', 'venus-transit-2012']) {
+  for (const id of ['apollo11', 'conjunction2020', 'venus-transit-2012']) {
     assert.ok(ids.includes(id), `chybí ${id}`);
   }
 });

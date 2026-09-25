@@ -9,7 +9,7 @@ export { rayHitsSphere };
  *
  * @param {{ scene, camera, canvas }} deps
  * @returns {{
- *   addBody(id, getPosition, radius): void,
+ *   addBody(id, getPosition, radius, getScale?): void,
  *   setActiveIds(idsSet: Set|null): void,
  *   onHover(cb: (id, ev) => void): void,
  *   onClick(cb: (id, ev) => void): void,
@@ -28,13 +28,14 @@ export function createPicker({ scene, camera, canvas }) {
 
   const invisibleMat = new THREE.MeshBasicMaterial({ visible: false });
 
-  function addBody(id, getPosition, radius) {
+  // getScale (volitelné): měřítko raycast koule — Slunce mění velikost s módem.
+  function addBody(id, getPosition, radius, getScale = null) {
     const geom = new THREE.SphereGeometry(radius, 12, 10);
     const mesh = new THREE.Mesh(geom, invisibleMat);
     mesh.userData.bodyId = id;
     mesh.layers.set(1); // Picker only — kamera renderuje Layer 0, raycaster vidí 0+1
     scene.add(mesh);
-    bodies.push({ id, mesh, getPosition, radius });
+    bodies.push({ id, mesh, getPosition, radius, getScale });
   }
 
   function setActiveIds(ids) {
@@ -45,6 +46,7 @@ export function createPicker({ scene, camera, canvas }) {
     for (const b of bodies) {
       const p = b.getPosition();
       b.mesh.position.set(p.x, p.y, p.z);
+      if (b.getScale) b.mesh.scale.setScalar(b.getScale());
     }
   }
 

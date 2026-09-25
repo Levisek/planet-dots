@@ -9,7 +9,9 @@ import { BODY_DATA } from './bodyData.js';
 
 const _vec = new THREE.Vector3();
 
-export function createPlanetLabels({ camera, canvas, anchors, onClick }) {
+// isOccluded(worldPos) — popisek tělesa schovaného za Sluncem se nekreslí.
+// update() vrací zobrazené popisky s prioritou pro labelDeclutter.
+export function createPlanetLabels({ camera, canvas, anchors, onClick, isOccluded = null }) {
   const container = document.body;
   const labels = {};
 
@@ -22,7 +24,7 @@ export function createPlanetLabels({ camera, canvas, anchors, onClick }) {
     el.textContent = BODY_DATA[p.id]?.name || p.name;
     el.addEventListener('click', () => onClick && onClick(p.id));
     container.appendChild(el);
-    labels[p.id] = { el, anchor };
+    labels[p.id] = { el, anchor, priority: 10 + p.radiusPx / 100 }; // větší planeta vyhrává
   }
 
   function project(worldPos) {
@@ -46,10 +48,15 @@ export function createPlanetLabels({ camera, canvas, anchors, onClick }) {
       }
     },
     update() {
-      if (!visible) return;
+      const shown = [];
+      if (!visible) return shown;
       for (const id in labels) {
         const lbl = labels[id];
         lbl.anchor.getWorldPosition(_vec);
+        if (isOccluded && isOccluded(_vec)) {
+          lbl.el.style.display = 'none';
+          continue;
+        }
         const { x, y, behindCamera } = project(_vec);
         if (behindCamera) {
           lbl.el.style.display = 'none';
@@ -58,7 +65,9 @@ export function createPlanetLabels({ camera, canvas, anchors, onClick }) {
         lbl.el.style.display = '';
         lbl.el.style.left = `${x}px`;
         lbl.el.style.top = `${y}px`;
+        shown.push({ el: lbl.el, x, y, priority: lbl.priority });
       }
+      return shown;
     },
     dispose() {
       for (const id in labels) labels[id].el.remove();

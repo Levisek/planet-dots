@@ -8,7 +8,8 @@ import { BODY_DATA } from './bodyData.js';
 
 const _vec = new THREE.Vector3();
 
-export function createAsteroidLabels({ camera, canvas, asteroidAnchors, onClick }) {
+// isOccluded / návratová hodnota update() — viz planetLabels.js.
+export function createAsteroidLabels({ camera, canvas, asteroidAnchors, onClick, isOccluded = null }) {
   const container = document.body;
   const labels = {};
 
@@ -20,7 +21,7 @@ export function createAsteroidLabels({ camera, canvas, asteroidAnchors, onClick 
     el.textContent = BODY_DATA[a.id]?.name || a.name;
     el.addEventListener('click', () => onClick && onClick(a.id));
     container.appendChild(el);
-    labels[a.id] = { el, anchor };
+    labels[a.id] = { el, anchor, priority: a.radiusPx }; // vždy pod planetami
   }
 
   function project(worldPos) {
@@ -44,10 +45,15 @@ export function createAsteroidLabels({ camera, canvas, asteroidAnchors, onClick 
       }
     },
     update() {
-      if (!visible) return;
+      const shown = [];
+      if (!visible) return shown;
       for (const id in labels) {
         const lbl = labels[id];
         lbl.anchor.getWorldPosition(_vec);
+        if (isOccluded && isOccluded(_vec)) {
+          lbl.el.style.display = 'none';
+          continue;
+        }
         const { x, y, behindCamera } = project(_vec);
         if (behindCamera) {
           lbl.el.style.display = 'none';
@@ -56,7 +62,9 @@ export function createAsteroidLabels({ camera, canvas, asteroidAnchors, onClick 
         lbl.el.style.display = '';
         lbl.el.style.left = `${x}px`;
         lbl.el.style.top = `${y}px`;
+        shown.push({ el: lbl.el, x, y, priority: lbl.priority });
       }
+      return shown;
     },
     dispose() {
       for (const id in labels) labels[id].el.remove();

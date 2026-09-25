@@ -123,25 +123,28 @@ rozsah. `THREE.Clock` (deprecated) → `THREE.Timer` s Page Visibility, strop dt
 
 ---
 
+## Rozhodnuto a doděláno (druhé kolo)
+
+- **Slunce v Pochopení r = 400** (bylo 995, skoro k dráze Merkuru 1 318 —
+  vnitřní planety z výchozí kamery za ním). Škáluje se `spin` node Slunce,
+  mesh i tečky se zmenší samy; vítr, erupce, picker a kamera detailu berou
+  `getSunRadius()`. Fyzikální drží věrný poměr 109 R⊕.
+- **Popisky** (`labelDeclutter.js`) — popisek tělesa za kotoučem Slunce se
+  nekreslí (3D test úsečky kamera → těleso proti kouli). Při překryvu vyhrává
+  větší těleso, další se posune o řádek nahoru (max 2), jinak se skryje.
+  Planety a planetky se rozmisťují společně.
+- **Velikosti** — Ceres 10 → 0,6, Vesta a Pallas 7 → 0,5, Hyperion, Phoebe,
+  Sinope, Pasiphae 1,5 → 0,5. Test hlídá reálný poměr k Zemi (min 0,5).
+- **Preset Halley** nahrazen konjunkcí Jupiter–Saturn (21. 12. 2020), která
+  v simulaci vidět je. Halley se vrátí s kometou ve V4.5.
+- **Výkonový HUD** jen s `?debug` v URL.
+
 ## K rozhodnutí (návrhy, neimplementováno)
 
-1. **Slunce v Pochopení je obří** — r = 995 proti dráze Merkuru 1 318. Vnitřní
-   planety sedí na okraji Slunce a z výchozí kamery jsou za ním; jejich popisky
-   leží přes kotouč. *Doporučení:* zmenšit Slunce v Pochopení (~400).
-2. **Kolize popisků** — CERES/PALLAS/ZEMĚ/MARS se překrývají; popisky planet
-   za Sluncem jsou vidět přes něj. *Doporučení:* skrýt popisky zakryté Sluncem
-   + jednoduchá priorita při překryvu.
-3. **Velikosti** — Ceres r = 10 > Země 8,2 (reálně 13,5× menší); Hyperion,
-   Phoebe, Sinope, Pasiphae 1,5 > Rhea 1,0. V4.3 (C1) je zvětšil kvůli
-   viditelnosti v detailu — to teď řeší kamera `r × 6`, takže jde vrátit reálný
-   poměr (min 0,5).
-4. **Preset „Halleyho kometa (1986)"** — kometa v simulaci není, skočí se na
-   datum, kde nic neuvidíš. Skrýt do V4.5, nebo přidat Halleyho kometu.
-5. **Rotace planet je v reálném čase** (Země 10 s/den bez ohledu na rychlost
+1. **Rotace planet je v reálném čase** (Země 10 s/den bez ohledu na rychlost
    simulace). V detailu se zpomaleným časem je pak „měsíc" (8 s) kratší než
    „den" (10 s). Spojit rotaci se simulačním časem v detailu?
-6. **Zelený výkonový HUD** vpravo nahoře vidí každý návštěvník. Skrýt za `?debug`?
-7. Počty měsíců v `bodyData` jsou nejspíš zastaralé (Saturn 146 — v březnu 2025
+2. Počty měsíců v `bodyData` jsou nejspíš zastaralé (Saturn 146 — v březnu 2025
    ohlášeno 128 nových; Jupiter 95; Uran 28). Ověřit proti aktuálnímu zdroji.
 
 ## Technický dluh (beze změny)

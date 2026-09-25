@@ -7,7 +7,7 @@ import { toDisplay } from './simMode.js';
 
 // Real AU: Mercury 0.39 · Venus 0.72 · Earth 1.00 · Mars 1.52
 //          Jupiter 5.20 · Saturn 9.55 · Uranus 19.20 · Neptune 30.05
-// displayR = 1100 + 350×sqrt(au) — Sun radius 995, buffer ~324 u Mercuru,
+// displayR = 1100 + 350×sqrt(au) — Slunce v Pochopení r = 400 (main.js), buffer ~900 u Merkuru,
 // vnitřní planety čitelně oddělené od Slunce, outer roztaženy ale ne extrém.
 //   Mercury 0.39 → 1318  · Venus 1.0  → 1397
 //   Earth   1.0  → 1450  · Mars  1.52 → 1532

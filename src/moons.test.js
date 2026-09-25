@@ -76,3 +76,13 @@ test('Phoebe existuje v MOONS s 175.3° inc', () => {
   assert.equal(phoebe.category, 'irregular');
   assert.ok(Math.abs(phoebe.inclinationDeg - 175.3) < 0.001);
 });
+
+test('radiusPx = reálný poměr k Zemi (min 0,5)', () => {
+  const earth = PLANET_BY_ID.earth;
+  const pxPerKm = earth.radiusPx / (earth.realDiameterKm / 2);
+  for (const m of MOONS) {
+    const expected = Math.max(0.5, (m.diameterKm / 2) * pxPerKm);
+    assert.ok(Math.abs(m.radiusPx - expected) / expected < 0.06,
+      `${m.id} radiusPx ${m.radiusPx}, reálně ${expected.toFixed(2)}`);
+  }
+});
