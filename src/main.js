@@ -7,8 +7,10 @@ import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
 import { rotateAnchors, rotationDaysPerSec } from './rotation.js';
 import { updatePlanetOrbits, orbitalPosition, auToDisplayRadius } from './planetOrbits.js';
-import { moonDisplaySemiMajor } from './moonScale.js';
 import { moonPeriodDays } from './moonOrbitLines.js';
+import { cameraDistanceFor } from './cameraDistance.js';
+import { initLightingToggle } from './lightingToggle.js';
+import { initKeyboard } from './keyboard.js';
 import { createAsteroidAnchors } from './asteroidAnchors.js';
 import { createAsteroidBelt } from './asteroidBelt.js';
 import { ASTEROIDS } from './asteroids.js';
@@ -30,11 +32,10 @@ import { createAsteroidLabels } from './asteroidLabels.js';
 import { applyDeclutter, isBehindSphere } from './labelDeclutter.js';
 import { createBodyList } from './bodyList.js';
 import { createOrbitLines, createAsteroidOrbitLines } from './orbitLines.js';
-import { buildBodyMesh, buildFallbackMesh, applyShape } from './bodyMesh.js';
-import { buildSaturnRing } from './saturnRing.js';
+import { buildBodyMeshes } from './bodyMeshes.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
-import { createTween, easeInOutCubic } from './cameraTween.js';
+import { createCameraRig } from './cameraRig.js';
 import { initTimeControls, setFormationLock, setDetailRateNote } from './timeControls.js';
 import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
@@ -150,18 +151,16 @@ let moonLabels = null;
 let planetLabels = null;
 let asteroidLabels = null;
 const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo (+ 'saturn_ring')
-let _activeCameraTween = null;
-// Kamera v DETAIL jede s fokusovaným tělesem (simulace běží dál, těleso se
-// hýbe) — { id, last: {x,y,z} }. Během tweenu přebírá drift tween sám.
-let _follow = null;
+// Sdílený objekt s cameraRig (viz cameraRig.js) — window.__debug ho čte přímo,
+// mutuje se na místě, reference se nemění.
 const controlsTarget = { x: 0, y: 0, z: 0 };
+const cameraRig = createCameraRig({ camera, controls, controlsTarget, getBodyPos: (id) => getBodyPosNow(id) });
 // Mesh-e a linie, které se ukážou až po formaci (před 4,6 mld let nebyly
 // ani popisky planet, ani pojmenované asteroidy a jejich dráhy).
 const _revealAfterFormation = [];
 
 // Unified mesh ↔ owner mapping pro formation gating + fadeOthers loops.
-// Postaveno v initAfterLoad po build mesh-ů.
-const SATURN_IDX = PLANETS.findIndex((p) => p.id === 'saturn');
+// Postaveno v initAfterLoad po build mesh-ů (SATURN_IDX logika viz bodyMeshes.js).
 /** @type {Array<{ key: string, ownerIdx: number, isPlanet: boolean, isMoon: boolean, parentId?: string }>} */
 const gatedMeshes = [];
 
@@ -303,43 +302,9 @@ function tick(timestamp) {
   // do MAIN všechny planety naráz skočily o roky.
   updateBodies(simDate, dt);
 
-  // Camera tween (fly-to) — po update pozic, aby tween cílil na aktuální
-  // polohu tělesa: cíl je relativní k tělesu (drift od startu tweenu se
-  // přičítá úměrně easingu), takže přílet sedí, i když se těleso mezitím
-  // posunulo.
-  if (_activeCameraTween) {
-    const ct = _activeCameraTween;
-    ct.t += dt;
-    const s = ct.tween.sample(ct.t);
-    if (ct.followId) {
-      const now = getBodyPosNow(ct.followId);
-      const e = easeInOutCubic(Math.min(1, ct.t / ct.tween.duration));
-      const dx = (now.x - ct.bodyStart.x) * e;
-      const dy = (now.y - ct.bodyStart.y) * e;
-      const dz = (now.z - ct.bodyStart.z) * e;
-      s.pos.x += dx; s.pos.y += dy; s.pos.z += dz;
-      s.target.x += dx; s.target.y += dy; s.target.z += dz;
-    }
-    camera.position.set(s.pos.x, s.pos.y, s.pos.z);
-    controlsTarget.x = s.target.x;
-    controlsTarget.y = s.target.y;
-    controlsTarget.z = s.target.z;
-    camera.lookAt(controlsTarget.x, controlsTarget.y, controlsTarget.z);
-    if (controls.enabled) controls.target.set(controlsTarget.x, controlsTarget.y, controlsTarget.z);
-    if (ct.tween.isComplete(ct.t)) {
-      _activeCameraTween = null;
-      _follow = ct.followId ? { id: ct.followId, last: getBodyPosNow(ct.followId) } : null;
-    }
-  } else if (_follow && dvState === DV_STATE.DETAIL) {
-    // Kamera (i orbit target) se posune o pohyb tělesa za frame — relativní
-    // pohled, který si uživatel natočil, zůstává.
-    const now = getBodyPosNow(_follow.id);
-    const dx = now.x - _follow.last.x, dy = now.y - _follow.last.y, dz = now.z - _follow.last.z;
-    camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
-    controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
-    controlsTarget.x += dx; controlsTarget.y += dy; controlsTarget.z += dz;
-    _follow.last = now;
-  }
+  // Camera tween (fly-to) + follow — po update pozic, aby tween cílil na
+  // aktuální polohu tělesa (viz cameraRig.js).
+  cameraRig.update(dt, dvState === DV_STATE.DETAIL);
 
   // Formation intro — akrece z disku (beat_disk/ignition/accretion), pak moon wind.
   // Tyto systémy vždy jedou dopředu — používají _realElapsed. Gate na
@@ -506,87 +471,15 @@ function revealAfterFormation() {
 Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   initAfterLoad();
 
-  // Flat-triangle icosphere mesh per tělo (V3 stylu — žádný shader,
-  // MeshBasicMaterial s vertexColors). Saturnův prsten = real RingGeometry
-  // mesh. Mesh-y jsou skryté (visible=false) dokud nedoletí dost teček —
-  // formation gating řeší tick() níže.
-  for (let i = 0; i < PLANETS.length; i++) {
-    const p = PLANETS[i];
-    const tex = imageData[p.id];
-    if (!tex) continue;
-    // Sun je 50× větší než největší planeta → potřebuje hustší icosphere
-    // jinak vidíš low-poly facety. L6 (40962 verts = 81920 trianglů).
-    const subdiv = p.id === 'sun' ? 40962 : 10242;
-    const mesh = buildBodyMesh(tex, p.radiusPx, subdiv);
-    // Sun je zdroj světla (ne příjemce) — flat MeshBasicMaterial vždy plné jasné.
-    if (p.id === 'sun') {
-      mesh.material = new THREE.MeshBasicMaterial({
-        vertexColors: true, transparent: true, opacity: 1.0,
-      });
-    }
-    mesh.visible = false;
-    spins[p.id].add(mesh);
-    bodyMeshes[p.id] = mesh;
-    // Sun vyňat z gatedMeshes — jeho reveal řídí explicitní t>=6.0 gate v
-    // tick() (countSettled gating pro Slunce nefunguje, viz komentář tamtéž).
-    if (p.id !== 'sun') gatedMeshes.push({ key: p.id, ownerIdx: i, isPlanet: true, isMoon: false });
-
-    if (p.id === 'saturn' && imageData.saturn_ring) {
-      const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
-      ring.visible = false;
-      spins.saturn.add(ring);
-      bodyMeshes['saturn_ring'] = ring;
-      gatedMeshes.push({ key: 'saturn_ring', ownerIdx: SATURN_IDX, isPlanet: false, isMoon: false, parentId: 'saturn' });
-    }
-  }
-  for (let i = 0; i < MOONS.length; i++) {
-    const m = MOONS[i];
-    const tex = moonImageData[m.id];
-    let mesh;
-    let isFallback = false;
-    if (tex) {
-      // L5 (10242 verts) — L4 dělalo facety viditelné v detail view (Titan, Luna).
-      mesh = buildBodyMesh(tex, m.radiusPx, 10242);
-    } else if (m.texture !== null) {
-      // texture má cestu ale se nestáhla — přeskoč (loader selhal)
-      continue;
-    } else {
-      // texture: null záměrně — fallback barevná sféra
-      mesh = buildFallbackMesh(m.radiusPx, m.color || '#808080', 10242, m.id);
-      isFallback = true;
-    }
-    applyShape(mesh, m);
-    moonAnchors[m.id].add(mesh);
-    bodyMeshes[m.id] = mesh;
-    if (isFallback) {
-      // Fallback mesh nemá particle formation → visible ihned, bez gating.
-      mesh.visible = true;
-      mesh.userData.settled = true;
-    } else {
-      mesh.visible = false;
-      gatedMeshes.push({ key: m.id, ownerIdx: MOON_OWNER_BASE + i, isPlanet: false, isMoon: true, parentId: m.parent });
-    }
-  }
-  // Asteroid meshes (Ceres / Vesta / Pallas) — nejsou gated (žádný particle
-  // owner); objeví se až po formaci (revealAfterFormation).
-  for (const a of ASTEROIDS) {
-    const tex = asteroidImageData[a.id] ?? null;
-    let mesh;
-    if (tex) {
-      mesh = buildBodyMesh(tex, a.radiusPx, 2562);
-    } else if (a.texture !== null) {
-      // texture má cestu ale se nestáhla — přeskoč
-      continue;
-    } else {
-      // texture: null záměrně — fallback barevná sféra
-      mesh = buildFallbackMesh(a.radiusPx, a.color || '#808080', 2562, a.id);
-    }
-    applyShape(mesh, a);
-    mesh.visible = false;
-    _revealAfterFormation.push(mesh);
-    asteroidAnchors[a.id].add(mesh);
-    bodyMeshes[a.id] = mesh;
-  }
+  // Mesh-e planet, měsíců a asteroidů (viz bodyMeshes.js) — mesh-y jsou
+  // skryté (visible=false) dokud nedoletí dost teček, formation gating
+  // řeší tick() níže.
+  const asteroidMeshes = buildBodyMeshes({
+    spins, moonAnchors, asteroidAnchors, imageData, moonImageData, asteroidImageData, bodyMeshes, gatedMeshes,
+  });
+  // Asteroidí mesh-e (Ceres / Vesta / Pallas) nejsou gated (žádný particle
+  // owner) — objeví se až po formaci.
+  _revealAfterFormation.push(...asteroidMeshes);
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
   picker = createPicker({ scene, camera, canvas: renderer.domElement });
   for (const p of PLANETS) {
@@ -663,37 +556,8 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     asteroidBelt.points,
   );
 
-  // Lighting toggle button — přepíná material na všech body mesh-ích:
-  // VYP → MeshBasicMaterial (flat, plné barvy, ignoruje světla).
-  // ZAP → MeshLambertMaterial (Lambertian, den/noc strana podle PointLight z origin).
-  // Sun zůstává vždy MeshBasicMaterial (self-emissive zdroj světla).
-  onLightingModeChange((real) => {
-    for (const id in bodyMeshes) {
-      if (id === 'sun' || id === 'saturn_ring') continue;
-      const mesh = bodyMeshes[id];
-      if (!mesh) continue;
-      if (real) {
-        if (!mesh.userData._lambertMaterial) {
-          mesh.userData._lambertMaterial = new THREE.MeshLambertMaterial({
-            vertexColors: true,
-            transparent: false,
-            opacity: 1,
-          });
-        }
-        mesh.material = mesh.userData._lambertMaterial;
-      } else {
-        mesh.material = mesh.userData._flatMaterial;
-      }
-    }
-  });
-  const lightingBtn = document.getElementById('toggleLighting');
-  let _lightingOn = false;
-  lightingBtn?.addEventListener('click', () => {
-    _lightingOn = !_lightingOn;
-    setLightingMode(_lightingOn);
-    lightingBtn.textContent = _lightingOn ? 'STÍNY: ZAP' : 'STÍNY: VYP';
-    lightingBtn.classList.toggle('active', _lightingOn);
-  });
+  // Lighting toggle button (přepíná material na body mesh-ích při ZAP/VYP).
+  initLightingToggle({ bodyMeshes, setLightingMode, onLightingModeChange });
 
   // simMode buttons (Pochopení / Fyzikální)
   const modeButtons = document.querySelectorAll('#topToggles button[data-mode]');
@@ -721,7 +585,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     } else {
       // Během odletu z detailu (TRANSITION_OUT) by návratový tween kameru
       // v dalším frame přepsal na pozici STARÉHO módu — zrušit ho.
-      if (_activeCameraTween && !_activeCameraTween.followId) _activeCameraTween = null;
+      cameraRig.cancelUnfollowedTween();
       camera.position.set(mainPos.x, mainPos.y, mainPos.z);
       controlsTarget.x = 0; controlsTarget.y = 0; controlsTarget.z = 0;
       controls.target.set(0, 0, 0);
@@ -742,20 +606,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Detail view wiring
   detailView = createDetailView({
     cameraFlyTo: (toPos, toTarget, duration, followId = null) => {
-      // followId: cíl je relativní k tělesu — tick() přičítá jeho drift.
-      _follow = null;
-      _activeCameraTween = {
-        tween: createTween({
-          fromPos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-          fromTarget: { x: controlsTarget.x, y: controlsTarget.y, z: controlsTarget.z },
-          toPos: { ...toPos },
-          toTarget: { ...toTarget },
-          duration,
-        }),
-        t: 0,
-        followId,
-        bodyStart: followId ? getBodyPosNow(followId) : null,
-      };
+      cameraRig.flyTo(toPos, toTarget, duration, followId);
       applyDetailRate(followId);
     },
     getCameraState: () => ({
@@ -881,36 +732,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     },
     getBodyPosition: getBodyPos,
     getBodyRadius: getBodyRadiusRaw,
-    getCameraDistance: (id, scaleOn) => {
-      // Pro planety se zahrnou i jejich měsíce (camera z-offset zahrne max moon dist).
-      const p = PLANET_BY_ID[id];
-      if (!p) {
-        // Měsíc / asteroid — těleso má zabrat zhruba třetinu výšky záběru.
-        // Dřív floor 12 (měsíc) resp. natvrdo 40 (asteroid): měsíc s radiusPx
-        // 0.5 pak měl na obrazovce ~4° z 45°.
-        const r = getBodyRadiusRaw(id);
-        return Math.max(r * 6, r + 2);
-      }
-      const baseDist = getBodyRadiusRaw(id) * 4.5;
-      // Irregular měsíce (Phoebe, Sinope, Pasiphae, Iapetus, Nereid...) se do
-      // distance nepočítají v ŽÁDNÉM módu — jejich orbity jsou řádově větší
-      // než regulární měsíce (VISUAL-AUDIT I2). Uživatel může zoom-out.
-      const childMoons = MOONS.filter(
-        (mm) => mm.parent === id && mm.category !== 'irregular',
-      );
-      if (childMoons.length === 0) return baseDist;
-      let maxMoonDist = 0;
-      for (const m of childMoons) {
-        const moonDist = moonDisplaySemiMajor(m, scaleOn);
-        if (moonDist > maxMoonDist) maxMoonDist = moonDist;
-      }
-      // Camera musí být dál než nejvzdálenější měsíc a celý orbit musí být ve viewportu.
-      // FOV=45° → half_angle=22.5° → tan(22.5°)≈0.414. S 15% safety marginem:
-      // cameraDist = maxMoonDist / tan(22.5°) * 1.15 ≈ maxMoonDist * 2.78
-      // Safety cap: max p.radiusPx × 40, aby planeta zůstala viditelná (angul. > 2.8°).
-      const rawDist = Math.max(baseDist, maxMoonDist * 2.8 + p.radiusPx);
-      return Math.min(rawDist, p.radiusPx * 40);
-    },
+    getCameraDistance: (id, scaleOn) => cameraDistanceFor(id, scaleOn, getBodyRadiusRaw),
     getBodyKind: (id) => BODY_DATA[id]?.kind || 'planet',
     isFyzikalni,
     planetAnchors: anchors,
@@ -952,49 +774,8 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Panel handlers
   infoPanel.onClose(() => detailView.exit());
 
-  // ESC handler
-  window.addEventListener('keydown', (e) => {
-    // Skip when typing in inputs
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-
-    if (e.key === 'Escape' && detailView.state() === DV_STATE.DETAIL) {
-      detailView.exit();
-    }
-
-    // Formace zamyká jen ČAS (Space + [ ] \ 0) — detail view (Escape výše)
-    // zůstává funkční, formace není hard-lock UI (F3 decision 6).
-    if (formationActive) return;
-
-    // Space toggle play/pauza
-    if (e.key === ' ') {
-      simClock.isPlaying() ? simClock.pause() : simClock.play();
-      e.preventDefault();
-      return;
-    }
-
-    // timeScale keybinds: [ ] \ 0 — simClock je od V4.4 F2 jediná autorita.
-    // timeControls.js (UI slider/reverse) čte/píše stejné simClock API
-    // (přepojeno v Tasku 5), takže klávesy i slider sdílí jednu timeScale hodnotu.
-    switch (e.key) {
-      case '[':
-        simClock.setTimeScale(Math.max(0.1, Math.abs(simClock.getTimeScale()) - 0.1) * (simClock.getTimeScale() < 0 ? -1 : 1));
-        e.preventDefault();
-        break;
-      case ']':
-        simClock.setTimeScale(Math.min(5.0, Math.abs(simClock.getTimeScale()) + 0.1) * (simClock.getTimeScale() < 0 ? -1 : 1));
-        e.preventDefault();
-        break;
-      case '\\':
-        simClock.setTimeScale(-simClock.getTimeScale());
-        e.preventDefault();
-        break;
-      case '0':
-        simClock.setTimeScale(1);
-        simClock.play();
-        e.preventDefault();
-        break;
-    }
-  });
+  // ESC + časové klávesy (Space, [ ] \ 0)
+  initKeyboard({ detailView, isFormationActive: () => formationActive });
 
   // Initialize time controls UI
   initTimeControls();

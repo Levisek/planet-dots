@@ -176,9 +176,15 @@ Vyřešeno 2026-09-25 (třetí kolo):
   a časová lišta na šířku displeje, lišta se zalamuje, nápověda kláves skrytá.
   Dřív panel 32 px za levým okrajem a lišta širší než displej.
 
+- `main.js` 1 015 → 796 řádků: vyjmuty `cameraRig.js` (přílet kamery
+  a jízda s tělesem, s testy), `bodyMeshes.js`, `lightingToggle.js`,
+  `keyboard.js`, `cameraDistance.js` (s testy). Čistý přesun, bez změny
+  chování — ověřeno regresí i klávesami, stíny a přepnutím módu v detailu.
+
 Zbývá:
 
-- `main.js` ~1 000 řádků — kompoziční kořen dál bobtná.
+- `main.js` pořád drží `tick()` (formace, gating, zážeh Slunce) a wiring
+  detailu (`fadeOthers`, `showPanel`) — dál dělit má smysl až s další funkcí.
 - `reset*` funkce (`resetSunWind`, `resetHyperion`, …) slouží jen testům
   k izolaci stavu modulu — nechané záměrně.
 - Pole dat pro pre-V4.4 cestu (`orbitRadius`, `orbitalPeriodSec`, `period`,
