@@ -54,6 +54,7 @@ spec nasazení: `docs/superpowers/specs/2026-07-26-sp3-vlastni-aplikace-design.m
 - `[` / `]` — zpomalit / zrychlit, `\` — obrátit směr času, `0` — reset rychlosti na 1×.
 - Hover nad tělem — tooltip.
 - Klik na těleso (scéna, popisek nebo seznam vlevo) — přelet do detailu (ESC nebo × zavře). Dlouhý přelet se cestou oddálí, ať je vidět kus soustavy; za letu jde kliknout jinam.
+- V detailu kamera sama krouží a střídá úhly (nad pólem, proti Slunci, u Saturnu z roviny prstence), dokud ji nechytneš.
 - V detailu: drag = orbit kamera, scroll = zoom. Čas se v detailu zpomalí tak,
   aby nejrychlejší měsíc oběhl zhruba za 8 s; kamera jede s tělesem.
 - Nahoře: **Pochopení** / **Fyzikální** (měřítko vzdáleností a soustav měsíců), **Stíny** (den/noc).

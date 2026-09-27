@@ -91,9 +91,18 @@ export function createCameraRig({ camera, controls, controlsTarget, getBodyPos, 
     if (_activeCameraTween && !_activeCameraTween.followId) _activeCameraTween = null;
   }
 
+  /** Ukončí let tam, kde kamera právě je (uživatel ji chytil); s followId
+   *  jede kamera dál s tělesem. */
+  function stopHere() {
+    const ct = _activeCameraTween;
+    if (!ct) return;
+    _activeCameraTween = null;
+    _follow = ct.followId ? { id: ct.followId, last: getBodyPos(ct.followId) } : null;
+  }
+
   /** Běží přelet? (main.js během něj nepouští OrbitControls.update — ten by
    *  kameru ořízl na minDistance/maxDistance cílového stavu.) */
   function isFlying() { return _activeCameraTween !== null; }
 
-  return { flyTo, update, cancelUnfollowedTween, isFlying };
+  return { flyTo, update, cancelUnfollowedTween, isFlying, stopHere };
 }

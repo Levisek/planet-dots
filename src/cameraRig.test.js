@@ -107,3 +107,18 @@ test('isFlying je true jen během letu', () => {
   rig.update(d, false);
   assert.equal(rig.isFlying(), false);
 });
+
+test('stopHere: let skončí na místě a kamera dál sleduje těleso', () => {
+  const bodyPositions = { earth: { x: 100, y: 0, z: 0 } };
+  const { rig, camera } = makeRig(bodyPositions);
+  camera.position.set(100, 0, 50);
+  rig.flyTo({ x: 100, y: 50, z: 0 }, { x: 100, y: 0, z: 0 }, 2, 'earth');
+  rig.update(0.5, true);
+  const mid = camera.position.clone();
+  rig.stopHere();
+  assert.equal(rig.isFlying(), false);
+  bodyPositions.earth = { x: 110, y: 0, z: 0 };
+  rig.update(0.1, true);
+  assert.ok(Math.abs(camera.position.x - (mid.x + 10)) < 1e-9, 'jede s tělesem, nezačne letět znovu');
+  assert.ok(Math.abs(camera.position.y - mid.y) < 1e-9);
+});

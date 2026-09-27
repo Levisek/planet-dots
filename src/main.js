@@ -37,6 +37,7 @@ import { buildBodyMeshes } from './bodyMeshes.js';
 import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createCameraRig } from './cameraRig.js';
+import { createDetailShow, showViews, SHOW_SWING_SEC, SHOW_AUTOROTATE } from './detailShow.js';
 import { initTimeControls, setFormationLock, setDetailRateNote } from './timeControls.js';
 import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
@@ -147,6 +148,47 @@ const cameraRig = createCameraRig({
   getBodyPos: (id) => getBodyPosNow(id),
   maxDuration: REDUCED_MOTION ? 0.8 : 4,
 });
+
+// Show v detailu (detailShow.js): kamera krouží a střídá úhly, dokud ji
+// uživatel nechytne. Při prefers-reduced-motion se nespouští.
+const _poleV = new THREE.Vector3();
+const _poleQ = new THREE.Quaternion();
+function bodyPole(id) {
+  const parent = MOONS.find((m) => m.id === id)?.parent;
+  const spin = spins[id] || (parent && spins[parent]);
+  if (!spin) return { x: 0, y: 1, z: 0 };
+  _poleV.set(0, 1, 0).applyQuaternion(spin.getWorldQuaternion(_poleQ));
+  return { x: _poleV.x, y: _poleV.y, z: _poleV.z };
+}
+const detailShow = createDetailShow({
+  getViews: (id) => showViews({
+    bodyPos: getBodyPosNow(id),
+    radius: getBodyRadiusRaw(id),
+    dist: cameraDistanceFor(id, isFyzikalni(), getBodyRadiusRaw),
+    pole: bodyPole(id),
+    ringed: !!PLANET_BY_ID[id]?.ringOuterRadius,
+  }),
+  flyToView: (v) => {
+    const id = detailView?.focusId();
+    if (!id) return;
+    const p = getBodyPosNow(id);
+    const pos = { x: p.x + v.dir.x * v.dist, y: p.y + v.dir.y * v.dist, z: p.z + v.dir.z * v.dist };
+    cameraRig.flyTo(pos, p, SHOW_SWING_SEC, id);
+  },
+  setAutoRotate: (on) => {
+    controls.autoRotate = on;
+    controls.autoRotateSpeed = SHOW_AUTOROTATE;
+  },
+  isFlying: () => cameraRig.isFlying(),
+});
+// Uživatel chytil kameru (tah, kolečko, dotyk) → show končí, rozjetý
+// přejezd mezi úhly se zastaví na místě.
+controls.addEventListener('start', () => {
+  if (!detailShow.active()) return;
+  detailShow.stop();
+  cameraRig.stopHere();
+});
+let _showFor = null; // těleso, pro které show běží / doběhla (nový přílet = nový start)
 // Mesh-e a linie, které se ukážou až po formaci (před 4,6 mld let nebyly
 // ani popisky planet, ani pojmenované asteroidy a jejich dráhy).
 const _revealAfterFormation = [];
@@ -287,6 +329,18 @@ function tick(timestamp) {
   if (detailView) detailView.tick(dt);
   const dvState = detailView ? detailView.state() : 'MAIN';
   const focusId = detailView ? detailView.focusId() : null;
+
+  // Show v detailu: start při příletu (i k jinému tělesu), stop při odletu.
+  if (dvState === DV_STATE.DETAIL) {
+    if (_showFor !== focusId) {
+      _showFor = focusId;
+      if (!REDUCED_MOTION) detailShow.start(focusId);
+    }
+  } else if (_showFor !== null) {
+    _showFor = null;
+    detailShow.stop();
+  }
+  detailShow.tick(dt);
 
   // Simulace běží v MAIN i v DETAIL (detail má jen zpomalený čas, viz
   // detailRateMultiplier) — kamera jede s fokusovaným tělesem. Dřív se
@@ -764,7 +818,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       moons: MOONS.map((m) => m.id),
     };
     window.__pool = pool;
-    window.__debug = { pool, anchors, moonAnchors, asteroidAnchors, camera, controls, controlsTarget, sky };
+    window.__debug = { pool, anchors, moonAnchors, asteroidAnchors, camera, controls, controlsTarget, sky, detailShow };
   }
 
   // Panel handlers

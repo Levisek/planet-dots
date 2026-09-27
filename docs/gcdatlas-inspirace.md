@@ -17,10 +17,13 @@ algoritmy a otevřená data (d3-celestial BSD-3, Hipparcos).
    Cestou opraveny dvě starší chyby: `controls.update()` ořezával každý snímek
    letu na `minDistance` 5000 (let vypadal jako skok a cvak) a návrat /
    přeskok detail → detail startoval s cílem pohledu na Slunci.
-2. **Po příletu** — pomalý oblet a střídání 2–3 připravených úhlů, dokud
-   uživatel nechytne kameru; u Saturnu průlet rovinou prstence, u Slunce
-   let těsně nad povrchem a odjezd (gcdatlas „flybys": vzdálenosti
-   v poloměrech tělesa, takže jeden recept platí pro všechna).
+2. **Po příletu** — hotovo 2026-09-27 (`src/detailShow.js`): kamera pomalu
+   krouží (`autoRotate`) a po 12 s přejede (4 s) na další úhel: denní
+   strana → nad pólem → proti Slunci (srpek se stíny), u Saturnu místo srpku
+   rovina prstence (2° nad ní). Úhly z pólu tělesa a směru ke Slunci.
+   Tah/kolečko/dotyk show ukončí do dalšího příletu; při
+   prefers-reduced-motion se nespouští. Zbývá: průlet těsně nad povrchem
+   (gcdatlas „flybys") — hodí se až k prohlídce.
 3. **Skutečná obloha** — hotovo 2026-09-27 (`src/sky.js`). Místo 1 500
    náhodných bílých bodů 5 044 hvězd do mag 6 (d3-celestial `stars.6.json`)
    s barvou z B–V (Ballesteros → černé těleso, zjemněno k bílé) a velikostí
