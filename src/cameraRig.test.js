@@ -81,3 +81,29 @@ test('cancelUnfollowedTween zruší jen tween bez followId', () => {
   assert.equal(camera.position.x, 10, 'follow tween doletí normálně');
   assert.deepEqual(controlsTarget, { x: 0, y: 0, z: 0 });
 });
+
+test('dlouhý přelet cestou oddálí kameru a flyTo vrací délku letu', () => {
+  const bodyPositions = { neptune: { x: 3000, y: 0, z: 0 } };
+  const { rig, camera, controlsTarget } = makeRig(bodyPositions);
+  camera.position.set(0, 10, 50); // kamera u Země v počátku, 50 od cíle
+  const d = rig.flyTo({ x: 3000, y: 20, z: 200 }, { x: 3000, y: 0, z: 0 }, null, 'neptune');
+  assert.ok(d > 1 && d <= 4, `délka letu ${d}`);
+  let maxDist = 0;
+  for (let i = 0; i < 40; i++) {
+    rig.update(d / 40, false);
+    const dist = Math.hypot(camera.position.x - controlsTarget.x, camera.position.y - controlsTarget.y, camera.position.z - controlsTarget.z);
+    maxDist = Math.max(maxDist, dist);
+  }
+  assert.ok(maxDist > 1000, `cestou má být vidět víc soustavy (max ${maxDist.toFixed(0)})`);
+  assert.deepEqual(controlsTarget, { x: 3000, y: 0, z: 0 });
+});
+
+test('isFlying je true jen během letu', () => {
+  const { rig, camera } = makeRig({});
+  camera.position.set(0, 0, 100);
+  assert.equal(rig.isFlying(), false);
+  const d = rig.flyTo({ x: 10, y: 0, z: 10 }, { x: 10, y: 0, z: 0 });
+  assert.equal(rig.isFlying(), true);
+  rig.update(d, false);
+  assert.equal(rig.isFlying(), false);
+});

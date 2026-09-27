@@ -54,12 +54,17 @@ test('enter(newId) v DETAIL → přepne fokus bez průchodu MAIN', () => {
   assert.equal(dv.focusId(), 'io');
 });
 
-test('enter() ignorován během TRANSITION_IN', () => {
+test('enter() během TRANSITION_IN přesměruje let, stejné těleso ignoruje', () => {
   const deps = makeMockDeps();
   const dv = createDetailView(deps);
   dv.enter('jupiter');
+  const flies = () => deps.calls.filter((c) => c[0] === 'fly').length;
+  dv.enter('jupiter');
+  assert.equal(flies(), 1, 'stejné těleso — žádný nový let');
   dv.enter('saturn');
-  assert.equal(dv.focusId(), 'jupiter');
+  assert.equal(dv.focusId(), 'saturn');
+  assert.equal(dv.state(), STATE.TRANSITION_IN);
+  assert.equal(flies(), 2);
 });
 
 test('panel se zobrazí až po TRANSITION_IN dokončí', () => {
@@ -86,7 +91,7 @@ test('setReturnPose: exit letí na nově nastavenou pozici', async () => {
   const { createDetailView } = await import('./detailView.js');
   const calls = [];
   const dv = createDetailView({
-    cameraFlyTo: (p, t, d, f) => calls.push(['fly', p, t, d, f]),
+    cameraFlyTo: (p, t, d, f) => { calls.push(['fly', p, t, d, f]); },
     getCameraState: () => ({ pos: { x: 0, y: 5000, z: 9000 }, target: { x: 0, y: 0, z: 0 } }),
     fadeOthers: () => {}, showPanel: () => {}, hidePanel: () => {},
     enableOrbit: () => {}, getBodyPosition: () => ({ x: 100, y: 0, z: 0 }), getBodyRadius: () => 5,
@@ -97,5 +102,41 @@ test('setReturnPose: exit letí na nově nastavenou pozici', async () => {
   dv.exit();
   const last = calls[calls.length - 1];
   assert.deepEqual(last[1], { x: 0, y: 90000, z: 160000 });
-  assert.equal(last[4], undefined, 'návrat do MAIN není relativní k tělesu');
+  assert.equal(last[4] ?? null, null, 'návrat do MAIN není relativní k tělesu');
+});
+
+test('délka přechodu se řídí délkou letu, kterou vrátí cameraFlyTo', async () => {
+  const { createDetailView, STATE } = await import('./detailView.js');
+  const dv = createDetailView({
+    cameraFlyTo: () => 2.5,
+    getCameraState: () => ({ pos: { x: 0, y: 5000, z: 9000 }, target: { x: 0, y: 0, z: 0 } }),
+    fadeOthers: () => {}, showPanel: () => {}, hidePanel: () => {},
+    enableOrbit: () => {}, getBodyPosition: () => ({ x: 100, y: 0, z: 0 }), getBodyRadius: () => 5,
+  });
+  dv.enter('mars');
+  dv.tick(2.4);
+  assert.equal(dv.state(), STATE.TRANSITION_IN, 'let ještě běží');
+  dv.tick(0.2);
+  assert.equal(dv.state(), STATE.DETAIL);
+});
+
+test('přelet startuje z aktuálního cíle: cameraFlyTo před enableOrbit(false) (re-focus i návrat)', async () => {
+  const { createDetailView } = await import('./detailView.js');
+  const order = [];
+  const dv = createDetailView({
+    cameraFlyTo: () => { order.push('fly'); },
+    getCameraState: () => ({ pos: { x: 0, y: 5000, z: 9000 }, target: { x: 0, y: 0, z: 0 } }),
+    fadeOthers: () => {}, showPanel: () => {}, hidePanel: () => {},
+    enableOrbit: (on) => { order.push(on ? 'orbit-on' : 'orbit-off'); },
+    getBodyPosition: () => ({ x: 100, y: 0, z: 0 }), getBodyRadius: () => 5,
+  });
+  dv.enter('mars');
+  dv.tick(1);
+  order.length = 0;
+  dv.enter('earth');
+  assert.deepEqual(order, ['fly', 'orbit-off']);
+  dv.tick(1);
+  order.length = 0;
+  dv.exit();
+  assert.deepEqual(order, ['fly', 'orbit-off']);
 });

@@ -139,7 +139,13 @@ const bodyMeshes = {}; // { [bodyId]: THREE.Mesh } — icosphere mesh per tělo 
 // Sdílený objekt s cameraRig (viz cameraRig.js) — window.__debug ho čte přímo,
 // mutuje se na místě, reference se nemění.
 const controlsTarget = { x: 0, y: 0, z: 0 };
-const cameraRig = createCameraRig({ camera, controls, controlsTarget, getBodyPos: (id) => getBodyPosNow(id) });
+// prefers-reduced-motion: přelety zkrácené na 0,8 s (dráha stejná, jen rychleji).
+const REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+const cameraRig = createCameraRig({
+  camera, controls, controlsTarget,
+  getBodyPos: (id) => getBodyPosNow(id),
+  maxDuration: REDUCED_MOTION ? 0.8 : 4,
+});
 // Mesh-e a linie, které se ukážou až po formaci (před 4,6 mld let nebyly
 // ani popisky planet, ani pojmenované asteroidy a jejich dráhy).
 const _revealAfterFormation = [];
@@ -388,8 +394,10 @@ function tick(timestamp) {
   // Picker updatuje mesh pozice (musí po applyClusterRotation)
   if (picker) picker.update();
 
-  // OrbitControls aktivní jen v DETAIL
-  if (controls.enabled) controls.update();
+  // OrbitControls — ne během přeletu: update() by kameru v každém snímku letu
+  // ořízl na minDistance (v přechodu 5000 od cíle) a let by se vykreslil jako
+  // skok na 5000 a cvak k tělesu na konci.
+  if (controls.enabled && !cameraRig.isFlying()) controls.update();
 
   // Tooltip follow (updatuje screen pos)
   if (tooltip) tooltip.update();
@@ -591,8 +599,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Detail view wiring
   detailView = createDetailView({
     cameraFlyTo: (toPos, toTarget, duration, followId = null) => {
-      cameraRig.flyTo(toPos, toTarget, duration, followId);
+      const d = cameraRig.flyTo(toPos, toTarget, duration, followId);
       applyDetailRate(followId);
+      return d;
     },
     getCameraState: () => ({
       pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },

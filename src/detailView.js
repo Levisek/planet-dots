@@ -11,19 +11,24 @@ export const STATE = Object.freeze({
   TRANSITION_OUT: 'TRANSITION_OUT',
 });
 
+// Záložní délka přechodu, když cameraFlyTo délku letu nevrátí (testy).
+// Jinak ji určuje dráha přeletu (flightPath.js) — Země → Luna ~1 s,
+// přes celou soustavu ~2–3 s.
 const TRANSITION_DURATION = 0.8;
 
 /**
  * Stav manager detailního pohledu. Tween (pohyb kamery) řeší main.js přes
  * `deps.cameraFlyTo(pos, target, duration, followId)` — followId = těleso, ke
  * kterému je cíl relativní (simulace běží i v detailu, těleso se hýbe; null =
- * návrat do MAIN na pevnou pozici). Tenhle modul drží jen state machine
- * a časovač pro přechody mezi stavy (musí odpovídat délce tween v main.js).
+ * návrat do MAIN na pevnou pozici); duration null = podle dráhy, funkce vrací
+ * skutečnou délku letu. Tenhle modul drží jen state machine a časovač pro
+ * přechody mezi stavy — ten běží přesně tak dlouho jako let.
  */
 export function createDetailView(deps) {
   let _state = STATE.MAIN;
   let _focusId = null;
   let _timer = 0; // sekundy v aktuální transition state
+  let _duration = TRANSITION_DURATION; // délka aktuálního přechodu
   let _returnPos = null;
   let _returnTarget = null;
   let _currentMoonLines = [];
@@ -53,6 +58,11 @@ export function createDetailView(deps) {
     };
   }
 
+  function fly(pos, target, followId = null) {
+    const d = deps.cameraFlyTo(pos, target, null, followId);
+    _duration = typeof d === 'number' && d > 0 ? d : TRANSITION_DURATION;
+  }
+
   function startTransitionIn(id) {
     _focusId = id;
     _state = STATE.TRANSITION_IN;
@@ -64,7 +74,7 @@ export function createDetailView(deps) {
     const { pos, target } = computeDetailCameraOffset(id);
     _timer = 0;
     deps.fadeOthers(id, 0);
-    deps.cameraFlyTo(pos, target, TRANSITION_DURATION, id);
+    fly(pos, target, id);
   }
 
   function showMoonLines() {
@@ -106,10 +116,12 @@ export function createDetailView(deps) {
   function startTransitionOut() {
     _state = STATE.TRANSITION_OUT;
     deps.hidePanel();
-    deps.enableOrbit(false, null);
     _timer = 0;
     deps.fadeOthers(null, 1);
-    deps.cameraFlyTo(_returnPos, _returnTarget, TRANSITION_DURATION);
+    // Let před enableOrbit(false): to přenastaví cíl pohledu na Slunce a let
+    // by startoval odtud — první snímek by cukl pohledem ke Slunci.
+    fly(_returnPos, _returnTarget);
+    deps.enableOrbit(false, null);
     hideMoonLines();
   }
 
@@ -122,7 +134,6 @@ export function createDetailView(deps) {
 
   return {
     enter(id) {
-      if (_state === STATE.TRANSITION_IN) return;
       if (id === _focusId) return;
       if (_state === STATE.MAIN || _state === STATE.TRANSITION_OUT) {
         // TRANSITION_OUT: přeruš return tween a přejdi rovnou na nový cíl.
@@ -130,16 +141,18 @@ export function createDetailView(deps) {
         startTransitionIn(id);
         return;
       }
-      // DETAIL → re-focus (bez průchodu MAIN)
+      // DETAIL nebo let k jinému tělesu → re-focus (bez průchodu MAIN).
+      // Za letu se přesměruje z místa, kde kamera právě je (lety trvají
+      // až ~4 s, kliknutí během nich dřív propadlo).
       hideMoonLines();
       _focusId = id;
       _state = STATE.TRANSITION_IN;
       _timer = 0;
       const { pos, target } = computeDetailCameraOffset(id);
       deps.hidePanel();
-      deps.enableOrbit(false, null);
       deps.fadeOthers(id, 0);
-      deps.cameraFlyTo(pos, target, TRANSITION_DURATION, id);
+      fly(pos, target, id); // před enableOrbit(false) — viz startTransitionOut
+      deps.enableOrbit(false, null);
     },
     exit() {
       if (_state !== STATE.DETAIL) return;
@@ -149,7 +162,7 @@ export function createDetailView(deps) {
     refreshCamera() {
       if (_state === STATE.DETAIL && _focusId) {
         const { pos, target } = computeDetailCameraOffset(_focusId);
-        deps.cameraFlyTo(pos, target, 0.6, _focusId);
+        deps.cameraFlyTo(pos, target, null, _focusId);
       }
     },
     /** Přepíše kam se kamera vrátí při exit (změna módu během detailu). */
@@ -165,7 +178,7 @@ export function createDetailView(deps) {
     tick(dt) {
       if (_state === STATE.TRANSITION_IN || _state === STATE.TRANSITION_OUT) {
         _timer += dt;
-        if (_timer >= TRANSITION_DURATION) {
+        if (_timer >= _duration) {
           if (_state === STATE.TRANSITION_IN) enterDetailState();
           else enterMainState();
         }
