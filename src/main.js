@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { PLANETS, PLANET_BY_ID, POOL_SIZE } from './planets.js';
 import { MOONS } from './moons.js';
-import { createScene, createStarfield } from './scene.js';
+import { createScene } from './scene.js';
+import { createSky } from './sky.js';
 import { createPlanetAnchors } from './planetAnchors.js';
 import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
@@ -41,7 +42,7 @@ import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
 
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
-createStarfield(scene);
+const sky = createSky(scene, { pixelRatio: renderer.getPixelRatio() });
 const { anchors, spins, imageData, loaded } = createPlanetAnchors(scene);
 
 // Slunce v Pochopení zmenšené — s r = 995 (věrný poměr 109 R⊕) sahalo skoro
@@ -415,6 +416,7 @@ function tick(timestamp) {
   if (shownLabels.length) applyDeclutter(shownLabels);
 
   pool.prepareUpload();
+  sky.update(camera);
   renderer.render(scene, camera);
 
   const tickEnd = performance.now();
@@ -762,7 +764,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       moons: MOONS.map((m) => m.id),
     };
     window.__pool = pool;
-    window.__debug = { pool, anchors, moonAnchors, asteroidAnchors, camera, controls, controlsTarget };
+    window.__debug = { pool, anchors, moonAnchors, asteroidAnchors, camera, controls, controlsTarget, sky };
   }
 
   // Panel handlers

@@ -16,7 +16,7 @@ export function createScene() {
     45,
     window.innerWidth / window.innerHeight,
     1,
-    2000000, // far plane — pokrýt Fyzikální Neptune (115K) + stars (900K).
+    2000000, // far plane — Fyzikální Neptun (115K) + obloha (sky.js, 900K od kamery).
   );
   // Default 3D pohled na celou soustavu — kamera nad orbital rovinou (~30°),
   // vidí Sun (origin) + Neptune orbit (radius 3018).
@@ -68,30 +68,4 @@ export function createScene() {
   controls.maxDistance = 500000; // Fyzikální mode: Neptune at 115K, kamera musí umět odzoom out
 
   return { renderer, scene, camera, controls, setLightingMode, onLightingModeChange };
-}
-
-export function createStarfield(scene, count = 1500) {
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    // Hvězdy v dostatečné vzdálenosti aby vypadaly jako v nekonečnu i v
-    // Fyzikálním mode (Neptune orbit 115K). r = 600K..900K.
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const r = 600000 + Math.random() * 300000;
-    positions[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-    positions[i * 3 + 2] = r * Math.cos(phi);
-  }
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 600, // proportional ke star distance 600-900K
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.85,
-  });
-  const points = new THREE.Points(geometry, material);
-  scene.add(points);
-  return points;
 }

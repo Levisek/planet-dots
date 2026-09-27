@@ -21,10 +21,14 @@ algoritmy a otevřená data (d3-celestial BSD-3, Hipparcos).
    uživatel nechytne kameru; u Saturnu průlet rovinou prstence, u Slunce
    let těsně nad povrchem a odjezd (gcdatlas „flybys": vzdálenosti
    v poloměrech tělesa, takže jeden recept platí pro všechna).
-3. **Skutečná obloha** — místo 1 500 náhodných bílých bodů katalog jasných
-   hvězd (d3-celestial `stars.6.json`) s barvou podle B–V (černé těleso)
-   a jasem podle magnitudy, natočený přes `coordinateFrame` (EQJ → scéna);
-   Mléčná dráha jako tečky z obrysu `mw.json`.
+3. **Skutečná obloha** — hotovo 2026-09-27 (`src/sky.js`). Místo 1 500
+   náhodných bílých bodů 5 044 hvězd do mag 6 (d3-celestial `stars.6.json`)
+   s barvou z B–V (Ballesteros → černé těleso, zjemněno k bílé) a velikostí
+   a jasem z magnitudy, natočené přes `poleToScene` (EQJ → scéna). Mléčná
+   dráha: 15 200 teček rovnoměrně po pěti konturách jasu z `mw.json`, jádro
+   ve Střelci. Koule jede s kamerou → žádná paralaxa. Data v `src/skyData.js`
+   (base64, 152 kB), build `scripts/build-sky.mjs` (~2 min, deterministický).
+   Na CPU rendereru (swiftshader) stojí ~10–20 % snímků, na GPU zanedbatelné.
 4. **Prohlídka** — seznam zastávek s českými popisky, `[` `]` mezi nimi;
    bez zásahu jede dokola → spořič na televizi.
 

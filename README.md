@@ -45,6 +45,7 @@ spec nasazení: `docs/superpowers/specs/2026-07-26-sp3-vlastni-aplikace-design.m
 - `index.html` — entry.
 - `src/` — ES moduly (scene, planets, particles, label, animation, main).
 - `textures/` — NASA / Solar System Scope textury (CC BY 4.0).
+- `src/sky.js` + `src/skyData.js` — skutečná obloha: 5 044 hvězd s barvou podle teploty, Mléčná dráha z teček.
 - `docs/superpowers/` — spec a plán.
 
 ## Ovládání
@@ -70,6 +71,8 @@ běžícímu serveru bez `npx`: `VR_BASE_URL=http://127.0.0.1:8765 node scripts/
 ## Licence
 
 Code: MIT.
+
+**Obloha (hvězdy do mag 6, obrys Mléčné dráhy):** BSD-3-Clause — [d3-celestial](https://github.com/ofrohn/d3-celestial), © 2015 Olaf Frohn (`vendor/d3-celestial/LICENSE`). `src/skyData.js` z nich generuje `node scripts/build-sky.mjs <adresář s stars.6.json a mw.json>`.
 
 Všechny textury jsou **cylindrické equirectangular albedo mapy** (ne fotky sféry — `sphericalUV()` v `src/textureUtils.js` vyžaduje cylindrickou projekci).
 
