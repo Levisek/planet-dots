@@ -180,6 +180,12 @@ Vyřešeno 2026-09-25 (třetí kolo):
   a jízda s tělesem, s testy), `bodyMeshes.js`, `lightingToggle.js`,
   `keyboard.js`, `cameraDistance.js` (s testy). Čistý přesun, bez změny
   chování — ověřeno regresí i klávesami, stíny a přepnutím módu v detailu.
+- 2026-09-27: pole starého Keplerova řešiče (před V4.4) pryč z `planets.js`,
+  `moons.js`, `asteroids.js` — `orbitRadius(Real)`, `orbitalPeriodSec(Real)`,
+  `initialPhaseRad`, zveličené `e`, `period(Real)`, `phaseOffset`, u asteroidů
+  `a`. Spolu s nimi `makeAsteroidOrbitable` v `main.js`. Pozice od V4.4
+  počítá jen `positionProvider` (efemeridy / JPL `elements`). Referenční
+  údaje (`eReal`, `inclinationDeg`, `axialTilt`) zůstaly.
 
 Zbývá:
 
@@ -187,5 +193,3 @@ Zbývá:
   detailu (`fadeOthers`, `showPanel`) — dál dělit má smysl až s další funkcí.
 - `reset*` funkce (`resetSunWind`, `resetHyperion`, …) slouží jen testům
   k izolaci stavu modulu — nechané záměrně.
-- Pole dat pro pre-V4.4 cestu (`orbitRadius`, `orbitalPeriodSec`, `period`,
-  `e`/`eReal` …) v `planets.js`/`moons.js` — část čtou testy schématu.

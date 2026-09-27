@@ -60,12 +60,11 @@ test('všechny planety mají inclinationDeg', () => {
   }
 });
 
-test('všechny planety mají e a eReal', () => {
+test('všechny planety mají eReal v [0, 1)', () => {
   for (const p of PLANETS) {
     if (p.id === 'sun') continue;
-    assert.ok(typeof p.e === 'number', `Planeta ${p.id} chybí e`);
     assert.ok(typeof p.eReal === 'number', `Planeta ${p.id} chybí eReal`);
-    assert.ok(p.e <= 0.08, `Planeta ${p.id} e > 0.08 (Pochopení clamp)`);
+    assert.ok(p.eReal >= 0 && p.eReal < 1, `Planeta ${p.id} eReal mimo [0, 1)`);
   }
 });
 

@@ -12,7 +12,7 @@ test('PLANETS obsahují všechna očekávaná tělesa v pořadí od Slunce', () 
 });
 
 test('každá planeta má povinné atributy', () => {
-  const required = ['id', 'name', 'realDiameterKm', 'radiusPx', 'texture', 'tickCount', 'axialTilt', 'rotationPeriod', 'direction', 'orbitRadius', 'orbitalPeriodSec', 'initialPhaseRad', 'color'];
+  const required = ['id', 'name', 'realDiameterKm', 'radiusPx', 'texture', 'tickCount', 'axialTilt', 'rotationPeriod', 'direction', 'pole', 'color'];
   for (const p of PLANETS) {
     for (const key of required) {
       assert.ok(key in p, `${p.id} postrádá atribut ${key}`);
@@ -20,15 +20,15 @@ test('každá planeta má povinné atributy', () => {
   }
 });
 
-test('Sun má orbitRadius=0 (uprostřed soustavy)', () => {
-  assert.equal(PLANET_BY_ID.sun.orbitRadius, 0);
+test('Slunce má realDistanceFromSunKm=0 (uprostřed soustavy)', () => {
+  assert.equal(PLANET_BY_ID.sun.realDistanceFromSunKm, 0);
 });
 
-test('orbitRadius rostoucí od Slunce k Neptunu', () => {
+test('realDistanceFromSunKm rostoucí od Slunce k Neptunu', () => {
   const ids = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
   for (let i = 1; i < ids.length; i++) {
-    const prev = PLANET_BY_ID[ids[i - 1]].orbitRadius;
-    const curr = PLANET_BY_ID[ids[i]].orbitRadius;
+    const prev = PLANET_BY_ID[ids[i - 1]].realDistanceFromSunKm;
+    const curr = PLANET_BY_ID[ids[i]].realDistanceFromSunKm;
     assert.ok(curr > prev, `${ids[i]} (${curr}) musí být dál než ${ids[i-1]} (${prev})`);
   }
 });

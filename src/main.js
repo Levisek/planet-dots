@@ -6,7 +6,7 @@ import { createPlanetAnchors } from './planetAnchors.js';
 import { createMoonAnchors } from './moonAnchors.js';
 import { ParticlePool } from './particles.js';
 import { rotateAnchors, rotationDaysPerSec } from './rotation.js';
-import { updatePlanetOrbits, orbitalPosition, auToDisplayRadius } from './planetOrbits.js';
+import { updatePlanetOrbits, orbitalPosition } from './planetOrbits.js';
 import { moonPeriodDays } from './moonOrbitLines.js';
 import { cameraDistanceFor } from './cameraDistance.js';
 import { initLightingToggle } from './lightingToggle.js';
@@ -64,23 +64,8 @@ const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = 
 const { anchors: asteroidAnchors, imageData: asteroidImageData, loaded: asteroidsLoaded } = createAsteroidAnchors(scene);
 const asteroidBelt = createAsteroidBelt(scene);
 
-// Convert ASTEROIDS data to orbit-compatible format (same fields as planets).
-const AU_TO_DISPLAY_REAL = 3846; // linear AU mapping per planets.js V4.2 spec
-
-function makeAsteroidOrbitable(a) {
-  return {
-    ...a,
-    orbitRadius: auToDisplayRadius(a.a),
-    orbitRadiusReal: a.a * AU_TO_DISPLAY_REAL,
-    orbitalPeriodSec: a.period,
-    orbitalPeriodSecReal: a.periodReal,
-    initialPhaseRad: a.phaseOffset,
-  };
-}
-const ORBITABLE_ASTEROIDS = ASTEROIDS.map(makeAsteroidOrbitable);
-
 function updateAsteroidOrbits(date) {
-  for (const a of ORBITABLE_ASTEROIDS) {
+  for (const a of ASTEROIDS) {
     const anchor = asteroidAnchors[a.id];
     if (!anchor) continue;
     const pos = orbitalPosition(a, date);

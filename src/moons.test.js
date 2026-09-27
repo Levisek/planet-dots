@@ -8,7 +8,7 @@ test('MOONS má přesně 26 měsíců (23 V2 + 3 Neptune)', () => {
 });
 
 test('každý měsíc má povinné atributy', () => {
-  const required = ['id', 'name', 'parent', 'diameterKm', 'radiusPx', 'tickCount', 'texture', 'a', 'e', 'period', 'phaseOffset'];
+  const required = ['id', 'name', 'parent', 'diameterKm', 'radiusPx', 'tickCount', 'texture', 'a', 'realSemiMajorAxisKm'];
   for (const m of MOONS) {
     for (const key of required) {
       assert.ok(key in m, `${m.id} postrádá ${key}`);
@@ -22,15 +22,8 @@ test('každý parent existuje v PLANETS', () => {
   }
 });
 
-test('eccentricity v rozsahu (0, 0.3]', () => {
+test('a, tickCount, radiusPx jsou kladné', () => {
   for (const m of MOONS) {
-    assert.ok(m.e > 0 && m.e <= 0.3, `${m.id} e=${m.e} mimo rozsah`);
-  }
-});
-
-test('period, a, tickCount, radiusPx jsou kladné', () => {
-  for (const m of MOONS) {
-    assert.ok(m.period > 0, `${m.id} period`);
     assert.ok(m.a > 0, `${m.id} a`);
     assert.ok(m.tickCount > 0, `${m.id} tickCount`);
     assert.ok(m.radiusPx >= 0.5, `${m.id} radiusPx ${m.radiusPx} < 0.5`);

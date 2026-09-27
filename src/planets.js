@@ -4,11 +4,8 @@
 // direction: 1 = prograde, -1 = retrograde — vůči IAU severnímu pólu (`pole`),
 //   proto Venuše a Uran mají -1 (axialTilt > 90 je jen informativní údaj).
 // pole: severní pól rotace (RA/Dec, J2000) — z něj se staví orientace tělesa.
-// orbitRadius: vzdálenost od Slunce (= origin) v scene units.
-//   Mapping: auToDisplayRadius(au) = 1100 + 200×sqrt(au).
-// orbitalPeriodSec: kolik sekund trvá jedno obíhání.
-//   Compressed: real_days / 36.5 (Earth = 10s). Outer planety (≥5 AU) navíc /3.
-// initialPhaseRad: počáteční úhel na orbitě (deterministicky rozprostřené).
+// Pozice planet jdou z efemerid (positionProvider.js), vzdálenost na scéně
+//   z auToDisplayRadius (scale.js). `eReal`, `inclinationDeg` jsou referenční.
 // tickCount = počet teček na povrchu (formation → destination).
 
 export const PLANETS = [
@@ -24,9 +21,6 @@ export const PLANETS = [
     pole: { raDeg: 286.13, decDeg: 63.87 }, // IAU WGCCRE 2015, EQJ
     rotationPeriod: 270, // 27 dní real (Earth = 1 den = 10s, Sun = 27d = 270s)
     direction: 1,
-    orbitRadius: 0,
-    orbitalPeriodSec: 1,
-    initialPhaseRad: 0,
     color: 0xffd966,
     realDistanceFromSunKm: 0,
     dotSize: 14,
@@ -45,12 +39,6 @@ export const PLANETS = [
     rotationPeriod: 586,
     direction: 1,
     category: 'planet',
-    orbitRadius: 1318,
-    orbitRadiusReal: 1500,     // 0.39 AU × 3846 (real ratio Mercury:Neptune = 1:77)
-    orbitalPeriodSec: 2.41,
-    orbitalPeriodSecReal: 2.41,
-    initialPhaseRad: 0.0,
-    e: 0.08,
     eReal: 0.2056,
     inclinationDeg: 7.00,
     color: 0x8c7853,
@@ -71,12 +59,6 @@ export const PLANETS = [
     rotationPeriod: 2430,
     direction: -1,
     category: 'planet',
-    orbitRadius: 1397,
-    orbitRadiusReal: 2769,     // 0.72 AU × 3846
-    orbitalPeriodSec: 6.16,
-    orbitalPeriodSecReal: 6.16,
-    initialPhaseRad: 0.785, // π/4
-    e: 0.0068,
     eReal: 0.0068,
     inclinationDeg: 3.39,
     color: 0xe7c98f,
@@ -97,12 +79,6 @@ export const PLANETS = [
     rotationPeriod: 10,
     direction: 1,
     category: 'planet',
-    orbitRadius: 1450,
-    orbitRadiusReal: 3846,     // 1.00 AU × 3846
-    orbitalPeriodSec: 10.0,
-    orbitalPeriodSecReal: 10.0,
-    initialPhaseRad: 1.571, // π/2
-    e: 0.0167,
     eReal: 0.0167,
     inclinationDeg: 0.00,
     color: 0x3a84d4,
@@ -123,12 +99,6 @@ export const PLANETS = [
     rotationPeriod: 10.25,
     direction: 1,
     category: 'planet',
-    orbitRadius: 1532,
-    orbitRadiusReal: 5846,     // 1.52 AU × 3846
-    orbitalPeriodSec: 18.82,
-    orbitalPeriodSecReal: 18.82,
-    initialPhaseRad: 2.356, // 3π/4
-    e: 0.08,
     eReal: 0.0934,
     inclinationDeg: 1.85,
     color: 0xc1440e,
@@ -149,12 +119,6 @@ export const PLANETS = [
     rotationPeriod: 4.1,
     direction: 1,
     category: 'planet',
-    orbitRadius: 1898,
-    orbitRadiusReal: 20000,    // 5.20 AU × 3846
-    orbitalPeriodSec: 39.6,
-    orbitalPeriodSecReal: 118.7,
-    initialPhaseRad: 3.142, // π
-    e: 0.0489,
     eReal: 0.0489,
     inclinationDeg: 1.31,
     color: 0xd8c185,
@@ -178,12 +142,6 @@ export const PLANETS = [
     rotationPeriod: 4.5,
     direction: 1,
     category: 'planet',
-    orbitRadius: 2182,
-    orbitRadiusReal: 36730,    // 9.55 AU × 3846
-    orbitalPeriodSec: 98.3,
-    orbitalPeriodSecReal: 294.8,
-    initialPhaseRad: 3.927, // 5π/4
-    e: 0.0565,
     eReal: 0.0565,
     inclinationDeg: 2.49,
     color: 0xe3c07a,
@@ -204,12 +162,6 @@ export const PLANETS = [
     rotationPeriod: 7.2,
     direction: -1,
     category: 'planet',
-    orbitRadius: 2635,
-    orbitRadiusReal: 73843,    // 19.20 AU × 3846
-    orbitalPeriodSec: 280.2,
-    orbitalPeriodSecReal: 840.7,
-    initialPhaseRad: 4.712, // 3π/2
-    e: 0.0457,
     eReal: 0.0457,
     inclinationDeg: 0.77,
     color: 0x9fd8e3,
@@ -230,12 +182,6 @@ export const PLANETS = [
     rotationPeriod: 6.7,
     direction: 1,
     category: 'planet',
-    orbitRadius: 3018,
-    orbitRadiusReal: 115571,   // 30.05 AU × 3846 (real Mercury:Neptune = 1:77)
-    orbitalPeriodSec: 549.7,
-    orbitalPeriodSecReal: 1648.4,
-    initialPhaseRad: 5.498, // 7π/4
-    e: 0.0113,
     eReal: 0.0113,
     inclinationDeg: 1.77,
     color: 0x3b5ff7,

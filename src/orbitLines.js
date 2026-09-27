@@ -50,7 +50,7 @@ export function createOrbitLines(scene) {
     depthWrite: false,
   });
   for (const p of PLANETS) {
-    if (p.id === 'sun' || p.orbitRadius === 0) continue;
+    if (p.id === 'sun') continue;
     const points = sampleOrbitCurve(p, new Date(), SEGMENTS);
     const geom = new THREE.BufferGeometry().setFromPoints(points);
     const line = new THREE.LineLoop(geom, material);

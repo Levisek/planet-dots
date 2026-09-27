@@ -1,10 +1,9 @@
 // MOONS — data 26 měsíců.
-// Pochopení mode (default): vizuálně srozumitelný — period a eccentricity
-//   zveličené ať uživatel vidí orbitální oblouk.
-// Fyzikální mode: real astronomická data (`periodReal`, `eReal`).
+// Pozice a perioda jdou z efemerid / JPL `elements` (positionProvider.js),
+//   tvar dráhy je v obou módech skutečný.
 // `a` = zobrazená velká poloosa v Pochopení jako násobek poloměru rodiče
 //   (ručně laděná komprese, viz moonScale.js). Fyzikální bere realSemiMajorAxisKm.
-// `phaseOffset` deterministický offset (rad) pro staggered start.
+// `eReal`, `inclinationDeg` (k rovníku rodiče) — referenční údaje, simulace je nečte.
 
 const MOON_TICK = 10242;
 
@@ -12,7 +11,7 @@ export const MOONS = [
   { id: 'luna', name: 'LUNA', parent: 'earth',
     diameterKm: 3474, radiusPx: 2.2, tickCount: MOON_TICK,
     texture: 'textures/luna.jpg',
-    a: 2.0, e: 0.275, eReal: 0.0549, period: 20, periodReal: 20, phaseOffset: 0.3,
+    a: 2.0, eReal: 0.0549,
     realSemiMajorAxisKm: 384_400,
     category: 'moon', inclinationDeg: 5.15,
     dotSize: 1.1, detailDotSize: 0.03 },
@@ -20,7 +19,7 @@ export const MOONS = [
   { id: 'phobos', name: 'PHOBOS', parent: 'mars',
     diameterKm: 22, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/phobos.jpg',
-    a: 1.3, e: 0.1, eReal: 0.0151, period: 2, periodReal: 2, phaseOffset: 0.0,
+    a: 1.3, eReal: 0.0151,
     realSemiMajorAxisKm: 9_376,
     category: 'moon', inclinationDeg: 1.08,
     // JPL Horizons, ekliptika J2000, vůči Marsu (401 @ 500@499).
@@ -30,7 +29,7 @@ export const MOONS = [
   { id: 'deimos', name: 'DEIMOS', parent: 'mars',
     diameterKm: 12, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/deimos.jpg',
-    a: 2.0, e: 0.05, eReal: 0.0002, period: 8, periodReal: 7.91, phaseOffset: 1.5,
+    a: 2.0, eReal: 0.0002,
     realSemiMajorAxisKm: 23_463,
     category: 'moon', inclinationDeg: 1.79,
     // JPL Horizons, ekliptika J2000, vůči Marsu (402 @ 500@499).
@@ -41,35 +40,35 @@ export const MOONS = [
   { id: 'io', name: 'IO', parent: 'jupiter',
     diameterKm: 3643, radiusPx: 2.3, tickCount: MOON_TICK,
     texture: 'textures/io.jpg',
-    a: 1.33, e: 0.04, eReal: 0.0041, period: 5, periodReal: 5, phaseOffset: 0.5,
+    a: 1.33, eReal: 0.0041,
     realSemiMajorAxisKm: 421_700,
     category: 'moon', inclinationDeg: 0.04,
     dotSize: 1.1, detailDotSize: 0.032 },
   { id: 'europa', name: 'EUROPA', parent: 'jupiter',
     diameterKm: 3122, radiusPx: 2.0, tickCount: MOON_TICK,
     texture: 'textures/europa.jpg',
-    a: 1.56, e: 0.09, eReal: 0.0094, period: 10, periodReal: 10.04, phaseOffset: 1.2,
+    a: 1.56, eReal: 0.0094,
     realSemiMajorAxisKm: 671_034,
     category: 'moon', inclinationDeg: 0.47,
     dotSize: 1.0, detailDotSize: 0.028 },
   { id: 'ganymede', name: 'GANYMEDE', parent: 'jupiter',
     diameterKm: 5268, radiusPx: 3.4, tickCount: MOON_TICK,
     texture: 'textures/ganymede.jpg',
-    a: 1.78, e: 0.02, eReal: 0.0013, period: 20, periodReal: 20.22, phaseOffset: 2.0,
+    a: 1.78, eReal: 0.0013,
     realSemiMajorAxisKm: 1_070_400,
     category: 'moon', inclinationDeg: 0.18,
     dotSize: 1.5, detailDotSize: 0.05 },
   { id: 'callisto', name: 'CALLISTO', parent: 'jupiter',
     diameterKm: 4820, radiusPx: 3.1, tickCount: MOON_TICK,
     texture: 'textures/callisto.jpg',
-    a: 2.0, e: 0.07, eReal: 0.0074, period: 47, periodReal: 47.16, phaseOffset: 3.5,
+    a: 2.0, eReal: 0.0074,
     realSemiMajorAxisKm: 1_882_700,
     category: 'moon', inclinationDeg: 0.19,
     dotSize: 1.4, detailDotSize: 0.045 },
   { id: 'sinope', name: 'SINOPE', parent: 'jupiter',
     diameterKm: 38, radiusPx: 0.5, tickCount: 2066,
     category: 'irregular',
-    a: 16.0, e: 0.08, eReal: 0.2495, period: 220, periodReal: 758, phaseOffset: 0.4,
+    a: 16.0, eReal: 0.2495,
     inclinationDeg: 158.1,
     // JPL Horizons, ekliptika J2000, vůči Jupiteru (509 @ 500@599). Osculující e.
     elements: { aAU: 0.15353683, e: 0.31641458, incDeg: 152.13734, OmegaDeg: 308.02154, omegaDeg: 354.27878, M0Deg: 157.45056, periodDays: 711.22639 },
@@ -83,7 +82,7 @@ export const MOONS = [
   { id: 'pasiphae', name: 'PASIPHAE', parent: 'jupiter',
     diameterKm: 60, radiusPx: 0.5, tickCount: 2066,
     category: 'irregular',
-    a: 15.5, e: 0.08, eReal: 0.4090, period: 200, periodReal: 744, phaseOffset: 1.3,
+    a: 15.5, eReal: 0.4090,
     inclinationDeg: 151.4,
     // JPL Horizons, ekliptika J2000, vůči Jupiteru (508 @ 500@599). Osculující e.
     elements: { aAU: 0.15658807, e: 0.37953951, incDeg: 140.08742, OmegaDeg: 315.74889, omegaDeg: 172.82935, M0Deg: 279.22449, periodDays: 732.53269 },
@@ -98,7 +97,7 @@ export const MOONS = [
   { id: 'titan', name: 'TITAN', parent: 'saturn',
     diameterKm: 5150, radiusPx: 3.3, tickCount: MOON_TICK,
     texture: 'textures/titan.jpg',
-    a: 3.8, e: 0.2, eReal: 0.0288, period: 50, periodReal: 50.79, phaseOffset: 1.8,
+    a: 3.8, eReal: 0.0288,
     realSemiMajorAxisKm: 1_221_870,
     category: 'moon', inclinationDeg: 0.33,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (606 @ 500@699).
@@ -107,7 +106,7 @@ export const MOONS = [
   { id: 'rhea', name: 'RHEA', parent: 'saturn',
     diameterKm: 1527, radiusPx: 1.0, tickCount: MOON_TICK,
     texture: 'textures/rhea.jpg',
-    a: 3.1, e: 0.02, eReal: 0.001, period: 14.3, periodReal: 14.39, phaseOffset: 0.9,
+    a: 3.1, eReal: 0.001,
     realSemiMajorAxisKm: 527_108,
     category: 'moon', inclinationDeg: 0.35,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (605 @ 500@699).
@@ -118,7 +117,7 @@ export const MOONS = [
     texture: 'textures/iapetus.jpg',
     // a: 5.2 (dřív 4.4 < Hyperion 4.6 — pořadí drah bylo prohozené, reálně je
     // Iapetus 2,4× dál než Hyperion).
-    a: 5.2, e: 0.2, eReal: 0.0286, period: 60, periodReal: 252.6, phaseOffset: 2.5,
+    a: 5.2, eReal: 0.0286,
     realSemiMajorAxisKm: 3_560_820,
     category: 'irregular', inclinationDeg: 14.72,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (608 @ 500@699).
@@ -127,7 +126,7 @@ export const MOONS = [
   { id: 'dione', name: 'DIONE', parent: 'saturn',
     diameterKm: 1123, radiusPx: 0.72, tickCount: MOON_TICK,
     texture: 'textures/dione.jpg',
-    a: 2.9, e: 0.02, eReal: 0.0022, period: 8.7, periodReal: 8.72, phaseOffset: 1.1,
+    a: 2.9, eReal: 0.0022,
     realSemiMajorAxisKm: 377_396,
     category: 'moon', inclinationDeg: 0.02,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (604 @ 500@699).
@@ -136,7 +135,7 @@ export const MOONS = [
   { id: 'tethys', name: 'TETHYS', parent: 'saturn',
     diameterKm: 1062, radiusPx: 0.68, tickCount: MOON_TICK,
     texture: 'textures/tethys.jpg',
-    a: 2.7, e: 0.02, eReal: 0.0001, period: 6, periodReal: 6.01, phaseOffset: 0.4,
+    a: 2.7, eReal: 0.0001,
     realSemiMajorAxisKm: 294_619,
     category: 'moon', inclinationDeg: 1.09,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (603 @ 500@699).
@@ -145,7 +144,7 @@ export const MOONS = [
   { id: 'enceladus', name: 'ENCELADUS', parent: 'saturn',
     diameterKm: 504, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/enceladus.jpg',
-    a: 2.55, e: 0.05, eReal: 0.0047, period: 4.3, periodReal: 4.36, phaseOffset: 2.2,
+    a: 2.55, eReal: 0.0047,
     realSemiMajorAxisKm: 237_948,
     category: 'moon', inclinationDeg: 0.02,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (602 @ 500@699).
@@ -154,7 +153,7 @@ export const MOONS = [
   { id: 'mimas', name: 'MIMAS', parent: 'saturn',
     diameterKm: 396, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/mimas.jpg',
-    a: 2.4, e: 0.2, eReal: 0.0196, period: 3, periodReal: 3, phaseOffset: 0.1,
+    a: 2.4, eReal: 0.0196,
     realSemiMajorAxisKm: 185_539,
     category: 'moon', inclinationDeg: 1.57,
     // JPL Horizons, ekliptika J2000, vůči Saturnu (601 @ 500@699).
@@ -163,7 +162,7 @@ export const MOONS = [
   { id: 'hyperion', name: 'HYPERION', parent: 'saturn',
     diameterKm: 270, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: null, // žádná cylindrická mapa — Cassini foto je orthographic, ne equirectangular
-    a: 4.6, e: 0.05, eReal: 0.1230, period: 70, periodReal: 21.28, phaseOffset: 0.7,
+    a: 4.6, eReal: 0.1230,
     realDiameterKm: 270,
     realSemiMajorAxisKm: 1481010,
     category: 'irregular', inclinationDeg: 0.43,
@@ -177,7 +176,7 @@ export const MOONS = [
   { id: 'phoebe', name: 'PHOEBE', parent: 'saturn',
     diameterKm: 213, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: null, // žádná cylindrická mapa — Cassini foto je orthographic, ne equirectangular
-    a: 13.5, e: 0.08, eReal: 0.1634, period: 280, periodReal: 550.31, phaseOffset: 2.1,
+    a: 13.5, eReal: 0.1634,
     realDiameterKm: 213,
     realSemiMajorAxisKm: 12947780,
     category: 'irregular', inclinationDeg: 175.3,
@@ -191,7 +190,7 @@ export const MOONS = [
   { id: 'miranda', name: 'MIRANDA', parent: 'uranus',
     diameterKm: 471, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/miranda.jpg',
-    a: 1.7, e: 0.02, eReal: 0.0013, period: 4, periodReal: 4, phaseOffset: 1.7,
+    a: 1.7, eReal: 0.0013,
     realSemiMajorAxisKm: 129_390,
     category: 'moon', inclinationDeg: 4.34,
     // JPL Horizons, ekliptika J2000, vůči Uranu (705 @ 500@799). inc ~97° = osa Uranu.
@@ -201,7 +200,7 @@ export const MOONS = [
   { id: 'ariel', name: 'ARIEL', parent: 'uranus',
     diameterKm: 1158, radiusPx: 0.74, tickCount: MOON_TICK,
     texture: 'textures/ariel.jpg',
-    a: 1.9, e: 0.02, eReal: 0.0012, period: 7, periodReal: 7.13, phaseOffset: 0.8,
+    a: 1.9, eReal: 0.0012,
     realSemiMajorAxisKm: 191_020,
     category: 'moon', inclinationDeg: 0.04,
     // JPL Horizons, ekliptika J2000, vůči Uranu (701 @ 500@799). inc ~97° = osa Uranu.
@@ -211,7 +210,7 @@ export const MOONS = [
   { id: 'umbriel', name: 'UMBRIEL', parent: 'uranus',
     diameterKm: 1169, radiusPx: 0.75, tickCount: MOON_TICK,
     texture: 'textures/umbriel.jpg',
-    a: 2.15, e: 0.04, eReal: 0.0039, period: 12, periodReal: 11.73, phaseOffset: 2.7,
+    a: 2.15, eReal: 0.0039,
     realSemiMajorAxisKm: 266_000,
     category: 'moon', inclinationDeg: 0.13,
     // JPL Horizons, ekliptika J2000, vůči Uranu (702 @ 500@799). inc ~97° = osa Uranu.
@@ -221,7 +220,7 @@ export const MOONS = [
   { id: 'titania', name: 'TITANIA', parent: 'uranus',
     diameterKm: 1577, radiusPx: 1.01, tickCount: MOON_TICK,
     texture: 'textures/titania.jpg',
-    a: 2.5, e: 0.02, eReal: 0.0011, period: 25, periodReal: 24.65, phaseOffset: 3.0,
+    a: 2.5, eReal: 0.0011,
     realSemiMajorAxisKm: 435_910,
     category: 'moon', inclinationDeg: 0.08,
     // JPL Horizons, ekliptika J2000, vůči Uranu (703 @ 500@799). inc ~97° = osa Uranu.
@@ -231,7 +230,7 @@ export const MOONS = [
   { id: 'oberon', name: 'OBERON', parent: 'uranus',
     diameterKm: 1523, radiusPx: 0.98, tickCount: MOON_TICK,
     texture: 'textures/oberon.jpg',
-    a: 2.8, e: 0.02, eReal: 0.0014, period: 38, periodReal: 38.12, phaseOffset: 0.6,
+    a: 2.8, eReal: 0.0014,
     realSemiMajorAxisKm: 583_520,
     category: 'moon', inclinationDeg: 0.07,
     // JPL Horizons, ekliptika J2000, vůči Uranu (704 @ 500@799). inc ~97° = osa Uranu.
@@ -243,7 +242,7 @@ export const MOONS = [
   { id: 'triton', name: 'TRITON', parent: 'neptune',
     diameterKm: 2707, radiusPx: 1.74, tickCount: MOON_TICK,
     texture: 'textures/triton.jpg',
-    a: 1.5, e: 0.001, eReal: 0.000016, period: 6, periodReal: 6, phaseOffset: 0.2,
+    a: 1.5, eReal: 0.000016,
     realSemiMajorAxisKm: 354_800,
     category: 'irregular', inclinationDeg: 157.0,
     // JPL Horizons, ekliptika J2000, vůči Neptunu (801 @ 500@899). Retrográdní.
@@ -253,7 +252,7 @@ export const MOONS = [
   { id: 'nereid', name: 'NEREID', parent: 'neptune',
     diameterKm: 340, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/nereid.jpg',
-    a: 5.0, e: 0.3, eReal: 0.7507, period: 36, periodReal: 367.7, phaseOffset: 1.5,
+    a: 5.0, eReal: 0.7507,
     realSemiMajorAxisKm: 5_513_400,
     category: 'irregular', inclinationDeg: 5.0,
     // JPL Horizons, ekliptika J2000, vůči Neptunu (802 @ 500@899). Extrémní e.
@@ -264,7 +263,7 @@ export const MOONS = [
   { id: 'proteus', name: 'PROTEUS', parent: 'neptune',
     diameterKm: 420, radiusPx: 0.5, tickCount: MOON_TICK,
     texture: 'textures/proteus.jpg',
-    a: 1.2, e: 0.005, eReal: 0.000534, period: 1.1, periodReal: 1.15, phaseOffset: 0.8,
+    a: 1.2, eReal: 0.000534,
     realSemiMajorAxisKm: 117_647,
     category: 'moon', inclinationDeg: 0.04,
     // JPL Horizons, ekliptika J2000, vůči Neptunu (808 @ 500@899).
