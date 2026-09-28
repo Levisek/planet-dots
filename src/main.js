@@ -38,6 +38,7 @@ import { BODY_DATA } from './bodyData.js';
 import { MOON_OWNER_BASE } from './phase.js';
 import { createCameraRig } from './cameraRig.js';
 import { createDetailShow, showViews, SHOW_SWING_SEC, SHOW_AUTOROTATE } from './detailShow.js';
+import { createViewFraming, framingShift } from './viewFraming.js';
 import { initTimeControls, setFormationLock, setDetailRateNote } from './timeControls.js';
 import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
@@ -188,6 +189,27 @@ controls.addEventListener('start', () => {
   detailShow.stop();
   cameraRig.stopHere();
 });
+// Těleso v detailu do volné plochy vedle / nad info panelem (viewFraming.js).
+const viewFraming = createViewFraming({ camera, getSize: () => ({ w: window.innerWidth, h: window.innerHeight }) });
+function refreshFraming() {
+  const pe = document.getElementById('infoPanel');
+  const visible = pe && pe.classList.contains('visible');
+  if (!visible) { viewFraming.setShift({ dx: 0, dy: 0 }); return; }
+  const shown = (el) => el && getComputedStyle(el).display !== 'none';
+  const bl = document.getElementById('bodyList');
+  const tt = document.getElementById('topToggles');
+  const blt = document.getElementById('bodyListToggle');
+  const topInset = Math.max(shown(tt) ? tt.getBoundingClientRect().bottom : 0, shown(blt) ? blt.getBoundingClientRect().bottom : 0) + 8;
+  viewFraming.setShift(framingShift({
+    vw: window.innerWidth,
+    vh: window.innerHeight,
+    // offset* = rozměry bez transformace (panel při zobrazení teprve přijíždí)
+    panel: { left: pe.offsetLeft, top: pe.offsetTop, width: pe.offsetWidth, height: pe.offsetHeight },
+    leftInset: shown(bl) ? bl.getBoundingClientRect().right : 0,
+    topInset,
+  }));
+}
+window.addEventListener('resize', () => requestAnimationFrame(refreshFraming));
 let _showFor = null; // těleso, pro které show běží / doběhla (nový přílet = nový start)
 // Mesh-e a linie, které se ukážou až po formaci (před 4,6 mld let nebyly
 // ani popisky planet, ani pojmenované asteroidy a jejich dráhy).
@@ -471,6 +493,7 @@ function tick(timestamp) {
 
   pool.prepareUpload();
   sky.update(camera);
+  viewFraming.update(dt);
   renderer.render(scene, camera);
 
   const tickEnd = performance.now();
@@ -566,6 +589,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
 
   tooltip = createTooltip({ camera, canvas: renderer.domElement });
   infoPanel = createInfoPanel();
+  infoPanel.onLayout(refreshFraming);
   sunActivity = createSunActivity({ sunOwner: 0, sunRadius: getSunRadius(), sunMesh: bodyMeshes.sun });
   moonLabels = createMoonLabels({
     camera,

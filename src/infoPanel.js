@@ -17,6 +17,11 @@ export function createInfoPanel() {
   const el = document.getElementById('infoPanel');
   if (!el) throw new Error('#infoPanel element nenalezen');
   let closeCb = null;
+  let layoutCb = null;
+  // Telefon: panel sbalený na název a podtitulek, podrobnosti na klepnutí —
+  // jinak zakryl celé těleso. Volba platí pro další tělesa v session.
+  let expanded = false;
+  const notifyLayout = () => requestAnimationFrame(() => layoutCb && layoutCb());
 
   function renderCoverageNote(body) {
     if (!body || !body.coverageNote) return '';
@@ -36,22 +41,37 @@ export function createInfoPanel() {
       <button class="close" aria-label="Zavřít"><svg viewBox="0 0 10 10" width="12" height="12" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></button>
       <h2>${escapeHtml(data.name)}</h2>
       <p class="tagline">${escapeHtml(data.tagline)}</p>
-      <table>${rowsHtml}</table>
-      <div class="funFact">„${escapeHtml(data.funFact)}"</div>
-      ${renderCoverageNote(body)}
+      <button class="more" aria-expanded="${expanded}">${expanded ? 'Méně' : 'Podrobnosti'}</button>
+      <div class="details">
+        <table>${rowsHtml}</table>
+        <div class="funFact">„${escapeHtml(data.funFact)}"</div>
+        ${renderCoverageNote(body)}
+      </div>
     `;
+    el.classList.toggle('expanded', expanded);
 
     el.querySelector('.close').onclick = () => closeCb && closeCb();
+    const more = el.querySelector('.more');
+    more.onclick = () => {
+      expanded = !expanded;
+      el.classList.toggle('expanded', expanded);
+      more.setAttribute('aria-expanded', String(expanded));
+      more.textContent = expanded ? 'Méně' : 'Podrobnosti';
+      notifyLayout();
+    };
   }
 
   return {
     show(id, body) {
       render(id, body);
-      requestAnimationFrame(() => el.classList.add('visible'));
+      requestAnimationFrame(() => { el.classList.add('visible'); notifyLayout(); });
     },
     hide() {
       el.classList.remove('visible');
+      notifyLayout();
     },
     onClose(cb) { closeCb = cb; },
+    /** Změna rozměrů panelu (zobrazení, skrytí, sbalení) — pro viewFraming. */
+    onLayout(cb) { layoutCb = cb; },
   };
 }

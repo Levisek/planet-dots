@@ -69,6 +69,7 @@
       z-index: 20;
     }
     #infoPanel.visible { transform: translateX(0); opacity: 1; }
+    #infoPanel .more { display: none; }
     #infoPanel h2 { margin: 0 0 8px; font-size: 14px; letter-spacing: 0.06em; line-height: 1.4; }
     #infoPanel .tagline { color: #aaa; margin: 0 0 14px; font-size: 8px; line-height: 1.6; }
     #infoPanel .close {
@@ -323,6 +324,15 @@
         bottom: 104px;
         max-height: calc(100vh - 160px);
       }
+      /* Sbalený panel: jen název a podtitulek, těleso zůstane vidět nad ním. */
+      #infoPanel:not(.expanded) .details { display: none; }
+      #infoPanel .tagline { margin-bottom: 8px; }
+      #infoPanel .more {
+        display: block; margin: 0; padding: 6px 10px;
+        background: none; color: #ffc850; border: 1px solid #ffc85066; border-radius: 4px;
+        font: 8px/1.4 'Press Start 2P', monospace; cursor: pointer;
+      }
+      #infoPanel.expanded .more { margin-bottom: 4px; }
       #time-controls {
         flex-wrap: wrap;
         justify-content: center;
