@@ -41,12 +41,14 @@ function sampleOrbitCurve(body, baseDate, segments) {
   return points;
 }
 
+const ORBIT_OPACITY = 0.3;
+
 export function createOrbitLines(scene) {
   const lines = [];
   const material = new THREE.LineBasicMaterial({
     color: 0x666666,
     transparent: true,
-    opacity: 0.3,
+    opacity: ORBIT_OPACITY,
     depthWrite: false,
   });
   for (const p of PLANETS) {
@@ -73,13 +75,17 @@ export function createOrbitLines(scene) {
     setVisible(v) {
       for (const entry of lines) entry.line.visible = v;
     },
+    /** Prolnutí po formaci: k = 0..1 násobí výchozí průhlednost. */
+    setOpacity(k) {
+      material.opacity = ORBIT_OPACITY * k;
+    },
   };
 }
 
 const ASTEROID_ORBIT_MATERIAL = new THREE.LineBasicMaterial({
   color: 0x665544,
   transparent: true,
-  opacity: 0.3,
+  opacity: ORBIT_OPACITY,
   depthWrite: false,
 });
 
@@ -107,6 +113,9 @@ export function createAsteroidOrbitLines(scene) {
   return {
     setVisible(v) {
       for (const entry of lines) entry.line.visible = v;
+    },
+    setOpacity(k) {
+      ASTEROID_ORBIT_MATERIAL.opacity = ORBIT_OPACITY * k;
     },
   };
 }

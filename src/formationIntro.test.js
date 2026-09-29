@@ -192,3 +192,12 @@ test('emise = jedno takeIdleIndices volání za frame (>=2 aktivní akreční ok
 
   assert.equal(pool._takeIdleCallCount, 1, `očekáváno přesně 1 volání takeIdleIndices za frame, bylo ${pool._takeIdleCallCount}`);
 });
+
+test('dustColor: u Slunce teplý, za sněžnou čarou studený, složky v 0..1', async () => {
+  const { dustColor } = await import('./formationIntro.js');
+  const inner = dustColor(1318, 1714, 0.5);
+  const outer = dustColor(3018, 1714, 0.5);
+  assert.ok(inner[0] > inner[2], 'uvnitř víc červené než modré');
+  assert.ok(outer[2] > outer[0], 'venku víc modré než červené');
+  for (const c of [...inner, ...outer, ...dustColor(0, 1714, 1), ...dustColor(9999, 1714, 1)]) assert.ok(c >= 0 && c <= 1);
+});

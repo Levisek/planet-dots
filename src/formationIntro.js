@@ -27,11 +27,13 @@ const _tmpTarget = new Vector3();
 
 const DUST_COUNT = 12000;
 const ROTATION_PERIOD = 30; // sec / full disk spin
-const SUN_ZONE_FACTOR = 0.55; // sluneční zásoba sahá do 0.55×r_min (kolabuje v ignition)
-const SUN_RESERVE_MIN_FACTOR = 0.15; // ... a začíná na 0.15×r_min (disk sahá jen od 0.75×r_min, takže
-                                      // zásoba MUSÍ být vyhrazena samostatně — jinak zone=-1 nikdy nenastane)
+// Sluneční zásoba (kolabuje v ignition) vyplňuje střed disku až k jeho
+// vnitřnímu okraji — dřív končila na 0,55×r_min a disk začínal na 0,75×r_min,
+// takže kolem středu byl vidět tmavý prstenec, který nemá fyzikální důvod.
+const SUN_RESERVE_MIN_FACTOR = 0.04;
 const SUN_RESERVE_FRACTION = 0.15; // podíl DUST_COUNT vyhrazený jako sluneční zásoba
 const DISK_MIN_FACTOR = 0.75; // disk sahá 0.75×r_min .. 1.1×r_max
+const SUN_ZONE_FACTOR = DISK_MIN_FACTOR; // zásoba končí tam, kde disk začíná
 const DISK_MAX_FACTOR = 1.1;
 const SOURCE_MIN_RADIUS_FACTOR = 8;  // anulus zdroje emise: 8×radiusPx .. 30×radiusPx
 const SOURCE_MAX_RADIUS_FACTOR = 30;
@@ -56,6 +58,24 @@ export function assignZone(radius, zoneRadii) {
     }
   }
   return best;
+}
+
+const DUST_ALPHA = 0.75;
+
+/**
+ * Barva prachu podle vzdálenosti od středu: u mladé hvězdy teplý, rozžhavený
+ * (skalnaté planety), za sněžnou čarou (mezi Marsem a Jupiterem) studený
+ * namodralý led (obři). Jitter 0..1 = rozptyl, ať disk není jednolitý.
+ * @param {number} r — vzdálenost od středu
+ * @param {number} snowR — poloměr sněžné čáry ve stejných jednotkách
+ * @returns {[number, number, number]}
+ */
+export function dustColor(r, snowR, jitter = 0.5) {
+  const warm = [0.95, 0.72, 0.48];
+  const cold = [0.52, 0.60, 0.78];
+  const t = Math.min(1, Math.max(0, (r / snowR - 0.7) / 0.5));
+  const j = 0.85 + 0.3 * jitter;
+  return [0, 1, 2].map((c) => Math.min(1, (warm[c] + (cold[c] - warm[c]) * t) * j));
 }
 
 function gaussianRandom() {
@@ -95,6 +115,9 @@ function initDisk(pool, anchors) {
   const rMax = zoneRadii[zoneRadii.length - 1];
   const diskMin = DISK_MIN_FACTOR * rMin;
   const diskMax = DISK_MAX_FACTOR * rMax;
+  // Sněžná čára mezi Marsem a Jupiterem (v módu, ve kterém formace běží).
+  const rOf = (id) => entries.find((e) => e.planetId === id)?.radius;
+  const snowR = rOf('mars') && rOf('jupiter') ? (rOf('mars') + rOf('jupiter')) / 2 : (rMin + rMax) / 3;
   const sunMin = SUN_RESERVE_MIN_FACTOR * rMin;
   const sunMax = SUN_ZONE_FACTOR * rMin;
   const ignitionWindow = PHASES.find((p) => p.id === 'beat_ignition');
@@ -131,11 +154,11 @@ function initDisk(pool, anchors) {
     pool.position[3 * i] = x;
     pool.position[3 * i + 1] = y;
     pool.position[3 * i + 2] = z;
-    // Šedo-modrá protoplanetární prach paleta.
-    pool.color[3 * i] = 0.45 + Math.random() * 0.18;
-    pool.color[3 * i + 1] = 0.50 + Math.random() * 0.18;
-    pool.color[3 * i + 2] = 0.62 + Math.random() * 0.20;
-    pool.alpha[i] = 0.65;
+    const [cr, cg, cb] = dustColor(r, snowR, Math.random());
+    pool.color[3 * i] = cr;
+    pool.color[3 * i + 1] = cg;
+    pool.color[3 * i + 2] = cb;
+    pool.alpha[i] = DUST_ALPHA;
     pool.size[i] = 4.0;
     pool.phase[i] = 99; // mimo standard PHASE enum — kustomní disk prach
     pool.owner[i] = -1;
@@ -220,7 +243,7 @@ function updateDustFrame(pool, phId, currentTime, dt) {
         pool.position[3 * i] = _dustFromX[k] * collapseFactor;
         pool.position[3 * i + 1] = _dustFromY[k] * collapseFactor;
         pool.position[3 * i + 2] = _dustFromZ[k] * collapseFactor;
-        pool.alpha[i] = collapseFactor * 0.65;
+        pool.alpha[i] = collapseFactor * DUST_ALPHA;
         if (t >= 1) releaseDustParticle(pool, k);
         continue;
       }
@@ -263,7 +286,7 @@ function updateDustFrame(pool, phId, currentTime, dt) {
     pool.position[3 * i] = _dustFromX[k] + (anchor.x - _dustFromX[k]) * factor;
     pool.position[3 * i + 1] = _dustFromY[k] + (anchor.y - _dustFromY[k]) * factor;
     pool.position[3 * i + 2] = _dustFromZ[k] + (anchor.z - _dustFromZ[k]) * factor;
-    pool.alpha[i] = 0.65 * (1 - factor);
+    pool.alpha[i] = DUST_ALPHA * (1 - factor);
     if (t >= 1) releaseDustParticle(pool, k);
   }
   pool.posAttr.needsUpdate = true;

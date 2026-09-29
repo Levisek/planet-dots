@@ -350,10 +350,12 @@ export class ParticlePool {
     this.position[3*i]     = sx;
     this.position[3*i + 1] = sy;
     this.position[3*i + 2] = sz;
-    // Prachová šedo-modrá (stejná paleta jako disk), final color se lerpne během letu.
-    this.color[3*i]     = 0.5;
-    this.color[3*i + 1] = 0.55;
-    this.color[3*i + 2] = 0.68;
+    // Start: barva povrchu vybledlá do prachové (disk má u Slunce teplé
+    // a venku studené tóny — pevná šedomodrá u vnitřních planet nesedla),
+    // do finální barvy se lerpne během letu.
+    this.color[3*i]     = 0.6 * finalColor[0] + 0.28;
+    this.color[3*i + 1] = 0.6 * finalColor[1] + 0.27;
+    this.color[3*i + 2] = 0.6 * finalColor[2] + 0.27;
     this.alpha[i] = 0.8;
 
     const tx = finalTarget.x, ty = finalTarget.y, tz = finalTarget.z;

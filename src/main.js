@@ -42,6 +42,10 @@ import { createViewFraming, framingShift } from './viewFraming.js';
 import { initTimeControls, setFormationLock, setDetailRateNote } from './timeControls.js';
 import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
+import {
+  formationCameraPose, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
+  growthWindow, growthScale, revealFade, REVEAL_SEC,
+} from './formationFilm.js';
 
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
 const sky = createSky(scene, { pixelRatio: renderer.getPixelRatio() });
@@ -109,11 +113,11 @@ let _formationCleaned = false;
 // na dnešním datu (startup scrubTo), takže přechod na live je bez skoku.
 let formationActive = true;
 
-// Kdy začal fade ownerAlpha 0→1 pro sun-tečky (zážeh, konec beat_ignition
-// v t=6.0) — null když fade neběží/skončil. Viz tick().
+// Kdy začal fade ownerAlpha 0→1 pro sun-tečky (zážeh, SUN_GROW_START —
+// fade běží, dokud Slunce roste) — null když fade neběží/skončil. Viz tick().
 let _sunFadeStart = null;
 
-// True jakmile proběhl zážeh (t≥6.0), NAVŽDY — jediný gate na spuštění fade.
+// True jakmile proběhl zážeh (t ≥ SUN_GROW_START), NAVŽDY — jediný gate na spuštění fade.
 // Záměrně NEZÁVISLÉ na bodyMeshes.sun.userData.settled: ten flag může být
 // force-nastaven vstupem do detail view (F3 review HIGH fix) a kdyby na něm
 // zážeh závisel, klik na Slunce před t=6 by ho natrvalo přeskočil (fade by
@@ -149,6 +153,20 @@ const cameraRig = createCameraRig({
   getBodyPos: (id) => getBodyPosNow(id),
   maxDuration: REDUCED_MOTION ? 0.8 : 4,
 });
+
+/** Výchozí pozice kamery přehledu (Fyzikální má Neptun ve 115 000). */
+function mainCameraPos() {
+  return isFyzikalni() ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 5000, z: 9000 };
+}
+// Režie formace (formationFilm.js): kamera jede nad vznikající soustavou,
+// dokud ji návštěvník nepřevezme (klik na těleso). Při reduced-motion stojí.
+let _filmCamera = !REDUCED_MOTION;
+// Slunce dorostlo (zážeh) / tělesa dorostla / prolnutí drah po formaci doběhlo.
+let _sunGrown = false;
+let _growthDone = false;
+let _revealDone = false;
+// Funkce k → nastaví průhlednost drah, pásu a popisků (0..1) při prolnutí.
+const _revealFaders = [];
 
 // Show v detailu (detailShow.js): kamera krouží a střídá úhly, dokud ji
 // uživatel nechytne. Při prefers-reduced-motion se nespouští.
@@ -333,7 +351,6 @@ function tick(timestamp) {
     updateMoonWind(pool, _realElapsed, dt, anchors, moonAnchors, imageData, moonImageData);
     simClock.play();
     setFormationLock(false);
-    if (formationLabelEl) formationLabelEl.style.display = 'none';
     revealAfterFormation();
   } else if (!formationActive) {
     simClock.tick(dt * 1000);  // dt je v sekundách → simClock chce ms
@@ -345,6 +362,21 @@ function tick(timestamp) {
     const s = timelineAt(_realElapsed);
     const text = s.age ? `${s.label} · ${s.age}` : s.label;
     if (formationLabelEl.textContent !== text) formationLabelEl.textContent = text;
+  }
+
+  // Zážeh: Slunce roste z bodu (škáluje se spin node — mesh i tečky pod ním).
+  // Mód se může přepnout i během růstu, proto sunScale() každý snímek.
+  if (!_sunGrown) {
+    const k = sunIgnitionScale(_realElapsed);
+    spins.sun.scale.setScalar(sunScale() * Math.max(k, 1e-3));
+    if (k >= 1) _sunGrown = true;
+  }
+
+  // Po formaci se dráhy, pás, popisky prolnou dovnitř a popisek fáze ven.
+  if (!formationActive && !_revealDone) {
+    const k = revealFade(_realElapsed);
+    for (const f of _revealFaders) f(k);
+    if (k >= 1) _revealDone = true;
   }
 
   // Detail view state
@@ -374,6 +406,23 @@ function tick(timestamp) {
   // aktuální polohu tělesa (viz cameraRig.js).
   cameraRig.update(dt, dvState === DV_STATE.DETAIL);
 
+  // Režie formace: kamera jede nad vznikající soustavou a v FILM_END dosedne
+  // přesně na výchozí pozici přehledu. Klik na těleso ji ukončí natrvalo —
+  // návrat z detailu pak míří na přehled, ne na rozjetý záběr z jízdy.
+  if (_filmCamera) {
+    if (!formationActive) {
+      _filmCamera = false;
+    } else if (dvState !== DV_STATE.MAIN) {
+      _filmCamera = false;
+      detailView.setReturnPose(mainCameraPos(), { x: 0, y: 0, z: 0 });
+    } else if (!cameraRig.isFlying()) {
+      const p = formationCameraPose(_realElapsed, mainCameraPos());
+      camera.position.set(p.x, p.y, p.z);
+      controlsTarget.x = 0; controlsTarget.y = 0; controlsTarget.z = 0;
+      camera.lookAt(0, 0, 0);
+    }
+  }
+
   // Formation intro — akrece z disku (beat_disk/ignition/accretion), pak moon wind.
   // Tyto systémy vždy jedou dopředu — používají _realElapsed. Gate na
   // formationActive (NE na stav detailu, F3 review HIGH fix): pokud návštěvník
@@ -389,9 +438,9 @@ function tick(timestamp) {
 
   pool.updateFlight(_realElapsed, dt);
 
-  // Sluneční vítr — ambientní kosmetika, běží od zážehu dál (beat_ignition
-  // start = 4.0s). Natvrdo gatováno číslem (Task 5 může navázat na PHASES).
-  if (_realElapsed >= 4.0) updateSunWind(pool, _realElapsed, dt, getSunRadius());
+  // Sluneční vítr — ambientní kosmetika, běží od chvíle, kdy Slunce dorostlo
+  // (dřív foukal z plného poloměru ještě neexistující hvězdy).
+  if (_realElapsed >= SUN_GROW_END) updateSunWind(pool, _realElapsed, dt, getSunRadius());
 
   // Sun activity — vždy aktivní, ale intenzita vyšší pokud je Slunce v detailu
   if (sunActivity) {
@@ -402,6 +451,31 @@ function tick(timestamp) {
   const rotStart = performance.now();
   pool.applyClusterRotation(anchorsByIndex);
   const rotEnd = performance.now();
+
+  // Růst těles (formationFilm.growthScale): mesh je vidět od začátku svého
+  // akrečního okna a roste, jak do něj dopadají tečky — dřív byl neviditelný
+  // a při 95 % dosednutí naskočil celý najednou.
+  if (!_growthDone) {
+    let all = true;
+    let appeared = false;
+    for (const g of gatedMeshes) {
+      const m = bodyMeshes[g.key];
+      if (!m) continue;
+      const win = growthWindow(g.key === 'saturn_ring' ? 'saturn' : g.key, g.isMoon ? g.parentId : null);
+      const k = growthScale(_realElapsed, win);
+      if (k < 1) all = false;
+      if (k > 0 && !m.userData.growing) {
+        m.userData.growing = true;
+        m.visible = true;
+        appeared = true;
+      }
+      const b = m.userData.baseScale;
+      if (b) m.scale.set(b.x * Math.max(k, 1e-3), b.y * Math.max(k, 1e-3), b.z * Math.max(k, 1e-3));
+    }
+    // Těleso vyrostlé během detailu jiného tělesa má být ztlumené jako ostatní.
+    if (appeared && detailView && detailView.state() === DV_STATE.DETAIL) detailView.refreshFade();
+    if (all) _growthDone = true;
+  }
 
   // Formation gating — mesh.userData.settled = true až ≥95 % teček dosedlo.
   // Skutečnou visibility řídí fadeOthers (kombinuje settled + focus).
@@ -449,14 +523,14 @@ function tick(timestamp) {
   // by zůstalo false, ownerAlphaMul[0] (prominence/CME) by zůstalo 0 na celou
   // session. Settled/visible se tu i tak nastaví (idempotentní, i kdyby už
   // byly force-nastavené dřív) — jen SPUŠTĚNÍ fade na nich nezávisí.
-  if (bodyMeshes.sun && _realElapsed >= 6.0 && !_sunIgnited) {
+  if (bodyMeshes.sun && _realElapsed >= SUN_GROW_START && !_sunIgnited) {
     _sunIgnited = true;
     bodyMeshes.sun.userData.settled = true;
     bodyMeshes.sun.visible = true;
     _sunFadeStart = _realElapsed;
   }
   if (formationActive && _sunFadeStart !== null) {
-    const fadeT = Math.min(1, (_realElapsed - _sunFadeStart) / 0.5);
+    const fadeT = Math.min(1, (_realElapsed - _sunFadeStart) / (SUN_GROW_END - SUN_GROW_START));
     // Cíl fade musí respektovat aktivní detail view — pokud uživatel v
     // okamžiku zážehu sleduje detail jiného tělesa než Slunce, fade má jít
     // 0 → dim (ne 0 → 1 se skokem dolů při dalším fadeOthers volání).
@@ -628,6 +702,21 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     { set visible(v) { asteroidOrbitLines.setVisible(v); } },
     asteroidBelt.points,
   );
+  const beltOpacity = asteroidBelt.points.material.opacity;
+  const rootStyle = document.documentElement.style;
+  _revealFaders.push((k) => {
+    orbitLines.setOpacity(k);
+    asteroidOrbitLines.setOpacity(k);
+    asteroidBelt.points.material.opacity = beltOpacity * k;
+    // .planetLabel { opacity: var(--reveal, 1) } — po prolnutí proměnná pryč
+    if (k < 1) rootStyle.setProperty('--reveal', String(k));
+    else rootStyle.removeProperty('--reveal');
+    if (formationLabelEl) {
+      formationLabelEl.style.opacity = String(1 - k);
+      if (k >= 1) formationLabelEl.style.display = 'none';
+    }
+  });
+  _revealFaders.forEach((f) => f(0));
 
   // Lighting toggle button (přepíná material na body mesh-ích při ZAP/VYP).
   initLightingToggle({ bodyMeshes, setLightingMode, onLightingModeChange });
@@ -644,10 +733,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Při změně simMode přepocítej kameru — Fyzikální má Neptune ve 4105,
   // default kamera (0,5000,9000) je pak nedostatečná. Auto-zoom out.
   onModeChange((mode) => {
-    const fyz = mode === MODES.FYZIKALNI;
     spins.sun.scale.setScalar(sunScale());
     if (sunActivity) sunActivity.setSunRadius(getSunRadius());
-    const mainPos = fyz ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 5000, z: 9000 };
+    const mainPos = mainCameraPos();
     if (detailView && detailView.state() === DV_STATE.DETAIL) {
       // Pozice se přepočtou v příštím tick() (běží i v DETAIL); tween kamery
       // je relativní k tělesu, takže doletí k jeho NOVÉ poloze.
@@ -705,8 +793,9 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         if (isDetail && isFocus && !mesh.userData.settled) {
           mesh.userData.settled = true;
         }
-        // Mesh visible vždy (po settle), opacity dim pro non-focus v detail.
-        mesh.visible = !!mesh.userData.settled;
+        // Mesh visible vždy (po settle nebo už během růstu ve formaci),
+        // opacity dim pro non-focus v detail.
+        mesh.visible = !!(mesh.userData.settled || mesh.userData.growing);
         const a = isDetail && !isFocus ? dimAlpha : 1;
         if (mesh.material?.uniforms?.opacity) {
           // Prstenec (ShaderMaterial) je průhledný VŽDY — přepnutí na

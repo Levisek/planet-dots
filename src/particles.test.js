@@ -24,13 +24,13 @@ function closeTo(actual, expected, eps = 1e-6) {
   assert.ok(Math.abs(actual - expected) < eps, `expected ${actual} ≈ ${expected}`);
 }
 
-test('spawnFromDisk: start barva = prachová paleta, alpha 0.8', () => {
+test('spawnFromDisk: start barva = barva povrchu vybledlá do prachu, alpha 0.8', () => {
   const pool = new ParticlePool(8);
   pool.spawnFromDisk(0, { x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }, { x: 1, y: 0, z: 0 },
-    [0.9, 0.9, 0.9], 2, PHASE.ON_RING, 0.0, 1.0);
-  closeTo(pool.color[0], 0.5);
-  closeTo(pool.color[1], 0.55);
-  closeTo(pool.color[2], 0.68);
+    [0.9, 0.2, 0.1], 2, PHASE.ON_RING, 0.0, 1.0);
+  closeTo(pool.color[0], 0.6 * 0.9 + 0.28);
+  closeTo(pool.color[1], 0.6 * 0.2 + 0.27);
+  closeTo(pool.color[2], 0.6 * 0.1 + 0.27);
   closeTo(pool.alpha[0], 0.8);
 });
 

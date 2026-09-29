@@ -38,6 +38,7 @@ export function buildBodyMeshes({
       });
     }
     mesh.visible = false;
+    mesh.userData.baseScale = mesh.scale.clone(); // formace: roste od 0 k téhle velikosti
     spins[p.id].add(mesh);
     bodyMeshes[p.id] = mesh;
     // Sun vyňat z gatedMeshes — jeho reveal řídí explicitní t>=6.0 gate v
@@ -47,6 +48,7 @@ export function buildBodyMeshes({
     if (p.id === 'saturn' && imageData.saturn_ring) {
       const ring = buildSaturnRing(imageData.saturn_ring, p.ringInnerRadius, p.ringOuterRadius);
       ring.visible = false;
+      ring.userData.baseScale = ring.scale.clone();
       spins.saturn.add(ring);
       bodyMeshes['saturn_ring'] = ring;
       gatedMeshes.push({ key: 'saturn_ring', ownerIdx: SATURN_IDX, isPlanet: false, isMoon: false, parentId: 'saturn' });
@@ -69,6 +71,7 @@ export function buildBodyMeshes({
       isFallback = true;
     }
     applyShape(mesh, m);
+    mesh.userData.baseScale = mesh.scale.clone(); // i s tvarem (shape.scale)
     moonAnchors[m.id].add(mesh);
     bodyMeshes[m.id] = mesh;
     if (isFallback) {
