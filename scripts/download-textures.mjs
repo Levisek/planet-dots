@@ -5,8 +5,11 @@
 // na špatných místech, viditelný UV seam.
 //
 // Zdroje:
-// - Solar System Scope (CC BY 4.0): Sun, Mercury, Venus, Earth, Moon, Mars,
+// - Solar System Scope (CC BY 4.0): Sun, Mercury, Venus, Moon, Mars,
 //   Jupiter, Saturn, Uranus, Neptune. Definitivní cylindrické.
+// - NASA Visible Earth, Blue Marble Next Generation (public domain): Země —
+//   červen 2004 s reliéfem mořského dna. Mapa SSS měla oceán jednou plochou
+//   barvou, takže Země jako jediná vypadala hladce, bez ploškové struktury.
 // - Björn Jónsson (bjj.mmedia.is, free non-commercial s attribution): Galileovy
 //   měsíce + Rhea.
 // - Wikimedia Commons: cylindrické mapy ostatních měsíců (NASA/JPL/USGS PD nebo
@@ -41,7 +44,7 @@ const URLS = {
   sun:     [sss('sun')],
   mercury: [sss('mercury')],
   venus:   [sss('venus_surface')],
-  earth:   [sss('earth_daymap')],
+  earth:   ['https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73726/world.topo.bathy.200406.3x5400x2700.jpg', sss('earth_daymap')],
   mars:    [sss('mars')],
   jupiter: [sss('jupiter')],
   saturn:  [sss('saturn')],

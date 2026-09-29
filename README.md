@@ -79,6 +79,8 @@ Všechny textury jsou **cylindrické equirectangular albedo mapy** (ne fotky sf�
 
 **Textury planet (Sun + 9 planet + Luna + Saturn ring):** CC BY 4.0 — [Solar System Scope](https://www.solarsystemscope.com/textures/).
 
+**Země:** NASA Visible Earth — [Blue Marble Next Generation](https://visibleearth.nasa.gov/images/73726), červen 2004 s batymetrií (public domain, Reto Stöckli, NASA Earth Observatory).
+
 **Textury měsíců — albedo cylindric maps:**
 - Galileovy (Io, Europa, Ganymede, Callisto) + Rhea: [Björn Jónsson](http://bjj.mmedia.is/data/planetary_maps.html), free non-commercial s attribution.
 - Saturn (Titan, Iapetus, Dione, Tethys, Enceladus, Mimas), Uran (Miranda, Ariel, Umbriel, Titania, Oberon), Neptun (Triton), Mars (Phobos, Deimos): [Wikimedia Commons](https://commons.wikimedia.org/) — Public Domain (NASA/JPL/USGS Voyager+Cassini mise) nebo CC BY-SA per file. Atribuce: navštiv Wikipedia článek daného měsíce → infobox image → licence.
