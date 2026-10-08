@@ -21,8 +21,10 @@ export function createScene() {
   // Default 3D pohled na celou soustavu — kamera nad orbital rovinou (~30°),
   // vidí Sun (origin) + Neptune orbit (radius 3018).
   // VISUAL-AUDIT I4: dřívější (0,3500,6000) nechalo Slunce zabrat ⅓ framu
-  // a inner planety splývaly se sluneční sférou — zoom-out na (0,5000,9000).
-  camera.position.set(0, 5000, 9000);
+  // a inner planety splývaly se sluneční sférou. Dráhy jsou od té doby
+  // logaritmicky rozprostřené (scale.js) a planety zvětšené (planetBoost.js),
+  // takže soustava snese bližší kamera — (0,3100,5370) vyplní plochu obrazu.
+  camera.position.set(0, 3100, 5370);
   camera.lookAt(0, 0, 0);
 
   // Lighting toggle: ON → silný PointLight z origin (Sun) + nízký ambient.

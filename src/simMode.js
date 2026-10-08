@@ -1,7 +1,7 @@
 // simMode — dva režimy zobrazení. Od V4.4 jsou pozice, periody i dráhy
 // reálné z efemerid (positionProvider) v obou módech; mód mění jen měřítko:
 //
-//   POCHOPENÍ (default): komprimované vzdálenosti (1100 + 350·√AU), soustavy
+//   POCHOPENÍ (default): komprimované vzdálenosti (1500 + 450·ln AU), soustavy
 //     měsíců podle ručně laděného `m.a`, Slunce zmenšené (main.js).
 //   FYZIKÁLNÍ: lineární AU, soustavy měsíců ve věrném poměru k rodiči.
 //

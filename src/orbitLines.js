@@ -41,12 +41,12 @@ function sampleOrbitCurve(body, baseDate, segments) {
   return points;
 }
 
-const ORBIT_OPACITY = 0.3;
+const ORBIT_OPACITY = 0.6; // dráhy musí být čitelné i z celkového pohledu (mřížka pod nimi)
 
 export function createOrbitLines(scene) {
   const lines = [];
   const material = new THREE.LineBasicMaterial({
-    color: 0x666666,
+    color: 0x9db4d4,
     transparent: true,
     opacity: ORBIT_OPACITY,
     depthWrite: false,

@@ -11,7 +11,10 @@ const _vec = new THREE.Vector3();
 
 // isOccluded(worldPos) — popisek tělesa schovaného za Sluncem se nekreslí.
 // update() vrací zobrazené popisky s prioritou pro labelDeclutter.
-export function createPlanetLabels({ camera, canvas, anchors, onClick, isOccluded = null }) {
+// getBodyRadius(id) — zobrazený poloměr tělesa (scene units); popisek se zvedne
+// nad jeho kotouč, ať leží vedle tělesa, ne přes něj (planety jsou v přehledu
+// zvětšené, planetBoost.js).
+export function createPlanetLabels({ camera, canvas, anchors, onClick, isOccluded = null, getBodyRadius = null }) {
   const container = document.body;
   const labels = {};
 
@@ -38,6 +41,16 @@ export function createPlanetLabels({ camera, canvas, anchors, onClick, isOcclude
     };
   }
 
+  const _tanHalfFov = () => Math.tan((camera.fov * Math.PI) / 360);
+
+  /** Poloměr tělesa na obrazovce (px) z jeho zobrazeného poloměru a vzdálenosti. */
+  function screenRadius(id, worldPos, rectH) {
+    if (!getBodyRadius) return 0;
+    const dist = camera.position.distanceTo(worldPos);
+    if (dist <= 0) return 0;
+    return (getBodyRadius(id) * rectH) / (2 * _tanHalfFov() * dist);
+  }
+
   let visible = true;
 
   return {
@@ -57,7 +70,10 @@ export function createPlanetLabels({ camera, canvas, anchors, onClick, isOcclude
           lbl.el.style.display = 'none';
           continue;
         }
-        const { x, y, behindCamera } = project(_vec);
+        // project() přepisuje _vec do NDC — poloměr na obrazovce se počítá předem.
+        const rPx = screenRadius(id, _vec, canvas.getBoundingClientRect().height);
+        const { x, y: yCenter, behindCamera } = project(_vec);
+        const y = yCenter - rPx;
         if (behindCamera) {
           lbl.el.style.display = 'none';
           continue;

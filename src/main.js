@@ -39,11 +39,13 @@ import { MOON_OWNER_BASE } from './phase.js';
 import { createCameraRig } from './cameraRig.js';
 import { createDetailShow, showViews, SHOW_SWING_SEC, SHOW_AUTOROTATE } from './detailShow.js';
 import { createViewFraming, framingShift } from './viewFraming.js';
+import { planetBoost } from './planetBoost.js';
+import { createEclipticGrid } from './eclipticGrid.js';
 import { initTimeControls, setFormationLock, setDetailRateNote } from './timeControls.js';
 import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
 import {
-  formationCameraPose, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
+  formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
   growthWindow, growthScale, revealFade, REVEAL_SEC,
 } from './formationFilm.js';
 
@@ -67,6 +69,22 @@ function labelOccludedBySun(worldPos) {
   return isBehindSphere(camera.position, worldPos, anchors.sun.position, getSunRadius());
 }
 spins.sun.scale.setScalar(sunScale());
+
+// Planety v přehledu Pochopení zvětšené (planetBoost.js) — z výchozí kamery
+// by věrné poloměry byly sub-pixelové tečky. Váha 1 = přehled (MAIN),
+// 0 = věrná velikost (detail, Fyzikální); mezi tím plynulý přechod.
+let _planetBoostW = 1;
+function planetScaleOf(id) {
+  return isFyzikalni() ? 1 : planetBoost(id, _planetBoostW);
+}
+function applyPlanetBoost(dt, inMain) {
+  const target = !isFyzikalni() && inMain ? 1 : 0;
+  _planetBoostW += Math.max(-1, Math.min(1, (target - _planetBoostW))) * Math.min(1, dt * 6);
+  if (Math.abs(target - _planetBoostW) < 0.002) _planetBoostW = target;
+  for (const p of PLANETS) {
+    if (p.id !== 'sun') spins[p.id].scale.setScalar(planetScaleOf(p.id));
+  }
+}
 const { anchors: moonAnchors, imageData: moonImageData, loaded: moonsLoaded } = createMoonAnchors(scene, anchors);
 const { anchors: asteroidAnchors, imageData: asteroidImageData, loaded: asteroidsLoaded } = createAsteroidAnchors(scene);
 const asteroidBelt = createAsteroidBelt(scene);
@@ -156,7 +174,27 @@ const cameraRig = createCameraRig({
 
 /** Výchozí pozice kamery přehledu (Fyzikální má Neptun ve 115 000). */
 function mainCameraPos() {
-  return isFyzikalni() ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 5000, z: 9000 };
+  return isFyzikalni() ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 3100, z: 5370 };
+}
+/** MAIN: kamera nesmí dovnitř Slunce (Pochopení r = 400, Fyzikální 995). */
+function mainMinDistance() { return isFyzikalni() ? 5000 : 2500; }
+// Jízda kamery ve formaci je navržená na dřívější výchozí pozici
+// (0,5000,9000) — záběry mlhoviny, zážehu a akrece zůstávají ve stejných
+// absolutních vzdálenostech; teprve v poslední části se plynule sbíhá
+// k dnešní (bližší) výchozí pozici přehledu.
+const FILM_REF_POS = { x: 0, y: 5000, z: 9000 };
+const FILM_BLEND_FROM = 11.0;
+function filmCameraPose(t) {
+  const main = mainCameraPos();
+  if (isFyzikalni()) return formationCameraPose(t, main);
+  const a = formationCameraPose(t, FILM_REF_POS);
+  const u = Math.min(1, Math.max(0, (t - FILM_BLEND_FROM) / (FILM_END - FILM_BLEND_FROM)));
+  const k = u * u * (3 - 2 * u);
+  return {
+    x: a.x + (main.x - a.x) * k,
+    y: a.y + (main.y - a.y) * k,
+    z: a.z + (main.z - a.z) * k,
+  };
 }
 // Režie formace (formationFilm.js): kamera jede nad vznikající soustavou,
 // dokud ji návštěvník nepřevezme (klik na těleso). Při reduced-motion stojí.
@@ -383,6 +421,7 @@ function tick(timestamp) {
   if (detailView) detailView.tick(dt);
   const dvState = detailView ? detailView.state() : 'MAIN';
   const focusId = detailView ? detailView.focusId() : null;
+  applyPlanetBoost(dt, dvState === DV_STATE.MAIN);
 
   // Show v detailu: start při příletu (i k jinému tělesu), stop při odletu.
   if (dvState === DV_STATE.DETAIL) {
@@ -416,7 +455,7 @@ function tick(timestamp) {
       _filmCamera = false;
       detailView.setReturnPose(mainCameraPos(), { x: 0, y: 0, z: 0 });
     } else if (!cameraRig.isFlying()) {
-      const p = formationCameraPose(_realElapsed, mainCameraPos());
+      const p = filmCameraPose(_realElapsed);
       camera.position.set(p.x, p.y, p.z);
       controlsTarget.x = 0; controlsTarget.y = 0; controlsTarget.z = 0;
       camera.lookAt(0, 0, 0);
@@ -600,7 +639,7 @@ function getBodyPosNow(id) {
 /** Skutečný (neclampovaný) poloměr tělesa — pro kameru a minDistance. */
 function getBodyRadiusRaw(id) {
   const p = PLANET_BY_ID[id];
-  if (p) return id === 'sun' ? getSunRadius() : p.radiusPx;
+  if (p) return id === 'sun' ? getSunRadius() : p.radiusPx;  // věrný (boost přehledu se do detailu nepočítá)
   const m = MOONS.find((mm) => mm.id === id);
   if (m) return m.radiusPx * (m.shape?.scale ? Math.max(...m.shape.scale) : 1);
   const a = ASTEROIDS.find((aa) => aa.id === id);
@@ -634,12 +673,16 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     // zvýšíme minimální raycast poloměr aby šly pohodlně kliknout.
     const pickRadius = p.id === 'sun'
       ? p.radiusPx * 0.95
-      : Math.max(p.radiusPx * 1.5, 30);
+      : p.radiusPx;
+    // Planeta: efektivní poloměr max(1,5 × zobrazený, 30) — škáluje se s boostem přehledu.
+    const pickScale = p.id === 'sun'
+      ? sunScale
+      : () => Math.max(1.5 * planetScaleOf(p.id), 30 / p.radiusPx);
     picker.addBody(p.id, () => ({
       x: anchors[p.id].position.x,
       y: anchors[p.id].position.y,
       z: anchors[p.id].position.z,
-    }), pickRadius, p.id === 'sun' ? sunScale : null);
+    }), pickRadius, pickScale);
   }
   for (const m of MOONS) {
     const moonAnchor = moonAnchors[m.id];
@@ -677,6 +720,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     canvas: renderer.domElement,
     isOccluded: labelOccludedBySun,
     anchors,
+    getBodyRadius: (id) => PLANET_BY_ID[id].radiusPx * planetScaleOf(id),
     onClick: (id) => detailView && detailView.enter(id),
   });
   asteroidLabels = createAsteroidLabels({
@@ -691,15 +735,18 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   });
   const orbitLines = createOrbitLines(scene);
   const asteroidOrbitLines = createAsteroidOrbitLines(scene);
+  const eclipticGrid = createEclipticGrid(scene);
   // Během formace (před 4,6 mld let) ještě nejsou dnešní dráhy ani popisky.
   planetLabels.setVisible(false);
   asteroidLabels.setVisible(false);
   orbitLines.setVisible(false);
   asteroidOrbitLines.setVisible(false);
+  eclipticGrid.setVisible(false);
   asteroidBelt.points.visible = false;
   _revealAfterFormation.push(
     { set visible(v) { orbitLines.setVisible(v); } },
     { set visible(v) { asteroidOrbitLines.setVisible(v); } },
+    { set visible(v) { eclipticGrid.setVisible(v); } },
     asteroidBelt.points,
   );
   const beltOpacity = asteroidBelt.points.material.opacity;
@@ -707,6 +754,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   _revealFaders.push((k) => {
     orbitLines.setOpacity(k);
     asteroidOrbitLines.setOpacity(k);
+    eclipticGrid.setOpacity(k);
     asteroidBelt.points.material.opacity = beltOpacity * k;
     // .planetLabel { opacity: var(--reveal, 1) } — po prolnutí proměnná pryč
     if (k < 1) rootStyle.setProperty('--reveal', String(k));
@@ -750,6 +798,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       camera.position.set(mainPos.x, mainPos.y, mainPos.z);
       controlsTarget.x = 0; controlsTarget.y = 0; controlsTarget.z = 0;
       controls.target.set(0, 0, 0);
+      controls.minDistance = mainMinDistance();
       camera.lookAt(0, 0, 0);
     }
   });
@@ -889,7 +938,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
         controlsTarget.x = 0;
         controlsTarget.y = 0;
         controlsTarget.z = 0;
-        controls.minDistance = 5000;  // nepřiblížit se dovnitř Slunce
+        controls.minDistance = mainMinDistance();  // nepřiblížit se dovnitř Slunce
         controls.maxDistance = 500000; // nepřekročit za Neptune
       }
     },
@@ -904,7 +953,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Inicializuj OrbitControls pro MAIN stav (orbit kolem Slunce)
   controls.enabled = true;
   controls.target.set(0, 0, 0);
-  controls.minDistance = 5000;
+  controls.minDistance = mainMinDistance();
   controls.maxDistance = 500000;
 
   // Picker events
