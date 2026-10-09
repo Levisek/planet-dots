@@ -30,7 +30,7 @@ import { createSunActivity } from './sunActivity.js';
 import { createMoonLabels } from './moonLabels.js';
 import { createPlanetLabels } from './planetLabels.js';
 import { createAsteroidLabels } from './asteroidLabels.js';
-import { applyDeclutter, isBehindSphere } from './labelDeclutter.js';
+import { applyDeclutter, isBehindSphere, screenDisc } from './labelDeclutter.js';
 import { createBodyList } from './bodyList.js';
 import { createOrbitLines, createAsteroidOrbitLines } from './orbitLines.js';
 import { buildBodyMeshes } from './bodyMeshes.js';
@@ -602,7 +602,11 @@ function tick(timestamp) {
     ...(planetLabels ? planetLabels.update() : []),
     ...(asteroidLabels ? asteroidLabels.update() : []),
   ];
-  if (shownLabels.length) applyDeclutter(shownLabels);
+  // Slunce je překážka pro každý popisek (nic přes jeho kotouč).
+  if (shownLabels.length) {
+    const sunDisc = screenDisc(camera, anchors.sun.position, getSunRadius(), renderer.domElement);
+    applyDeclutter(shownLabels, { obstacles: [sunDisc] });
+  }
 
   pool.prepareUpload();
   sky.update(camera);

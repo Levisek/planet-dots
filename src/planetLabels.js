@@ -81,7 +81,7 @@ export function createPlanetLabels({ camera, canvas, anchors, onClick, isOcclude
         lbl.el.style.display = '';
         lbl.el.style.left = `${x}px`;
         lbl.el.style.top = `${y}px`;
-        shown.push({ el: lbl.el, x, y, priority: lbl.priority });
+        shown.push({ el: lbl.el, x, y, priority: lbl.priority, disc: { x, y: yCenter, r: rPx } });
       }
       return shown;
     },

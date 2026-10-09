@@ -62,7 +62,7 @@ export function createAsteroidLabels({ camera, canvas, asteroidAnchors, onClick,
         lbl.el.style.display = '';
         lbl.el.style.left = `${x}px`;
         lbl.el.style.top = `${y}px`;
-        shown.push({ el: lbl.el, x, y, priority: lbl.priority });
+        shown.push({ el: lbl.el, x, y, priority: lbl.priority, disc: { x, y, r: 3 } });
       }
       return shown;
     },

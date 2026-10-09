@@ -30,3 +30,16 @@ test('isBehindSphere: bod za koulí ano, před ní a vedle ne', () => {
   assert.equal(isBehindSphere(cam, { x: 0, y: 0, z: 50 }, c, 10), false);
   assert.equal(isBehindSphere(cam, { x: 30, y: 0, z: -50 }, c, 10), false);
 });
+
+test('declutter: popisek neleží na cizím kotouči (posune se mimo)', () => {
+  const items = [{ x: 100, y: 100, w: 40, h: 8, priority: 1 }];
+  const out = declutter(items, { obstacles: [{ x: 100, y: 90, r: 12 }] });
+  assert.equal(out[0].hidden, false);
+  assert.notEqual(out[0].shift, 0);
+});
+
+test('declutter: když se nevejde mimo překážku, skryje se', () => {
+  const items = [{ x: 100, y: 100, w: 40, h: 8, priority: 1 }];
+  const out = declutter(items, { obstacles: [{ x: 100, y: 100, r: 200 }] });
+  assert.equal(out[0].hidden, true);
+});

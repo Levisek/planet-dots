@@ -9,10 +9,13 @@
  * @param {Array<{x:number, y:number, w:number, h:number, priority:number}>} items
  *   x, y = bod tělesa; box popisku je vystředěný nad ním jako v CSS
  *   (`translate(-50%, -180%)`): [x − w/2, x + w/2] × [y − 1.8h, y − 0.8h].
+ * @param opts.obstacles — kotouče těles na obrazovce `{x, y, r}`; popisek na
+ *   žádný z nich nesmí zasáhnout (ani na vlastní, ani na cizí, ani na Slunce).
+ *   Zkouší se řádky nahoru 0..maxShift, pak (záporný shift) dolů.
  * @returns {Array<{shift:number, hidden:boolean}>} ve stejném pořadí jako items;
- *   shift = počet řádků nahoru.
+ *   shift = počet řádků nahoru (záporný = dolů).
  */
-export function declutter(items, { maxShift = 2, gap = 3 } = {}) {
+export function declutter(items, { maxShift = 2, gap = 3, obstacles = [] } = {}) {
   const order = items.map((_, i) => i)
     .sort((a, b) => items[b].priority - items[a].priority || a - b);
   const placed = [];
@@ -20,7 +23,11 @@ export function declutter(items, { maxShift = 2, gap = 3 } = {}) {
   for (const i of order) {
     const it = items[i];
     const step = it.h + gap;
-    for (let s = 0; s <= maxShift; s++) {
+    const shifts = [];
+    for (let s = 0; s <= maxShift; s++) shifts.push(s);
+    // Dolů jen když známe kotouče těles (jinak by popisek zakryl vlastní těleso).
+    if (obstacles.length) for (let s = 1; s <= maxShift; s++) shifts.push(-s);
+    for (const s of shifts) {
       const box = {
         l: it.x - it.w / 2,
         r: it.x + it.w / 2,
@@ -28,6 +35,7 @@ export function declutter(items, { maxShift = 2, gap = 3 } = {}) {
         b: it.y - 0.8 * it.h - s * step,
       };
       if (placed.some((p) => overlaps(p, box, gap))) continue;
+      if (obstacles.some((o) => hitsDisc(box, o))) continue;
       placed.push(box);
       out[i] = { shift: s, hidden: false };
       break;
@@ -39,6 +47,27 @@ export function declutter(items, { maxShift = 2, gap = 3 } = {}) {
 // Posunuté řádky mají mezi sebou přesně `gap` — bez tolerance by je
 // zaokrouhlení (14.4 vs 14.3999…) vyhodnotilo jako kolizi.
 const EPS = 0.01;
+
+// Kotouč tělesa (min. 3 px, ať i tečka drží odstup) vs. obdélník popisku.
+function hitsDisc(b, o) {
+  const r = Math.max(o.r, 3) + 2;
+  const nx = Math.min(Math.max(o.x, b.l), b.r);
+  const ny = Math.min(Math.max(o.y, b.t), b.b);
+  return (o.x - nx) ** 2 + (o.y - ny) ** 2 < r * r;
+}
+
+/** Kotouč tělesa na obrazovce: střed (px) a poloměr z jeho zobrazeného poloměru. */
+export function screenDisc(camera, worldPos, radius, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dist = camera.position.distanceTo(worldPos);
+  const p = worldPos.clone().project(camera);
+  const r = dist > 0 ? (radius * rect.height) / (2 * Math.tan((camera.fov * Math.PI) / 360) * dist) : 0;
+  return {
+    x: (p.x * 0.5 + 0.5) * rect.width + rect.left,
+    y: (-p.y * 0.5 + 0.5) * rect.height + rect.top,
+    r,
+  };
+}
 
 function overlaps(a, b, pad) {
   const p = pad - EPS;
@@ -84,12 +113,13 @@ function sizeOf(el) {
  */
 export function applyDeclutter(entries, opts) {
   const items = entries.map((e) => ({ x: e.x, y: e.y, priority: e.priority, ...sizeOf(e.el) }));
-  const out = declutter(items, opts);
+  const obstacles = [...(opts?.obstacles ?? []), ...entries.map((e) => e.disc).filter(Boolean)];
+  const out = declutter(items, { ...opts, obstacles });
   const gap = opts?.gap ?? 3;
   entries.forEach((e, i) => {
     const { shift, hidden } = out[i];
     if (hidden) { e.el.style.display = 'none'; return; }
-    const tf = shift === 0 ? '' : `translate(-50%, calc(-180% - ${shift * (items[i].h + gap)}px))`;
+    const tf = shift === 0 ? '' : `translate(-50%, calc(-180% - ${shift * (items[i].h + gap)}px))`; // záporný shift = dolů
     if (e.el.style.transform !== tf) e.el.style.transform = tf;
   });
 }
