@@ -27,17 +27,25 @@ export function declutter(items, { maxShift = 2, gap = 3, obstacles = [] } = {})
     for (let s = 0; s <= maxShift; s++) shifts.push(s);
     // Dolů jen když známe kotouče těles (jinak by popisek zakryl vlastní těleso).
     if (obstacles.length) for (let s = 1; s <= maxShift; s++) shifts.push(-s);
-    for (const s of shifts) {
+    // Kandidáti: [řádky nahoru, vodorovný posun]; nakonec popisek vedle tělesa
+    // (vlevo / vpravo, svisle na středu kotouče) — když nad ním není místo.
+    const cands = shifts.map((s) => [s, 0, 0]);
+    if (it.disc && obstacles.length) {
+      const side = it.w / 2 + Math.max(it.disc.r, 3) + 5;
+      const dy = it.disc.y - 0.5 * it.h - (it.y - 1.8 * it.h);
+      cands.push([0, side, dy], [0, -side, dy]);
+    }
+    for (const [s, dx, dy] of cands) {
       const box = {
-        l: it.x - it.w / 2,
-        r: it.x + it.w / 2,
-        t: it.y - 1.8 * it.h - s * step,
-        b: it.y - 0.8 * it.h - s * step,
+        l: it.x - it.w / 2 + dx,
+        r: it.x + it.w / 2 + dx,
+        t: it.y - 1.8 * it.h - s * step + dy,
+        b: it.y - 0.8 * it.h - s * step + dy,
       };
       if (placed.some((p) => overlaps(p, box, gap))) continue;
       if (obstacles.some((o) => hitsDisc(box, o))) continue;
       placed.push(box);
-      out[i] = { shift: s, hidden: false };
+      out[i] = dx || dy ? { shift: s, dx, dy, hidden: false } : { shift: s, hidden: false };
       break;
     }
   }
@@ -112,14 +120,15 @@ function sizeOf(el) {
  *   jen popisky, které jsou právě zobrazené (display != none).
  */
 export function applyDeclutter(entries, opts) {
-  const items = entries.map((e) => ({ x: e.x, y: e.y, priority: e.priority, ...sizeOf(e.el) }));
+  const items = entries.map((e) => ({ x: e.x, y: e.y, priority: e.priority, disc: e.disc, ...sizeOf(e.el) }));
   const obstacles = [...(opts?.obstacles ?? []), ...entries.map((e) => e.disc).filter(Boolean)];
   const out = declutter(items, { ...opts, obstacles });
   const gap = opts?.gap ?? 3;
   entries.forEach((e, i) => {
-    const { shift, hidden } = out[i];
+    const { shift, hidden, dx = 0, dy = 0 } = out[i];
     if (hidden) { e.el.style.display = 'none'; return; }
-    const tf = shift === 0 ? '' : `translate(-50%, calc(-180% - ${shift * (items[i].h + gap)}px))`; // záporný shift = dolů
+    const up = shift * (items[i].h + gap) - dy; // záporný shift = dolů
+    const tf = shift === 0 && dx === 0 && dy === 0 ? '' : `translate(calc(-50% + ${dx}px), calc(-180% - ${up}px))`;
     if (e.el.style.transform !== tf) e.el.style.transform = tf;
   });
 }

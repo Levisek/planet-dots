@@ -174,7 +174,7 @@ const cameraRig = createCameraRig({
 
 /** Výchozí pozice kamery přehledu (Fyzikální má Neptun ve 115 000). */
 function mainCameraPos() {
-  return isFyzikalni() ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 3100, z: 5370 };
+  return isFyzikalni() ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 2540, z: 4990 };
 }
 /** MAIN: kamera nesmí dovnitř Slunce (Pochopení r = 400, Fyzikální 995). */
 function mainMinDistance() { return isFyzikalni() ? 5000 : 2500; }

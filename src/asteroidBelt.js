@@ -70,9 +70,11 @@ export function createAsteroidBelt(scene) {
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: sizeRange.maxPx,
+    // Velikost ve scene units: s perspektivou se vzdálené kamínky zmenšují
+    // (z výchozí kamery ~6 px vpředu, ~2 px vzadu) — hloubka roviny drah.
+    size: sizeRange.maxPx * 11,
     vertexColors: true,
-    sizeAttenuation: false,
+    sizeAttenuation: true,
     transparent: true,
     opacity: 0.7,
   });

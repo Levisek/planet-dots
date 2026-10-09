@@ -23,8 +23,8 @@ export function createScene() {
   // VISUAL-AUDIT I4: dřívější (0,3500,6000) nechalo Slunce zabrat ⅓ framu
   // a inner planety splývaly se sluneční sférou. Dráhy jsou od té doby
   // logaritmicky rozprostřené (scale.js) a planety zvětšené (planetBoost.js),
-  // takže soustava snese bližší kamera — (0,3100,5370) vyplní plochu obrazu.
-  camera.position.set(0, 3100, 5370);
+  // takže soustava snese bližší kamera — (0,2540,4990) vyplní plochu obrazu.
+  camera.position.set(0, 2540, 4990);
   camera.lookAt(0, 0, 0);
 
   // Lighting toggle: ON → silný PointLight z origin (Sun) + nízký ambient.
