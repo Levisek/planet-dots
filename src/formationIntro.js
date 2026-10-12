@@ -93,6 +93,7 @@ let _dustMigrating = null;     // Uint8Array: 1 = právě migruje (start pozice 
 let _dustFromX = null, _dustFromY = null, _dustFromZ = null; // pozice zachycená na startu migrace
 let _dustReleased = null;      // Uint8Array: 1 = už vráceno do IDLE
 let _zoneEntries = null;       // [{ planetId, radius, window }] — jen planety s dostupným anchorem
+let _snowR = 1;                // sněžná čára (z initDisk) — barva prachu letícího k planetě
 let _emitted = {};             // { [planetId]: count } — emisní tempo teček planety
 
 function initDisk(pool, anchors) {
@@ -118,6 +119,7 @@ function initDisk(pool, anchors) {
   // Sněžná čára mezi Marsem a Jupiterem (v módu, ve kterém formace běží).
   const rOf = (id) => entries.find((e) => e.planetId === id)?.radius;
   const snowR = rOf('mars') && rOf('jupiter') ? (rOf('mars') + rOf('jupiter')) / 2 : (rMin + rMax) / 3;
+  _snowR = snowR;
   const sunMin = SUN_RESERVE_MIN_FACTOR * rMin;
   const sunMax = SUN_ZONE_FACTOR * rMin;
   const ignitionWindow = PHASES.find((p) => p.id === 'beat_ignition');
@@ -361,10 +363,12 @@ function emitAccretion(pool, currentTime, anchors, imageData) {
       }
       const sourcePos = randomAnnulusSource(anchor.position, planet.radiusPx);
       const travelTime = TRAVEL_TIME_MIN + Math.random() * (TRAVEL_TIME_MAX - TRAVEL_TIME_MIN);
+      // Tečka letí jako prach disku a barvu povrchu dostane až u planety.
+      const dust = dustColor(Math.hypot(sourcePos.x, sourcePos.z), _snowR, Math.random());
       pool.spawnFromDisk(
         idx, sourcePos, targetPos, t.localOffset, t.color,
         planetIdx, t.phase, currentTime, travelTime,
-        planet.alpha ?? 1.0, planet.dotSize ?? 6.0,
+        planet.alpha ?? 1.0, planet.dotSize ?? 6.0, dust,
       );
     }
     _emitted[w.planetId] += available;

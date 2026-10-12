@@ -46,8 +46,9 @@ import { timelineAt } from './formationTimeline.js';
 import { LIVE_START } from './animation.js';
 import {
   formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
-  growthWindow, growthScale, revealFade, REVEAL_SEC,
+  growthWindow, growthScale, revealFade, REVEAL_SEC, protoTint, sunGlow, orbitTrace,
 } from './formationFilm.js';
+import { createSunGlowSprite } from './sunGlowSprite.js';
 import { createTour } from './tour.js';
 import { createTourPanel } from './tourPanel.js';
 
@@ -205,6 +206,12 @@ let _filmCamera = !REDUCED_MOTION;
 let _sunGrown = false;
 let _growthDone = false;
 let _revealDone = false;
+// Dráhy planet se dokreslují během formace (orbitTrace); záře Slunce.
+let _orbitLines = null;
+let _tracesDone = false;
+let _sunGlowSprite = null;
+let _sunGlowVis = 1; // vyhlazený násobitel záře (ztlumení v detailu jiného tělesa)
+const _cold = new Set(['jupiter', 'saturn', 'uranus', 'neptune']);
 // Funkce k → nastaví průhlednost drah, pásu a popisků (0..1) při prolnutí.
 const _revealFaders = [];
 
@@ -477,7 +484,20 @@ function tick(timestamp) {
     if (k >= 1) _sunGrown = true;
   }
 
-  // Po formaci se dráhy, pás, popisky prolnou dovnitř a popisek fáze ven.
+  // Záře Slunce: záblesk při zážehu, pak trvalá. V detailu jiného tělesa
+  // ztlumená jako Slunce samo (jinak by svítila do pozadí detailu).
+  if (_sunGlowSprite) {
+    const g = sunGlow(_realElapsed);
+    const dv = detailView ? detailView.state() : DV_STATE.MAIN;
+    const target = dv === DV_STATE.MAIN || detailView.focusId() === 'sun' ? 1 : 0.15;
+    _sunGlowVis += (target - _sunGlowVis) * Math.min(1, dt * 3);
+    _sunGlowSprite.update(REDUCED_MOTION ? 0 : g.flash * _sunGlowVis, g.glow * _sunGlowVis);
+  }
+
+  // Dráhy planet se dokreslují, jak planety dorůstají.
+  if (!_tracesDone) traceOrbits(_realElapsed);
+
+  // Po formaci se pás, mřížka, popisky prolnou dovnitř a popisek fáze ven.
   if (!formationActive && !_revealDone) {
     const k = revealFade(_realElapsed);
     for (const f of _revealFaders) f(k);
@@ -595,6 +615,13 @@ function tick(timestamp) {
       }
       const b = m.userData.baseScale;
       if (b) m.scale.set(b.x * Math.max(k, 1e-3), b.y * Math.max(k, 1e-3), b.z * Math.max(k, 1e-3));
+      // Zprvu má barvu prachu, ze kterého roste (i materiál pro STÍNY: ZAP).
+      if (g.isPlanet) {
+        const [r, gg, bb] = protoTint(k, _cold.has(g.key));
+        for (const mat of [m.material, m.userData._flatMaterial, m.userData._lambertMaterial]) {
+          if (mat) mat.color.setRGB(r, gg, bb);
+        }
+      }
     }
     // Těleso vyrostlé během detailu jiného tělesa má být ztlumené jako ostatní.
     if (appeared && detailView && detailView.state() === DV_STATE.DETAIL) detailView.refreshFade();
@@ -735,9 +762,22 @@ function getBodyRadiusRaw(id) {
   return a ? a.radiusPx : 1;
 }
 
+function traceOrbits(t) {
+  if (!_orbitLines) return;
+  let all = true;
+  for (const p of PLANETS) {
+    if (p.id === 'sun') continue;
+    const k = orbitTrace(t, p.id);
+    if (k < 1) all = false;
+    _orbitLines.setTrace(p.id, k);
+  }
+  _tracesDone = all;
+}
+
 /** Konec formace: popisky, dráhy, asteroidy a pás se objeví až „dnes". */
 function revealAfterFormation() {
   for (const obj of _revealAfterFormation) obj.visible = true;
+  traceOrbits(Infinity); // pomalý stroj / záložka na pozadí: dráhy hotové
   if (planetLabels) planetLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
   if (asteroidLabels) asteroidLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
   tourPanel.setEnabled(true);
@@ -756,6 +796,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Asteroidí mesh-e (Ceres / Vesta / Pallas) nejsou gated (žádný particle
   // owner) — objeví se až po formaci.
   _revealAfterFormation.push(...asteroidMeshes);
+  _sunGlowSprite = createSunGlowSprite(spins.sun, PLANETS[0].radiusPx);
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
   picker = createPicker({ scene, camera, canvas: renderer.domElement });
   for (const p of PLANETS) {
@@ -830,12 +871,14 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // Během formace (před 4,6 mld let) ještě nejsou dnešní dráhy ani popisky.
   planetLabels.setVisible(false);
   asteroidLabels.setVisible(false);
-  orbitLines.setVisible(false);
+  // Dráhy planet jsou vidět od začátku, ale nakreslené na 0 — dokreslí se
+  // každá, jakmile její planeta doroste (orbitTrace v tick()).
+  _orbitLines = orbitLines;
+  for (const p of PLANETS) if (p.id !== 'sun') orbitLines.setTrace(p.id, 0);
   asteroidOrbitLines.setVisible(false);
   eclipticGrid.setVisible(false);
   asteroidBelt.points.visible = false;
   _revealAfterFormation.push(
-    { set visible(v) { orbitLines.setVisible(v); } },
     { set visible(v) { asteroidOrbitLines.setVisible(v); } },
     { set visible(v) { eclipticGrid.setVisible(v); } },
     asteroidBelt.points,
@@ -843,7 +886,6 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   const beltOpacity = asteroidBelt.points.material.opacity;
   const rootStyle = document.documentElement.style;
   _revealFaders.push((k) => {
-    orbitLines.setOpacity(k);
     asteroidOrbitLines.setOpacity(k);
     eclipticGrid.setOpacity(k);
     asteroidBelt.points.material.opacity = beltOpacity * k;

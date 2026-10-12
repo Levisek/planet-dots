@@ -9,7 +9,11 @@
 //  - sunIgnitionScale: Slunce vyroste z bodu, zatímco do něj padá prach.
 //  - growthScale: planeta / měsíc roste, jak do něj dopadají tečky
 //    (dřív byla neviditelná a při 95 % najednou naskočila celá).
-//  - revealFade: dráhy, pás a popisky se po formaci prolnou dovnitř.
+//  - sunGlow: záblesk při zážehu a trvalá záře kolem Slunce.
+//  - protoTint: rostoucí planeta je zprvu zbarvená do prachu, ze kterého
+//    vzniká, a teprve s plnou velikostí dostane své barvy.
+//  - orbitTrace: dráha planety se dokreslí od planety dokola, jakmile dorostla.
+//  - revealFade: pás, mřížka a popisky se po formaci prolnou dovnitř.
 //
 // Čisté funkce bez three.js — testy v formationFilm.test.js.
 
@@ -25,7 +29,8 @@ const KEYS = [
   { t: 4.0,  az: -40, el: 20, d: 0.42 }, // hroucení: klesá blíž ke středu
   { t: 6.5,  az: -26, el: 14, d: 0.30 }, // zážeh: Slunce zblízka, skoro z roviny disku
   { t: 11.0, az: -12, el: 25, d: 0.55 }, // akrece: vnitřní planety, vnější přicházejí
-  { t: 17.5, az: 0,   el: null, d: 1 },  // přehled — výchozí pozice
+  { t: 21.0, az: 0,   el: null, d: 1 },  // přehled — výchozí pozice; kamera
+                                         // jede, dokud se rodí měsíce a kreslí dráhy
 ];
 export const FILM_END = KEYS[KEYS.length - 1].t;
 
@@ -91,10 +96,14 @@ export function sunIgnitionScale(t) {
 // ve formationIntro) — těleso dorůstá, dokud nedoletí poslední.
 const TRAVEL_TAIL = 1.2;
 
+// Planeta se ukáže až po téhle části akrečního okna — nejdřív se musí
+// sejít prach (dřív se hotová koule objevila uprostřed řídkého oblaku).
+export const GROWTH_DELAY = 0.4;
+
 /** Okno růstu tělesa: planeta z ACCRETION_WINDOWS, měsíc z fáze rodiče. */
 export function growthWindow(id, parentId = null) {
   const w = ACCRETION_WINDOWS.find((a) => a.planetId === id);
-  if (w) return { start: w.start, end: w.end + TRAVEL_TAIL };
+  if (w) return { start: w.start + GROWTH_DELAY * (w.end - w.start), end: w.end + TRAVEL_TAIL };
   const ph = parentId && PHASES.find((p) => p.parentId === parentId);
   if (ph) return { start: ph.start, end: ph.end + 0.4 };
   return null;
@@ -105,6 +114,48 @@ export function growthWindow(id, parentId = null) {
 export function growthScale(t, win) {
   if (!win) return 1;
   return Math.sqrt(clamp01((t - win.start) / (win.end - win.start)));
+}
+
+const smooth = (p) => p * p * (3 - 2 * p);
+
+// Barva prachu, ze kterého planeta roste (násobí barvy povrchu): skalnaté
+// planety jsou rozžhavené, obři za sněžnou čarou ledově studení.
+const PROTO_HOT = [1.0, 0.5, 0.3];
+const PROTO_COLD = [0.55, 0.62, 0.8];
+
+/** Násobitel barvy rostoucí planety; k = growthScale, 1 → vlastní barvy. */
+export function protoTint(k, cold) {
+  const base = cold ? PROTO_COLD : PROTO_HOT;
+  const u = smooth(clamp01((k - 0.5) / 0.5)); // do poloviny velikosti jen prach
+  if (u >= 1) return [1, 1, 1];
+  return base.map((c) => c + (1 - c) * u);
+}
+
+// Zážeh: krátký záblesk (náběh 0,3 s, dozní do konce růstu Slunce), pak
+// trvalá záře. Hodnoty jsou průhlednost spritu (0..1).
+export const GLOW_STEADY = 0.75;
+const FLASH_RISE = 0.3;
+/** @returns {{ flash: number, glow: number }} */
+export function sunGlow(t) {
+  if (t < SUN_GROW_START) return { flash: 0, glow: 0 };
+  const dt = t - SUN_GROW_START;
+  const fall = SUN_GROW_END - SUN_GROW_START + 0.8;
+  const flash = dt < FLASH_RISE
+    ? smooth(dt / FLASH_RISE)
+    : 1 - smooth(clamp01((dt - FLASH_RISE) / (fall - FLASH_RISE)));
+  const glow = GLOW_STEADY * smooth(clamp01(dt / (SUN_GROW_END - SUN_GROW_START)));
+  return { flash, glow };
+}
+
+// Dráha se začne kreslit chvíli před koncem růstu planety a obkrouží ji
+// za ORBIT_TRACE_SEC — vnitřní dráhy od ~13 s, Neptun skončí před LIVE_START.
+export const ORBIT_TRACE_SEC = 2.4;
+const ORBIT_TRACE_LEAD = 0.6;
+/** Kolik dráhy planety je nakresleno (0..1). */
+export function orbitTrace(t, planetId) {
+  const win = growthWindow(planetId);
+  if (!win) return 1;
+  return smooth(clamp01((t - win.end + ORBIT_TRACE_LEAD) / ORBIT_TRACE_SEC));
 }
 
 export const REVEAL_SEC = 1.6;

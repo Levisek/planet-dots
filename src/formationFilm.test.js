@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   pchip, formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
-  growthWindow, growthScale, revealFade, REVEAL_SEC,
+  growthWindow, growthScale, revealFade, REVEAL_SEC, GROWTH_DELAY,
+  protoTint, sunGlow, GLOW_STEADY, orbitTrace,
 } from './formationFilm.js';
 import { LIVE_START, ACCRETION_WINDOWS } from './animation.js';
 
@@ -69,9 +70,11 @@ test('Slunce: před zážehem nula, roste monotónně, na konci ignition plné',
 test('růst: planety podle akrečního okna, měsíce podle fáze rodiče, po formaci plná velikost', () => {
   for (const w of ACCRETION_WINDOWS) {
     const win = growthWindow(w.planetId);
-    assert.equal(win.start, w.start);
+    // nejdřív se sejde prach, planeta se ukáže až po části okna
+    assert.equal(win.start, w.start + GROWTH_DELAY * (w.end - w.start));
     assert.ok(win.end > w.end && win.end < LIVE_START);
     assert.equal(growthScale(w.start, win), 0);
+    assert.equal(growthScale(win.start, win), 0);
     assert.ok(growthScale((win.start + win.end) / 2, win) > 0.5);
     assert.equal(growthScale(LIVE_START, win), 1);
   }
@@ -88,4 +91,37 @@ test('prolnutí po formaci: 0 před LIVE_START, 1 po REVEAL_SEC', () => {
   assert.equal(revealFade(LIVE_START + REVEAL_SEC), 1);
   const mid = revealFade(LIVE_START + REVEAL_SEC / 2);
   assert.ok(Math.abs(mid - 0.5) < 1e-9);
+});
+
+test('barva rostoucí planety: do půlky velikosti prach, plná velikost = vlastní barvy', () => {
+  for (const cold of [false, true]) {
+    assert.deepEqual(protoTint(0, cold), protoTint(0.5, cold));
+    assert.deepEqual(protoTint(1, cold), [1, 1, 1]);
+    assert.ok(protoTint(0, cold).every((c) => c > 0 && c <= 1) && protoTint(0, cold).some((c) => c < 1));
+  }
+  const hot = protoTint(0, false), cold = protoTint(0, true);
+  assert.ok(hot[0] > hot[2] && cold[2] > cold[0], 'skalnaté do ruda, obři do modra');
+});
+
+test('záře Slunce: před zážehem nic, záblesk vrcholí a dozní, záře zůstane', () => {
+  assert.deepEqual(sunGlow(0), { flash: 0, glow: 0 });
+  assert.deepEqual(sunGlow(SUN_GROW_START - 0.01), { flash: 0, glow: 0 });
+  const peak = Math.max(...[0.1, 0.2, 0.3, 0.4].map((d) => sunGlow(SUN_GROW_START + d).flash));
+  assert.ok(peak > 0.99);
+  assert.equal(sunGlow(SUN_GROW_END + 1).flash, 0);
+  assert.equal(sunGlow(SUN_GROW_END).glow, GLOW_STEADY);
+  assert.equal(sunGlow(LIVE_START + 100).glow, GLOW_STEADY);
+});
+
+test('dráhy: kreslí se postupně zevnitř ven, všechny hotové před koncem formace', () => {
+  let prevStart = 0;
+  for (const w of ACCRETION_WINDOWS) {
+    assert.equal(orbitTrace(w.start, w.planetId), 0);
+    assert.equal(orbitTrace(LIVE_START, w.planetId), 1);
+    let t = w.start;
+    while (orbitTrace(t, w.planetId) === 0) t += 0.05;
+    assert.ok(t >= prevStart, `${w.planetId} nezačne dřív než vnitřní soused`);
+    prevStart = t;
+  }
+  assert.equal(orbitTrace(0, 'ceres'), 1);
 });

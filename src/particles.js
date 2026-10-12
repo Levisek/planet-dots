@@ -6,6 +6,7 @@ import { sphericalUV, sampleColorPoleSafe } from './textureUtils.js';
 export { PHASE };
 
 const _tmpVec3 = new THREE.Vector3();
+const FLIGHT_COLOR_EASE = 0.35;
 
 const VERTEX_SHADER = /* glsl */ `
 attribute vec3 aColor;
@@ -343,20 +344,26 @@ export class ParticlePool {
    */
   spawnFromDisk(sourceIdx, sourcePos, finalTarget, finalTargetLocal,
                 finalColor, ownerIdx, finalPhase, currentTime, travelTime,
-                finalAlpha = 1.0, finalSize = null) {
+                finalAlpha = 1.0, finalSize = null, startColor = null) {
     const i = sourceIdx;
     this.touch(i);
     const sx = sourcePos.x, sy = sourcePos.y, sz = sourcePos.z;
     this.position[3*i]     = sx;
     this.position[3*i + 1] = sy;
     this.position[3*i + 2] = sz;
-    // Start: barva povrchu vybledlá do prachové (disk má u Slunce teplé
-    // a venku studené tóny — pevná šedomodrá u vnitřních planet nesedla),
-    // do finální barvy se lerpne během letu.
-    this.color[3*i]     = 0.6 * finalColor[0] + 0.28;
-    this.color[3*i + 1] = 0.6 * finalColor[1] + 0.27;
-    this.color[3*i + 2] = 0.6 * finalColor[2] + 0.27;
-    this.alpha[i] = 0.8;
+    // Start: barva prachu disku v místě zdroje (startColor), jinak barva
+    // povrchu vybledlá do prachové; do finální barvy se přejde během letu.
+    if (startColor) {
+      this.color[3*i]     = startColor[0];
+      this.color[3*i + 1] = startColor[1];
+      this.color[3*i + 2] = startColor[2];
+      this.alpha[i] = 0.55; // prach řidší než povrch — oblak, ne skvrna
+    } else {
+      this.color[3*i]     = 0.6 * finalColor[0] + 0.28;
+      this.color[3*i + 1] = 0.6 * finalColor[1] + 0.27;
+      this.color[3*i + 2] = 0.6 * finalColor[2] + 0.27;
+      this.alpha[i] = 0.8;
+    }
 
     const tx = finalTarget.x, ty = finalTarget.y, tz = finalTarget.z;
     this.target[3*i]     = tx;
@@ -466,7 +473,11 @@ export class ParticlePool {
       this.position[3*i]     += this.velocity[3*i]     * dt;
       this.position[3*i + 1] += this.velocity[3*i + 1] * dt;
       this.position[3*i + 2] += this.velocity[3*i + 2] * dt;
-      const k = 0.04;
+      // Barva drží startovní (prach) a k cílové se stáčí až ke konci letu:
+      // zbytek rozdílu ~ (zbývající čas)^0.35. Oblaky kolem rostoucích
+      // planet tak mají barvu disku, ne modrou Neptunu.
+      const rem = this.arrivalTime[i] - currentTime;
+      const k = rem > dt ? FLIGHT_COLOR_EASE * dt / rem : 1;
       this.color[3*i]     += (this.postArrivalColor[3*i]     - this.color[3*i])     * k;
       this.color[3*i + 1] += (this.postArrivalColor[3*i + 1] - this.color[3*i + 1]) * k;
       this.color[3*i + 2] += (this.postArrivalColor[3*i + 2] - this.color[3*i + 2]) * k;

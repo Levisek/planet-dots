@@ -55,11 +55,16 @@ export function createOrbitLines(scene) {
     if (p.id === 'sun') continue;
     const points = sampleOrbitCurve(p, new Date(), SEGMENTS);
     const geom = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.LineLoop(geom, material);
+    // Line, ne LineLoop: křivka je uzavřená sama (poslední bod = první) a při
+    // dokreslování (setTrace) by LineLoop spojil konec úsečkou se začátkem.
+    const line = new THREE.Line(geom, material);
     line.userData.planetId = p.id;
     scene.add(line);
-    lines.push({ planetId: p.id, line });
+    lines.push({ planetId: p.id, line, trace: 1 });
   }
+  const applyTrace = (entry) => {
+    entry.line.geometry.setDrawRange(0, Math.ceil(entry.trace * (SEGMENTS + 1)));
+  };
 
   // Při změně simMode je mapování AU→scene units jiné → re-sample z provideru.
   onModeChange(() => {
@@ -68,12 +73,20 @@ export function createOrbitLines(scene) {
       const points = sampleOrbitCurve(planet, new Date(), SEGMENTS);
       entry.line.geometry.dispose();
       entry.line.geometry = new THREE.BufferGeometry().setFromPoints(points);
+      applyTrace(entry);
     }
   });
 
   return {
     setVisible(v) {
       for (const entry of lines) entry.line.visible = v;
+    },
+    /** Formace: dráha se kreslí od dnešní polohy planety dokola (k = 0..1). */
+    setTrace(planetId, k) {
+      const entry = lines.find((e) => e.planetId === planetId);
+      if (!entry || entry.trace === k) return;
+      entry.trace = k;
+      applyTrace(entry);
     },
     /** Prolnutí po formaci: k = 0..1 násobí výchozí průhlednost. */
     setOpacity(k) {
@@ -107,12 +120,20 @@ export function createAsteroidOrbitLines(scene) {
       const points = sampleOrbitCurve(asteroid, new Date(), ASTEROID_SEGMENTS);
       entry.line.geometry.dispose();
       entry.line.geometry = new THREE.BufferGeometry().setFromPoints(points);
+      applyTrace(entry);
     }
   });
 
   return {
     setVisible(v) {
       for (const entry of lines) entry.line.visible = v;
+    },
+    /** Formace: dráha se kreslí od dnešní polohy planety dokola (k = 0..1). */
+    setTrace(planetId, k) {
+      const entry = lines.find((e) => e.planetId === planetId);
+      if (!entry || entry.trace === k) return;
+      entry.trace = k;
+      applyTrace(entry);
     },
     setOpacity(k) {
       ASTEROID_ORBIT_MATERIAL.opacity = ORBIT_OPACITY * k;
