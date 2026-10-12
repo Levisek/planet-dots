@@ -48,6 +48,8 @@ import {
   formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
   growthWindow, growthScale, revealFade, REVEAL_SEC,
 } from './formationFilm.js';
+import { createTour } from './tour.js';
+import { createTourPanel } from './tourPanel.js';
 
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
 const sky = createSky(scene, { pixelRatio: renderer.getPixelRatio() });
@@ -238,9 +240,62 @@ const detailShow = createDetailShow({
   },
   isFlying: () => cameraRig.isFlying(),
 });
-// Uživatel chytil kameru (tah, kolečko, dotyk) → show končí, rozjetý
-// přejezd mezi úhly se zastaví na místě.
+// Prohlídka (tour.js): zastávky s popiskem, bez zásahu jede dokola. Spustí
+// ji tlačítko / klávesa P, `?prohlidka` v adrese (hned po formaci — záložka
+// pro televizi) nebo sama po IDLE_TOUR_SEC nečinnosti jako spořič.
+const IDLE_TOUR_SEC = 180;
+const TOUR_OVERVIEW_AUTOROTATE = 0.25; // přehled se při prohlídce pomalu otáčí
+const TOUR_ON_LOAD = new URLSearchParams(location.search).has('prohlidka');
+const ORIGIN = { x: 0, y: 0, z: 0 };
+let _idleSec = 0;
+let _overviewSpin = false;
+const tour = createTour({
+  goTo: (stop) => {
+    if (!detailView) return false;
+    if (stop.id) { detailView.enter(stop.id); return true; }
+    // Přehled: z detailu návratem na výchozí pozici módu, z přehledu přeletem
+    // tamtéž (uživatel mohl kameru nechat kdekoli). Uprostřed přechodu počkat.
+    const st = detailView.state();
+    if (st === DV_STATE.DETAIL) {
+      detailView.setReturnPose(mainCameraPos(), ORIGIN);
+      detailView.exit();
+      return true;
+    }
+    if (st !== DV_STATE.MAIN) return false;
+    cameraRig.flyTo(mainCameraPos(), ORIGIN);
+    return true;
+  },
+  isBusy: () => cameraRig.isFlying() || detailView.state() === DV_STATE.TRANSITION_IN
+    || detailView.state() === DV_STATE.TRANSITION_OUT,
+  onChange: (info) => {
+    tourPanel.show(info);
+    requestAnimationFrame(refreshFraming);
+  },
+});
+function startTour(auto = false) {
+  if (formationActive || tour.active() || !detailView) return;
+  // Z detailu tělesa, které je zastávkou, pokračuje od něj (bez přeletu).
+  const at = tour.indexOf(detailView.focusId());
+  tour.start({ auto, from: at > 0 ? at : 0 });
+}
+const tourPanel = createTourPanel({
+  onPrev: () => tour.prev(),
+  onNext: () => tour.next(),
+  onClose: () => tour.stop(),
+  onToggle: () => (tour.active() ? tour.stop() : startTour()),
+});
+/** Vstup do detailu z ruky uživatele (klik, seznam, popisek) — prohlídka končí. */
+function userEnter(id) {
+  tour.stop();
+  if (detailView) detailView.enter(id);
+}
+for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart']) {
+  window.addEventListener(ev, () => { _idleSec = 0; }, { passive: true });
+}
+// Uživatel chytil kameru (tah, kolečko, dotyk) → prohlídka i show končí,
+// rozjetý přejezd mezi úhly se zastaví na místě.
 controls.addEventListener('start', () => {
+  tour.stop();
   if (!detailShow.active()) return;
   detailShow.stop();
   cameraRig.stopHere();
@@ -249,6 +304,18 @@ controls.addEventListener('start', () => {
 const viewFraming = createViewFraming({ camera, getSize: () => ({ w: window.innerWidth, h: window.innerHeight }) });
 function refreshFraming() {
   const pe = document.getElementById('infoPanel');
+  if (tour.active()) {
+    // Při prohlídce je info panel schovaný; těleso do plochy nad popiskem.
+    const te = tourPanel.element;
+    const tt = document.getElementById('topToggles');
+    viewFraming.setShift(tour.current()?.id ? framingShift({
+      vw: window.innerWidth,
+      vh: window.innerHeight,
+      panel: { left: 0, top: te.offsetTop, width: window.innerWidth, height: te.offsetHeight },
+      topInset: tt ? tt.getBoundingClientRect().bottom : 0,
+    }) : { dx: 0, dy: 0 });
+    return;
+  }
   const visible = pe && pe.classList.contains('visible');
   if (!visible) { viewFraming.setShift({ dx: 0, dy: 0 }); return; }
   const shown = (el) => el && getComputedStyle(el).display !== 'none';
@@ -417,6 +484,14 @@ function tick(timestamp) {
     if (k >= 1) _revealDone = true;
   }
 
+  // Prohlídka: spořič po nečinnosti a přechod na další zastávku. Musí být
+  // PŘED detailView.tick — přelet spuštěný až po něm by měl časovač stavu
+  // o snímek pozadu za letem kamery a v tom jednom snímku mezi doletem
+  // a vstupem do DETAIL by OrbitControls kameru ořízly na minDistance 5000.
+  _idleSec += dt;
+  if (!formationActive && !tour.active() && _idleSec >= IDLE_TOUR_SEC) startTour(true);
+  tour.tick(dt);
+
   // Detail view state
   if (detailView) detailView.tick(dt);
   const dvState = detailView ? detailView.state() : 'MAIN';
@@ -434,6 +509,16 @@ function tick(timestamp) {
     detailShow.stop();
   }
   detailShow.tick(dt);
+
+  // Prohlídka: proužek času zastávky, otáčení přehledu.
+  if (tour.active()) tourPanel.setProgress(tour.progress());
+  const spin = tour.active() && dvState === DV_STATE.MAIN;
+  if (spin !== _overviewSpin) {
+    _overviewSpin = spin;
+    // Vypnutí při odletu k tělesu; v detailu si ho pak zapne detailShow.
+    controls.autoRotate = spin;
+    if (spin) controls.autoRotateSpeed = TOUR_OVERVIEW_AUTOROTATE;
+  }
 
   // Simulace běží v MAIN i v DETAIL (detail má jen zpomalený čas, viz
   // detailRateMultiplier) — kamera jede s fokusovaným tělesem. Dřív se
@@ -655,6 +740,8 @@ function revealAfterFormation() {
   for (const obj of _revealAfterFormation) obj.visible = true;
   if (planetLabels) planetLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
   if (asteroidLabels) asteroidLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
+  tourPanel.setEnabled(true);
+  if (TOUR_ON_LOAD) startTour(true);
 }
 
 Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
@@ -725,17 +812,17 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     isOccluded: labelOccludedBySun,
     anchors,
     getBodyRadius: (id) => PLANET_BY_ID[id].radiusPx * planetScaleOf(id),
-    onClick: (id) => detailView && detailView.enter(id),
+    onClick: userEnter,
   });
   asteroidLabels = createAsteroidLabels({
     camera,
     canvas: renderer.domElement,
     asteroidAnchors,
-    onClick: (id) => detailView && detailView.enter(id),
+    onClick: userEnter,
     isOccluded: labelOccludedBySun,
   });
   const bodyList = createBodyList({
-    onClick: (id) => detailView && detailView.enter(id),
+    onClick: userEnter,
   });
   const orbitLines = createOrbitLines(scene);
   const asteroidOrbitLines = createAsteroidOrbitLines(scene);
@@ -970,7 +1057,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   });
   picker.onClick((id) => {
     tooltip.hide();
-    detailView.enter(id);
+    userEnter(id);
   });
 
   // Debug / audit API — playwright-friendly programmatic control
@@ -984,14 +1071,18 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
       moons: MOONS.map((m) => m.id),
     };
     window.__pool = pool;
-    window.__debug = { pool, anchors, moonAnchors, asteroidAnchors, camera, controls, controlsTarget, sky, detailShow };
+    window.__debug = { pool, anchors, moonAnchors, asteroidAnchors, camera, controls, controlsTarget, sky, detailShow, tour };
   }
 
   // Panel handlers
   infoPanel.onClose(() => detailView.exit());
 
   // ESC + časové klávesy (Space, [ ] \ 0)
-  initKeyboard({ detailView, isFormationActive: () => formationActive });
+  initKeyboard({
+    detailView,
+    isFormationActive: () => formationActive,
+    tour: { active: () => tour.active(), next: () => tour.next(), prev: () => tour.prev(), stop: () => tour.stop(), toggle: () => (tour.active() ? tour.stop() : startTour()) },
+  });
 
   // Initialize time controls UI
   initTimeControls();

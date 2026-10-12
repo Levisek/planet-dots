@@ -6,15 +6,28 @@ import { STATE as DV_STATE } from './detailView.js';
  * (Space, [ ] \ 0). Formace zamyká jen ČAS, detail view zůstává funkční
  * (F3 decision 6).
  *
- * @param {{ detailView: object, isFormationActive: () => boolean }} opts
+ * Prohlídka: P spustí / ukončí, šipky ← → mezi zastávkami, Esc ukončí
+ * (a vrátí na přehled). `[` `]` zůstávají rychlosti času.
+ *
+ * @param {{ detailView: object, isFormationActive: () => boolean,
+ *           tour?: { active(): boolean, next(): void, prev(): void, stop(): void, toggle(): void } }} opts
  */
-export function initKeyboard({ detailView, isFormationActive }) {
+export function initKeyboard({ detailView, isFormationActive, tour = null }) {
   window.addEventListener('keydown', (e) => {
     // Skip when typing in inputs
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-    if (e.key === 'Escape' && detailView.state() === DV_STATE.DETAIL) {
-      detailView.exit();
+    if (e.key === 'Escape') {
+      if (tour) tour.stop();
+      if (detailView.state() === DV_STATE.DETAIL) detailView.exit();
+    }
+    if (tour && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === 'p' || e.key === 'P') { tour.toggle(); e.preventDefault(); return; }
+      if (tour.active() && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        e.key === 'ArrowRight' ? tour.next() : tour.prev();
+        e.preventDefault();
+        return;
+      }
     }
 
     // Formace zamyká jen ČAS (Space + [ ] \ 0) — detail view (Escape výše)

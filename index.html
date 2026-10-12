@@ -299,6 +299,38 @@
       user-select: none;
       z-index: 50;
     }
+    /* Prohlídka (tour.js, tourPanel.js): popisek zastávky dole uprostřed.
+       Písmo roste se šířkou okna — na televizi se čte z gauče. */
+    #tourCaption {
+      position: fixed;
+      left: 50%;
+      bottom: 28px;
+      width: min(760px, calc(100vw - 32px));
+      box-sizing: border-box;
+      transform: translate(-50%, 24px);
+      opacity: 0;
+      visibility: hidden;
+      transition: transform 0.3s ease-out, opacity 0.3s ease-out, visibility 0s 0.3s;
+      background: rgba(0, 0, 0, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #eee;
+      padding: 14px 18px 12px;
+      font: clamp(9px, 1.05vw, 16px)/1.8 'Press Start 2P', monospace;
+      z-index: 30;
+    }
+    #tourCaption.visible { transform: translate(-50%, 0); opacity: 1; visibility: visible; transition-delay: 0s; }
+    #tourCaption .head { display: flex; align-items: center; gap: 12px; }
+    #tourCaption .count { color: #888; font-size: 0.8em; }
+    #tourCaption .name { color: #ffc850; font-size: 1.2em; letter-spacing: 0.06em; flex: 1; }
+    #tourCaption .nav { display: flex; gap: 4px; }
+    #tourCaption button { background: none; border: 1px solid #444; color: #aaa; cursor: pointer; padding: 6px 8px; line-height: 0; }
+    #tourCaption button:hover { color: #fff; border-color: #888; }
+    #tourCaption .text { margin: 10px 0 12px; color: #ddd; }
+    #tourCaption .bar { height: 2px; background: rgba(255, 255, 255, 0.12); }
+    #tourCaption .fill { height: 100%; background: #ffc850; transform-origin: left; transform: scaleX(0); }
+    body.touring #bodyList, body.touring #bodyListToggle, body.touring #time-controls,
+    body.touring #infoPanel, body.touring #hud { display: none; }
     #bodyListToggle { display: none; }
     /* Telefon: seznam těles za tlačítkem, info panel a časová lišta na šířku
        displeje (dřív panel 32 px za levým okrajem, lišta širší než displej,
@@ -346,6 +378,7 @@
         overflow-x: visible;
       }
       #time-controls #speed-slider { width: 90px; }
+      #tourCaption { bottom: 12px; padding: 10px 12px 10px; line-height: 1.7; }
     }
   </style>
 </head>
@@ -354,16 +387,18 @@
   <main aria-label="3D vizualizace sluneční soustavy">
     <canvas id="canvas"></canvas>
   </main>
-  <div id="hud">Space pauza</div>
+  <div id="hud">Space pauza · P prohlídka</div>
   <div id="stats" hidden>fps — · tick — ms · rot — ms</div>
   <div id="formation-label"></div>
   <div id="tooltip"></div>
   <div id="infoPanel"></div>
+  <div id="tourCaption" role="region" aria-label="Prohlídka"></div>
   <div id="moonLabels"></div>
   <div id="topToggles" style="position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:11;">
     <button id="modePochopeni" class="topBtn active" data-mode="pochopeni" title="Vizuálně srozumitelný režim — komprese vzdáleností a period">POCHOPENÍ</button>
     <button id="modeFyzikalni" class="topBtn" data-mode="fyzikalni" title="Fyzikálně přesný — real proporce vzdáleností a period">FYZIKÁLNÍ</button>
     <button id="toggleLighting" class="topBtn" title="Přepne realistické osvětlení (den/noc strana)">STÍNY: VYP</button>
+    <button id="toggleTour" class="topBtn" disabled title="Prohlídka soustavy se zastávkami (klávesa P, šipky mezi zastávkami)">PROHLÍDKA</button>
   </div>
   <style>
     .topBtn {
@@ -372,6 +407,7 @@
     }
     .topBtn:hover { color:#fff; border-color:#888; }
     .topBtn.active { color:#ffc850; border-color:#ffc850; background:rgba(255,200,80,0.12); }
+    .topBtn:disabled { opacity:0.4; cursor:default; }
   </style>
   <script type="importmap">
     {

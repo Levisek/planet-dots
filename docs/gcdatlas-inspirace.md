@@ -32,8 +32,20 @@ algoritmy a otevřená data (d3-celestial BSD-3, Hipparcos).
    ve Střelci. Koule jede s kamerou → žádná paralaxa. Data v `src/skyData.js`
    (base64, 152 kB), build `scripts/build-sky.mjs` (~2 min, deterministický).
    Na CPU rendereru (swiftshader) stojí ~10–20 % snímků, na GPU zanedbatelné.
-4. **Prohlídka** — seznam zastávek s českými popisky, `[` `]` mezi nimi;
-   bez zásahu jede dokola → spořič na televizi.
+4. **Prohlídka** — hotovo 2026-10-12 (`src/tour.js`, `src/tourPanel.js`).
+   16 zastávek (přehled, Slunce, planety, Luna, Ceres, Io, Europa, Titan,
+   Triton) s krátkým českým popiskem dole uprostřed a proužkem času. U tělesa
+   24 s (příletový záběr + přejezd nad pól z detailShow), přehled 16 s
+   s pomalým otáčením; přelety se do času nepočítají. Po Tritonu znovu od
+   začátku. Spouští tlačítko PROHLÍDKA, klávesa `P`, `?prohlidka` v adrese
+   (hned po formaci — záložka pro televizi) a samo 3 min nečinnosti (spořič).
+   Mezi zastávkami šipky ← → (`[` `]` zůstaly rychlosti času). Konec: křížek,
+   `P`, `Esc` (návrat na přehled), tah kamerou nebo klik na těleso. Během
+   prohlídky je schovaný seznam těles, časová lišta i info panel.
+   Cestou chyceno: přelet spuštěný v snímku až po `detailView.tick` měl
+   časovač stavu o snímek pozadu → v jednom snímku OrbitControls ořízly
+   kameru na `minDistance` přehledu (Země z 5 000 j. místo zblízka).
+   Zbývá: průlet těsně nad povrchem.
 
 ## Co nebrat
 
