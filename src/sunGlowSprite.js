@@ -62,5 +62,31 @@ export function createSunGlowSprite(parent, radius) {
       set(flash, flashA);
       set(glow, glowA);
     },
+    /** Barva záře (protohvězda rudá, po zážehu fúze bílá = beze změny). */
+    tint(r, g, b) { glow.material.color.setRGB(r, g, b); },
+  };
+}
+
+/**
+ * Vzplanutí v dálce (supernova před kolapsem mraku): bílomodrý bod se září.
+ * @param {THREE.Object3D} parent
+ * @param {{x:number,y:number,z:number}} pos
+ * @param {number} diameter
+ * @returns {{ update(a: number): void }}
+ */
+export function createFlashSprite(parent, pos, diameter) {
+  const s = sprite(glowTexture([
+    [0, 'rgba(255,255,255,1)'],
+    [0.06, 'rgba(230,240,255,0.95)'],
+    [0.25, 'rgba(170,200,255,0.25)'],
+    [1, 'rgba(140,170,255,0)'],
+  ]), diameter);
+  s.position.set(pos.x, pos.y, pos.z);
+  parent.add(s);
+  return {
+    update(a) {
+      s.material.opacity = a;
+      s.visible = a > 0.002;
+    },
   };
 }

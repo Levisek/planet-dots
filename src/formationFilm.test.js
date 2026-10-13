@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   pchip, formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
   growthWindow, growthScale, revealFade, REVEAL_SEC, GROWTH_DELAY,
-  protoTint, sunGlow, GLOW_STEADY, orbitTrace,
+  protoTint, sunGlow, GLOW_STEADY, orbitTrace, sunTint, FUSION_START,
 } from './formationFilm.js';
 import { LIVE_START, ACCRETION_WINDOWS } from './animation.js';
 
@@ -46,12 +46,14 @@ test('kamera formace: plynulá — žádný skok mezi snímky 1/30 s', () => {
   assert.ok(maxStep < 0.02 * len(MAIN), `max krok ${maxStep.toFixed(0)}`);
 });
 
-test('kamera formace: při zážehu blízko Slunce, nad rovinou disku', () => {
-  const p = formationCameraPose(6.5, MAIN);
-  assert.ok(len(p) < 0.4 * len(MAIN));
-  assert.ok(p.y > 0);
+test('kamera formace: mrak zdálky, s kolapsem dovnitř k rovině disku, při fúzi u Slunce', () => {
   const start = formationCameraPose(0, MAIN);
-  assert.ok(p.y / len(p) < start.y / len(start), 'k zážehu kamera klesá k rovině disku');
+  const disk = formationCameraPose(20, MAIN);
+  assert.ok(len(start) > 1.3 * len(disk), 'mrak zdálky, s kolapsem blíž');
+  assert.ok(len(disk) < 0.6 * len(MAIN));
+  assert.ok(disk.y > 0);
+  assert.ok(disk.y / len(disk) < start.y / len(start), 'kamera klesá k rovině disku');
+  assert.ok(len(formationCameraPose(FUSION_START + 2, MAIN)) < 0.4 * len(MAIN));
 });
 
 test('Slunce: před zážehem nula, roste monotónně, na konci ignition plné', () => {
@@ -103,20 +105,31 @@ test('barva rostoucí planety: do půlky velikosti prach, plná velikost = vlast
   assert.ok(hot[0] > hot[2] && cold[2] > cold[0], 'skalnaté do ruda, obři do modra');
 });
 
-test('záře Slunce: před zážehem nic, záblesk vrcholí a dozní, záře zůstane', () => {
+test('záře Slunce: protohvězda slabě, zážeh fúze záblesk, pak trvalá záře', () => {
   assert.deepEqual(sunGlow(0), { flash: 0, glow: 0 });
   assert.deepEqual(sunGlow(SUN_GROW_START - 0.01), { flash: 0, glow: 0 });
-  const peak = Math.max(...[0.1, 0.2, 0.3, 0.4].map((d) => sunGlow(SUN_GROW_START + d).flash));
+  const proto = sunGlow(FUSION_START - 1);
+  assert.equal(proto.flash, 0);
+  assert.ok(proto.glow > 0 && proto.glow < GLOW_STEADY / 2);
+  const peak = Math.max(...[0.1, 0.2, 0.3, 0.4].map((d) => sunGlow(FUSION_START + d).flash));
   assert.ok(peak > 0.99);
-  assert.equal(sunGlow(SUN_GROW_END + 1).flash, 0);
-  assert.equal(sunGlow(SUN_GROW_END).glow, GLOW_STEADY);
+  assert.equal(sunGlow(FUSION_START + 4).flash, 0);
   assert.equal(sunGlow(LIVE_START + 100).glow, GLOW_STEADY);
+});
+
+test('barva Slunce: protohvězda rudá, po zážehu fúze plné barvy', () => {
+  const p = sunTint(SUN_GROW_END);
+  assert.ok(p[0] > p[1] && p[1] > p[2] && p[2] < 0.5);
+  assert.deepEqual(sunTint(FUSION_START + 3), [1, 1, 1]);
+  assert.deepEqual(sunTint(LIVE_START), [1, 1, 1]);
 });
 
 test('dráhy: kreslí se postupně zevnitř ven, všechny hotové před koncem formace', () => {
   let prevStart = 0;
-  for (const w of ACCRETION_WINDOWS) {
-    assert.equal(orbitTrace(w.start, w.planetId), 0);
+  const byDistance = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
+    .map((id) => ACCRETION_WINDOWS.find((w) => w.planetId === id));
+  for (const w of byDistance) {
+    assert.equal(orbitTrace(w.end + 1.2, w.planetId), 0, 'až planeta doroste');
     assert.equal(orbitTrace(LIVE_START, w.planetId), 1);
     let t = w.start;
     while (orbitTrace(t, w.planetId) === 0) t += 0.05;

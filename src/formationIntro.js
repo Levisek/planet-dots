@@ -1,23 +1,21 @@
-// formationIntro — akreční formace sluneční soustavy (V4.4 F3).
+// formationIntro — prach a plyn při vzniku soustavy (docs/vznik-plan.md).
 //
-// beat_disk      (0–4s):    12k prachových částic v protoplanetárním disku
-//                           (poloměr dle reálných orbit z anchors), pomalá
-//                           rotace kolem Y.
-// beat_ignition  (4–6.5s):  prach s r < 0.55×r(Merkur) spirálovitě kolabuje
-//                           do středu + fade (vznik Slunce); zbytek disku
-//                           dál rotuje beze změny.
-// beat_accretion (6.5–17s): per-planeta okna (ACCRETION_WINDOWS): tečky
-//                           planet se emitují pool.spawnFromDisk ze zdrojů
-//                           v lokální zóně planety (anulus kolem aktuální
-//                           anchor pozice, disk-flattened y×0.3); prachové
-//                           částice zóny současně manuálně migrují k planetě
-//                           a na dojezdu fade → IDLE (pohltí je planeta).
-// Po beat_accretion se zbylý prach uvolní (IDLE) — disk je „vyčištěný".
-//
-// Sun mesh reveal (side-efekt zážehu) řeší main.js (Task 5) — tady se
-// pracuje jen s prachem/tečkami.
+// cloud/shock (0–12 s): 12k částic v chladném mraku (zploštělá koule
+//   ~1,35× disk), pomalu se točí; ve scéně shock jím projde rázová vlna
+//   (zjasní ho a postrčí).
+// collapse (12–20 s): mrak se hroutí zevnitř ven (vnitřek dřív), částice
+//   jdou z mraku na svou dráhu v disku a roztáčejí se (moment hybnosti);
+//   sluneční zásoba padá do středu.
+// disk (20 s →): keplerovská rotace, ω ~ r^(−3/2) — vnitřek obíhá rychleji.
+//   Barva podle sněžné čáry (dustColor).
+// ACCRETION_WINDOWS: prach zóny planety migruje k ní a pohltí se; tečky
+//   povrchu planety se emitují pool.spawnFromDisk z okolí planety.
+// clearing (38–44 s): plyn (část částic, řidší a šedomodrý) v zónách
+//   kamenných planet a Marsu odfoukne mladé Slunce ven. Plyn v zónách obrů
+//   obři pohltí v akreci (lavinovitě nabírají plyn).
+// fusion (54 s): zbytek se uvolní.
 
-import { phaseAt, PHASES, ACCRETION_WINDOWS, resetPhaseEmissions } from './animation.js';
+import { ACCRETION_WINDOWS, resetPhaseEmissions, sceneStart } from './animation.js';
 import { PLANETS, PLANET_BY_ID } from './planets.js';
 import { getPlanetTargets } from './planetTargets.js';
 import { PHASE } from './phase.js';
@@ -26,23 +24,33 @@ import { Vector3 } from 'three';
 const _tmpTarget = new Vector3();
 
 const DUST_COUNT = 12000;
-const ROTATION_PERIOD = 30; // sec / full disk spin
-// Sluneční zásoba (kolabuje v ignition) vyplňuje střed disku až k jeho
-// vnitřnímu okraji — dřív končila na 0,55×r_min a disk začínal na 0,75×r_min,
-// takže kolem středu byl vidět tmavý prstenec, který nemá fyzikální důvod.
 const SUN_RESERVE_MIN_FACTOR = 0.04;
 const SUN_RESERVE_FRACTION = 0.15; // podíl DUST_COUNT vyhrazený jako sluneční zásoba
-const DISK_MIN_FACTOR = 0.75; // disk sahá 0.75×r_min .. 1.1×r_max
+const GAS_FRACTION = 0.45;         // podíl zbytku, který je plyn
+const DISK_MIN_FACTOR = 0.75;      // disk sahá 0.75×r_min .. 1.1×r_max
 const SUN_ZONE_FACTOR = DISK_MIN_FACTOR; // zásoba končí tam, kde disk začíná
 const DISK_MAX_FACTOR = 1.1;
+const CLOUD_FACTOR = 1.35;         // poloměr mraku / vnější okraj disku
+const CLOUD_FLATTEN = 0.75;        // mrak je mírně zploštělý (už se točí)
+const CLOUD_PERIOD = 120;          // s / otočka mraku (skoro stojí)
+const KEPLER_PERIOD_SNOW = 18;     // s / oběh na sněžné čáře
 const SOURCE_MIN_RADIUS_FACTOR = 8;  // anulus zdroje emise: 8×radiusPx .. 30×radiusPx
 const SOURCE_MAX_RADIUS_FACTOR = 30;
 const TRAVEL_TIME_MIN = 0.6;
 const TRAVEL_TIME_MAX = 1.2;
+const ROCKY = new Set(['mercury', 'venus', 'earth', 'mars']);
+
+const T_SHOCK = sceneStart('shock');
+const T_COLLAPSE = sceneStart('collapse');
+const T_DISK = sceneStart('disk');
+const T_CLEAR = sceneStart('clearing');
+const T_CLEAR_END = sceneStart('rocky');
+const T_END = sceneStart('fusion');
+const COLLAPSE_SPREAD = 3; // vnějšek mraku začne padat o tolik s později
+const COLLAPSE_DUR = T_DISK - T_COLLAPSE - COLLAPSE_SPREAD;
 
 /**
  * Čistá funkce: přiřadí poloměr r nejbližší zóně (planetě) podle |r - r_zone|.
- * Testovatelná bez poolu. Deterministická (žádná náhoda).
  * @param {number} radius
  * @param {number[]} zoneRadii — poloměry zón ve stejném pořadí jako ACCRETION_WINDOWS
  * @returns {number} index nejbližší zóny
@@ -61,6 +69,11 @@ export function assignZone(radius, zoneRadii) {
 }
 
 const DUST_ALPHA = 0.75;
+const GAS_ALPHA = 0.32;
+const CLOUD_ALPHA = 0.6;
+// Velikost tečky mraku: kamera je zdálky a velikost se dělí vzdáleností
+// (particles.js) — s velikostí disku by mrak nebyl vidět.
+const CLOUD_SIZE = 22;
 
 /**
  * Barva prachu podle vzdálenosti od středu: u mladé hvězdy teplý, rozžhavený
@@ -78,221 +91,265 @@ export function dustColor(r, snowR, jitter = 0.5) {
   return [0, 1, 2].map((c) => Math.min(1, (warm[c] + (cold[c] - warm[c]) * t) * j));
 }
 
+const CLOUD_COLOR = [0.86, 0.5, 0.4]; // chladný mrak: rudohnědý jako emisní mlhoviny
+const GAS_COLOR = [0.62, 0.66, 0.74];
+
+/** Keplerovská úhlová rychlost (rad/s) na poloměru r. */
+export function keplerOmega(r, snowR) {
+  return (2 * Math.PI / KEPLER_PERIOD_SNOW) * Math.pow(snowR / Math.max(r, 1e-6), 1.5);
+}
+
+/** Postup kolapsu částice (0..1): vnitřek mraku padá dřív (inside-out). */
+export function collapseProgress(t, cloudR01) {
+  const p = (t - T_COLLAPSE - COLLAPSE_SPREAD * cloudR01) / COLLAPSE_DUR;
+  const c = Math.min(1, Math.max(0, p));
+  return c * c * (3 - 2 * c);
+}
+
 function gaussianRandom() {
-  // Box-Muller — přibližná normální distribuce (pro placka-tvar disku).
   const u1 = Math.random() || 1e-9;
   const u2 = Math.random();
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
-// ——— Interní stav disku (module-level singleton, jako dřívější cloud) ———
-let _dustIndices = null;       // pool indexy prachu
-let _dustZone = null;          // Int32Array: -1 = sluneční zásoba, jinak index do _zoneEntries
-let _dustMigrationStart = null; // Float32Array: kdy (currentTime) začne migrace k planetě
-let _dustMigrating = null;     // Uint8Array: 1 = právě migruje (start pozice zachycena)
-let _dustFromX = null, _dustFromY = null, _dustFromZ = null; // pozice zachycená na startu migrace
-let _dustReleased = null;      // Uint8Array: 1 = už vráceno do IDLE
-let _zoneEntries = null;       // [{ planetId, radius, window }] — jen planety s dostupným anchorem
-let _snowR = 1;                // sněžná čára (z initDisk) — barva prachu letícího k planetě
-let _emitted = {};             // { [planetId]: count } — emisní tempo teček planety
+// ——— Interní stav (module-level singleton) ———
+let S = null; // viz initDisk
+let _snowR = 1;   // sněžná čára — barva prachu letícího k planetě
+let _cloudR = 0;  // poloměr mraku (pro rázovou vlnu a záběr kamery)
+let _emitted = {};
+
+/** Poloměr mraku v aktuálním módu (0 před initem). */
+export function getCloudRadius() { return _cloudR; }
 
 function initDisk(pool, anchors) {
-  if (_dustIndices) return;
-
-  // Zóny mode-aware: poloměr = délka XZ vektoru anchor pozice (snapshot při initu).
+  if (S) return;
   const entries = [];
   for (const w of ACCRETION_WINDOWS) {
     const anchor = anchors[w.planetId];
     if (!anchor) continue;
     const { x, z } = anchor.position;
-    const radius = Math.sqrt(x * x + z * z);
-    entries.push({ planetId: w.planetId, radius, window: w });
+    entries.push({ planetId: w.planetId, radius: Math.hypot(x, z), window: w, anchorPos: anchor.position });
   }
   if (entries.length === 0) return;
-  _zoneEntries = entries;
   const zoneRadii = entries.map((e) => e.radius);
-
-  const rMin = zoneRadii[0];
-  const rMax = zoneRadii[zoneRadii.length - 1];
+  const rMin = Math.min(...zoneRadii);
+  const rMax = Math.max(...zoneRadii);
   const diskMin = DISK_MIN_FACTOR * rMin;
   const diskMax = DISK_MAX_FACTOR * rMax;
-  // Sněžná čára mezi Marsem a Jupiterem (v módu, ve kterém formace běží).
   const rOf = (id) => entries.find((e) => e.planetId === id)?.radius;
   const snowR = rOf('mars') && rOf('jupiter') ? (rOf('mars') + rOf('jupiter')) / 2 : (rMin + rMax) / 3;
   _snowR = snowR;
+  const cloudR = CLOUD_FACTOR * diskMax;
+  _cloudR = cloudR;
   const sunMin = SUN_RESERVE_MIN_FACTOR * rMin;
   const sunMax = SUN_ZONE_FACTOR * rMin;
-  const ignitionWindow = PHASES.find((p) => p.id === 'beat_ignition');
 
   const idle = pool.takeIdleIndices(DUST_COUNT);
   if (idle.length === 0) return;
-
-  _dustIndices = idle;
-  _dustZone = new Int32Array(idle.length);
-  _dustMigrationStart = new Float32Array(idle.length);
-  _dustMigrating = new Uint8Array(idle.length);
-  _dustFromX = new Float32Array(idle.length);
-  _dustFromY = new Float32Array(idle.length);
-  _dustFromZ = new Float32Array(idle.length);
-  _dustReleased = new Uint8Array(idle.length);
-
-  // Prvních ~15 % částic = vyhrazená sluneční zásoba (disk samotný sahá jen
-  // od 0.75×r_min, takže žádná disková částice nikdy nespadne pod sunMax —
-  // zásoba se MUSÍ vygenerovat zvlášť v [sunMin, sunMax]).
-  const sunCount = Math.round(idle.length * SUN_RESERVE_FRACTION);
-
-  for (let k = 0; k < idle.length; k++) {
+  const n = idle.length;
+  S = {
+    idx: idle, entries, snowR,
+    zone: new Int32Array(n),      // -1 = sluneční zásoba, jinak index do entries
+    gas: new Uint8Array(n),
+    cr: new Float32Array(n),      // mrak: vodorovný poloměr, výška, poloměr/Rc
+    cy: new Float32Array(n),
+    c01: new Float32Array(n),
+    dr: new Float32Array(n),      // disk: poloměr a výška
+    dy: new Float32Array(n),
+    th: new Float32Array(n),      // azimut (integruje se)
+    color: new Float32Array(n * 3), // barva v disku
+    size: new Float32Array(n),      // velikost v disku
+    migStart: new Float32Array(n),
+    migrating: new Uint8Array(n),
+    fromX: new Float32Array(n), fromY: new Float32Array(n), fromZ: new Float32Array(n),
+    released: new Uint8Array(n),
+  };
+  const sunCount = Math.round(n * SUN_RESERVE_FRACTION);
+  for (let k = 0; k < n; k++) {
     const i = idle[k];
-    const isSunReserve = k < sunCount;
-    // Sqrt-uniform v anulu, ale invertované (denser dovnitř): u blízko 1 → r blízko dolní meze.
-    const r = isSunReserve
-      ? sunMin + (sunMax - sunMin) * Math.sqrt(Math.random())
-      : diskMax - (diskMax - diskMin) * Math.sqrt(Math.random());
-    const theta = Math.random() * Math.PI * 2;
-    const x = r * Math.cos(theta);
-    const z = r * Math.sin(theta);
-    const y = r * gaussianRandom() * 0.06; // placka
+    const isSun = k < sunCount;
+    // v ~ U(0,1): pořadí od středu — stejné v mraku i v disku, ať se
+    // částice při kolapsu nekříží napříč celým diskem.
+    const v = Math.random();
+    const dr = isSun
+      ? sunMin + (sunMax - sunMin) * Math.sqrt(v)
+      : diskMax - (diskMax - diskMin) * Math.sqrt(1 - v); // hustší dovnitř
+    const r01 = isSun ? 0.25 * Math.sqrt(v) : 0.2 + 0.8 * Math.sqrt(v);
+    const c01 = Math.min(1, r01 * (0.85 + 0.3 * Math.random()));
+    // Bod v kouli o poloměru c01·Rc: náhodný sklon od roviny.
+    const cosEl = Math.sqrt(Math.random());
+    const sign = Math.random() < 0.5 ? -1 : 1;
+    S.cr[k] = c01 * cloudR * cosEl;
+    S.cy[k] = sign * c01 * cloudR * Math.sqrt(1 - cosEl * cosEl) * CLOUD_FLATTEN;
+    S.c01[k] = c01;
+    S.dr[k] = dr;
+    S.dy[k] = dr * gaussianRandom() * 0.06;
+    S.th[k] = Math.random() * Math.PI * 2;
 
-    pool.position[3 * i] = x;
-    pool.position[3 * i + 1] = y;
-    pool.position[3 * i + 2] = z;
-    const [cr, cg, cb] = dustColor(r, snowR, Math.random());
-    pool.color[3 * i] = cr;
-    pool.color[3 * i + 1] = cg;
-    pool.color[3 * i + 2] = cb;
-    pool.alpha[i] = DUST_ALPHA;
-    pool.size[i] = 4.0;
-    pool.phase[i] = 99; // mimo standard PHASE enum — kustomní disk prach
-    pool.owner[i] = -1;
-
-    if (isSunReserve) {
-      _dustZone[k] = -1; // sluneční zásoba
-      // Rozprostři start kolapsu po celém beat_ignition okně (ne po akrečních
-      // oknech planet) — jinak by všechna zásoba kolabovala synchronně.
-      _dustMigrationStart[k] = ignitionWindow.start + Math.random() * (ignitionWindow.end - ignitionWindow.start);
+    let col;
+    if (isSun) {
+      S.zone[k] = -1;
+      col = dustColor(dr, snowR, Math.random());
     } else {
-      const zoneIdx = assignZone(r, zoneRadii);
-      _dustZone[k] = zoneIdx;
-      const w = entries[zoneIdx].window;
-      _dustMigrationStart[k] = w.start + Math.random() * (w.end - w.start);
+      const z = assignZone(dr, zoneRadii);
+      S.zone[k] = z;
+      const e = entries[z];
+      S.gas[k] = Math.random() < GAS_FRACTION ? 1 : 0;
+      col = S.gas[k] ? GAS_COLOR : dustColor(dr, snowR, Math.random());
+      // Plyn kamenných zón nikdo nepohltí — odfoukne ho Slunce (clearing).
+      S.migStart[k] = S.gas[k] && ROCKY.has(e.planetId)
+        ? Infinity
+        : e.window.start + Math.random() * (e.window.end - e.window.start);
     }
+    S.color[3 * k] = col[0]; S.color[3 * k + 1] = col[1]; S.color[3 * k + 2] = col[2];
+    pool.color[3 * i] = CLOUD_COLOR[0];
+    pool.color[3 * i + 1] = CLOUD_COLOR[1];
+    pool.color[3 * i + 2] = CLOUD_COLOR[2];
+    pool.alpha[i] = CLOUD_ALPHA;
+    S.size[k] = S.gas[k] ? 4.0 : 5.0;
+    pool.size[i] = CLOUD_SIZE;
+    pool.phase[i] = 99; // mimo standard PHASE enum — kustomní prach
+    pool.owner[i] = -1;
   }
   pool.flushAll();
 }
 
-/** Uvolní jednu prachovou částici do IDLE (planeta ji pohltila / zážeh skončil). */
-function releaseDustParticle(pool, k) {
-  const i = _dustIndices[k];
+/** Uvolní jednu částici do IDLE (planeta ji pohltila / odfouknutá / konec). */
+function releaseParticle(pool, k) {
+  const i = S.idx[k];
   pool.alpha[i] = 0;
   pool.phase[i] = PHASE.IDLE;
   pool.owner[i] = -1;
-  _dustReleased[k] = 1;
+  S.released[k] = 1;
 }
 
-/** Uvolní všechen ještě neuvolněný prach (konec beat_accretion / reset). */
-function releaseAllDust(pool) {
-  if (!_dustIndices) return;
-  for (let k = 0; k < _dustIndices.length; k++) {
-    if (!_dustReleased[k]) releaseDustParticle(pool, k);
-  }
+function releaseAll(pool) {
+  if (!S) return;
+  for (let k = 0; k < S.idx.length; k++) if (!S.released[k]) releaseParticle(pool, k);
   pool.alphaAttr.needsUpdate = true;
   pool.posAttr.needsUpdate = true;
-  // Po finálním release už není co dělat — nuluj, ať updateFormationIntro
-  // (volané dál po zbytek formationActive okna, F3 review MEDIUM) nesbíhá
-  // zbytečně 12k-prvkový no-op sken + needsUpdate každý frame.
-  _dustIndices = null;
+  S = null; // nic dalšího se nepočítá
 }
 
-/**
- * Per-frame update prachu: rotace zbytku disku, kolaps sluneční zásoby
- * (beat_ignition), migrace zónového prachu k planetě (beat_accretion).
- */
-function updateDustFrame(pool, phId, currentTime, dt) {
-  const omega = (2 * Math.PI) / ROTATION_PERIOD;
-  const angle = omega * dt;
-  const cosA = Math.cos(angle);
-  const sinA = Math.sin(angle);
+// Rázová vlna: rovinná fronta jde mrakem od supernovy (setShockSource).
+const SHOCK_DIR = { x: 0.93, y: -0.12, z: 0.34 };
+/** Odkud přijde rázová vlna (poloha supernovy; mrak je ve středu). */
+export function setShockSource(p) {
+  const l = Math.hypot(p.x, p.y, p.z) || 1;
+  SHOCK_DIR.x = -p.x / l; SHOCK_DIR.y = -p.y / l; SHOCK_DIR.z = -p.z / l;
+}
+function shockFront(t) {
+  const u = (t - T_SHOCK) / (T_COLLAPSE - T_SHOCK);
+  return (-1.25 + 2.5 * u) * _cloudR;
+}
 
-  const ignitionPh = phId === 'beat_ignition' ? phaseAt(currentTime) : null;
+/** Okraj mraku řídne (jinak by měl ostrou hranu koule). */
+const edgeAlpha = (c01) => CLOUD_ALPHA * (1 - 0.75 * c01 * c01);
 
-  for (let k = 0; k < _dustIndices.length; k++) {
-    if (_dustReleased[k]) continue;
-    const i = _dustIndices[k];
-    const zone = _dustZone[k];
+/** Barva/alpha částice mezi mrakem (e = 0) a diskem (e = 1). */
+function blendLook(pool, i, k, e, alphaDisk) {
+  const c0 = CLOUD_COLOR;
+  pool.color[3 * i] = c0[0] + (S.color[3 * k] - c0[0]) * e;
+  pool.color[3 * i + 1] = c0[1] + (S.color[3 * k + 1] - c0[1]) * e;
+  pool.color[3 * i + 2] = c0[2] + (S.color[3 * k + 2] - c0[2]) * e;
+  const a0 = edgeAlpha(S.c01[k]);
+  pool.alpha[i] = a0 + (alphaDisk - a0) * e;
+  pool.size[i] = CLOUD_SIZE + (S.size[k] - CLOUD_SIZE) * e;
+}
 
+function updateDustFrame(pool, t, dt) {
+  const omegaCloud = 2 * Math.PI / CLOUD_PERIOD;
+  const front = t >= T_SHOCK && t < T_COLLAPSE + 1 ? shockFront(t) : null;
+  const W = 0.12 * _cloudR;
+  const n = S.idx.length;
+  for (let k = 0; k < n; k++) {
+    if (S.released[k]) continue;
+    const i = S.idx[k];
+    const zone = S.zone[k];
+    const gas = S.gas[k];
+    const alphaDisk = gas ? GAS_ALPHA : DUST_ALPHA;
+    const e = collapseProgress(t, S.c01[k]);
+
+    // Poloměr a výška: mrak → disk (sluneční zásoba → střed).
+    let r, y;
     if (zone === -1) {
-      // Sluneční zásoba — rotuje během beat_disk, kolabuje během beat_ignition
-      // (start kolapsu rozprostřen po _dustMigrationStart, ne synchronně).
-      if (phId === 'beat_ignition') {
-        if (currentTime < _dustMigrationStart[k]) {
-          // Ještě rotuje jako součást disku, dokud nezačne její individuální kolaps.
-          const x = pool.position[3 * i];
-          const z = pool.position[3 * i + 2];
-          pool.position[3 * i] = x * cosA - z * sinA;
-          pool.position[3 * i + 2] = x * sinA + z * cosA;
-          continue;
-        }
-        const duration = Math.max(1e-6, ignitionPh.end - _dustMigrationStart[k]);
-        const t = Math.min(1, (currentTime - _dustMigrationStart[k]) / duration);
-        const collapseFactor = (1 - t) * (1 - t);
-        // Zachytí "poslední rotovanou" pozici jako lokální bázi při prvním vstupu.
-        if (!_dustMigrating[k]) {
-          _dustFromX[k] = pool.position[3 * i];
-          _dustFromY[k] = pool.position[3 * i + 1];
-          _dustFromZ[k] = pool.position[3 * i + 2];
-          _dustMigrating[k] = 1;
-        }
-        pool.position[3 * i] = _dustFromX[k] * collapseFactor;
-        pool.position[3 * i + 1] = _dustFromY[k] * collapseFactor;
-        pool.position[3 * i + 2] = _dustFromZ[k] * collapseFactor;
-        pool.alpha[i] = collapseFactor * DUST_ALPHA;
-        if (t >= 1) releaseDustParticle(pool, k);
-        continue;
-      }
-      if (phId === 'beat_disk') {
-        const x = pool.position[3 * i];
-        const z = pool.position[3 * i + 2];
-        pool.position[3 * i] = x * cosA - z * sinA;
-        pool.position[3 * i + 2] = x * sinA + z * cosA;
-        continue;
-      }
-      // beat_accretion a dál — sluneční zásoba už měla zkolabovat v ignition;
-      // pojistka kdyby ignition beat přeskočil (test volá update napřímo).
-      releaseDustParticle(pool, k);
-      continue;
+      r = S.cr[k] + (S.dr[k] - S.cr[k]) * e;
+      y = S.cy[k] + (S.dy[k] - S.cy[k]) * e;
+      // Po dosednutí do zásoby padá dál do Slunce (protohvězda roste).
+      const fall = Math.min(1, Math.max(0, (t - T_COLLAPSE - 2 - 4 * S.c01[k]) / 3));
+      r *= 1 - fall; y *= 1 - fall;
+      if (fall >= 1) { releaseParticle(pool, k); continue; }
+      blendLook(pool, i, k, e, DUST_ALPHA * (1 - fall));
+    } else {
+      r = S.cr[k] + (S.dr[k] - S.cr[k]) * e;
+      // Výška klesá rychleji než poloměr — mrak se zplošťuje do placky.
+      const ey = Math.min(1, e * 1.6);
+      y = S.cy[k] + (S.dy[k] - S.cy[k]) * ey;
+      if (e < 1) blendLook(pool, i, k, e, alphaDisk);
     }
 
-    // Planetová zóna.
-    if (currentTime < _dustMigrationStart[k]) {
-      // Ještě rotuje jako součást disku (beat_disk i beat_ignition, "zbytek disku dál rotuje").
-      const x = pool.position[3 * i];
-      const z = pool.position[3 * i + 2];
-      pool.position[3 * i] = x * cosA - z * sinA;
-      pool.position[3 * i + 2] = x * sinA + z * cosA;
-      continue;
+    // Azimut: mrak se skoro netočí, s kolapsem se roztáčí na Keplera.
+    const w = omegaCloud + (keplerOmega(Math.max(r, 1), S.snowR) - omegaCloud) * e * e;
+    S.th[k] += w * dt;
+    let x = r * Math.cos(S.th[k]);
+    let z = r * Math.sin(S.th[k]);
+
+    // Rázová vlna: zjasní a postrčí to, čím právě prochází.
+    if (front !== null) {
+      const d = x * SHOCK_DIR.x + y * SHOCK_DIR.y + z * SHOCK_DIR.z;
+      const q = (d - front) / W;
+      const g = Math.exp(-q * q);
+      if (d < front) {
+        const push = 0.07 * _cloudR * Math.min(1, (front - d) / W);
+        x += SHOCK_DIR.x * push; y += SHOCK_DIR.y * push; z += SHOCK_DIR.z * push;
+      }
+      if (e === 0) {
+        // Za čelem vlny je mrak stlačený a zahřátý — světlejší.
+        const hot = d < front ? 0.35 : 0;
+        pool.alpha[i] = Math.min(1, edgeAlpha(S.c01[k]) * (1 + 2.5 * g + hot));
+        const w = Math.min(1, 1.2 * g);
+        pool.color[3 * i] = CLOUD_COLOR[0] + (1 - CLOUD_COLOR[0]) * w;
+        pool.color[3 * i + 1] = CLOUD_COLOR[1] + (0.92 - CLOUD_COLOR[1]) * w;
+        pool.color[3 * i + 2] = CLOUD_COLOR[2] + (0.85 - CLOUD_COLOR[2]) * w;
+      }
     }
 
-    // Migrace k anchor planety.
-    const entry = _zoneEntries[zone];
-    const w = entry.window;
-    if (!_dustMigrating[k]) {
-      _dustFromX[k] = pool.position[3 * i];
-      _dustFromY[k] = pool.position[3 * i + 1];
-      _dustFromZ[k] = pool.position[3 * i + 2];
-      _dustMigrating[k] = 1;
+    if (zone !== -1) {
+      // Plyn kamenných zón: mladé Slunce ho vyfouká ven.
+      if (S.migStart[k] === Infinity && t >= T_CLEAR) {
+        const b = Math.min(1, (t - T_CLEAR - 2 * (1 - S.dr[k] / (S.snowR * 1.4))) / 3);
+        if (b > 0) {
+          const out = 1 + 2.5 * b * b;
+          x *= out; z *= out; y *= out;
+          pool.alpha[i] = GAS_ALPHA * (1 - b);
+          if (b >= 1 || t >= T_CLEAR_END) { releaseParticle(pool, k); continue; }
+        }
+      }
+      // Migrace k planetě (akreční okno její zóny).
+      if (t >= S.migStart[k]) {
+        if (!S.migrating[k]) {
+          S.fromX[k] = x; S.fromY[k] = y; S.fromZ[k] = z;
+          S.migrating[k] = 1;
+        }
+        const win = S.entries[zone].window;
+        const u = Math.min(1, (t - S.migStart[k]) / Math.max(1e-6, win.end - S.migStart[k]));
+        const f = u * u; // ease-in — akcelerace pádu do akrece
+        const a = S.entries[zone].anchorPos;
+        x = S.fromX[k] + (a.x - S.fromX[k]) * f;
+        y = S.fromY[k] + (a.y - S.fromY[k]) * f;
+        z = S.fromZ[k] + (a.z - S.fromZ[k]) * f;
+        pool.alpha[i] = alphaDisk * (1 - f);
+        if (u >= 1) { releaseParticle(pool, k); continue; }
+      }
     }
-    const duration = Math.max(1e-6, w.end - _dustMigrationStart[k]);
-    const t = Math.min(1, (currentTime - _dustMigrationStart[k]) / duration);
-    const factor = t * t; // ease-in — akcelerace pádu do akrece
-    const anchor = entry.anchorPos;
-    pool.position[3 * i] = _dustFromX[k] + (anchor.x - _dustFromX[k]) * factor;
-    pool.position[3 * i + 1] = _dustFromY[k] + (anchor.y - _dustFromY[k]) * factor;
-    pool.position[3 * i + 2] = _dustFromZ[k] + (anchor.z - _dustFromZ[k]) * factor;
-    pool.alpha[i] = DUST_ALPHA * (1 - factor);
-    if (t >= 1) releaseDustParticle(pool, k);
+    pool.position[3 * i] = x;
+    pool.position[3 * i + 1] = y;
+    pool.position[3 * i + 2] = z;
   }
   pool.posAttr.needsUpdate = true;
   pool.alphaAttr.needsUpdate = true;
+  pool.colorAttr.needsUpdate = true;
+  pool.sizeAttr.needsUpdate = true;
 }
 
 /** Náhodný bod v anulu kolem `center` (disk-flattened, y×0.3) — zdroj emise teček planety. */
@@ -377,44 +434,26 @@ function emitAccretion(pool, currentTime, anchors, imageData) {
 }
 
 export function updateFormationIntro(pool, currentTime, dt, anchors, imageData) {
-  const ph = phaseAt(currentTime);
-  if (!ph) return;
-
-  if (ph.id !== 'beat_disk' && ph.id !== 'beat_ignition' && ph.id !== 'beat_accretion') {
-    // Po formaci (moon fáze / live) — uvolni zbylý prach, disk je „vyčištěný".
-    if (_dustIndices) releaseAllDust(pool);
+  if (currentTime >= T_END) {
+    // Slunce zažehlo — zbytek prachu je pryč (rozmetaný, pohlcený).
+    if (S) releaseAll(pool);
     return;
   }
-
   initDisk(pool, anchors);
-  if (!_dustIndices) return;
-
-  // _zoneEntries potřebuje anchorPos snapshot pro migraci — doplní se lazy
-  // (anchors se během formace hýbou pomalu, ale migrace cílí na aktuální
-  // pozici v okamžiku volání, ne na snapshot z initu).
-  for (const entry of _zoneEntries) {
-    const a = anchors[entry.planetId];
-    if (a) entry.anchorPos = a.position;
+  if (!S) return;
+  for (const e of S.entries) {
+    const a = anchors[e.planetId];
+    if (a) e.anchorPos = a.position;
   }
-
-  updateDustFrame(pool, ph.id, currentTime, dt);
-
-  if (ph.id === 'beat_accretion') {
-    emitAccretion(pool, currentTime, anchors, imageData);
-  }
+  updateDustFrame(pool, currentTime, dt);
+  if (currentTime >= ACCRETION_START) emitAccretion(pool, currentTime, anchors, imageData);
 }
 
+const ACCRETION_START = Math.min(...ACCRETION_WINDOWS.map((w) => w.start));
+
 export function resetFormationIntro(pool) {
-  if (pool && _dustIndices) releaseAllDust(pool);
-  _dustIndices = null;
-  _dustZone = null;
-  _dustMigrationStart = null;
-  _dustMigrating = null;
-  _dustFromX = null;
-  _dustFromY = null;
-  _dustFromZ = null;
-  _dustReleased = null;
-  _zoneEntries = null;
+  if (pool && S) releaseAll(pool);
+  S = null;
   _emitted = {};
   resetPhaseEmissions();
 }

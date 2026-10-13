@@ -15,7 +15,7 @@ import { initKeyboard } from './keyboard.js';
 import { createAsteroidAnchors } from './asteroidAnchors.js';
 import { createAsteroidBelt } from './asteroidBelt.js';
 import { ASTEROIDS } from './asteroids.js';
-import { updateFormationIntro } from './formationIntro.js';
+import { updateFormationIntro, resetFormationIntro, setShockSource } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { updateSunWind } from './sunWind.js';
 import { tickHyperion } from './hyperionChaos.js';
@@ -42,13 +42,13 @@ import { createViewFraming, framingShift } from './viewFraming.js';
 import { planetBoost } from './planetBoost.js';
 import { createEclipticGrid } from './eclipticGrid.js';
 import { initTimeControls, setFormationLock, setDetailRateNote } from './timeControls.js';
-import { timelineAt } from './formationTimeline.js';
-import { LIVE_START } from './animation.js';
+import { LIVE_START, PHASES, sceneStart } from './animation.js';
+import { createFilmCaption } from './filmCaption.js';
 import {
   formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
-  growthWindow, growthScale, revealFade, REVEAL_SEC, protoTint, sunGlow, orbitTrace,
+  growthWindow, growthScale, revealFade, REVEAL_SEC, protoTint, sunGlow, orbitTrace, sunTint,
 } from './formationFilm.js';
-import { createSunGlowSprite } from './sunGlowSprite.js';
+import { createSunGlowSprite, createFlashSprite } from './sunGlowSprite.js';
 import { createTour } from './tour.js';
 import { createTourPanel } from './tourPanel.js';
 
@@ -134,6 +134,26 @@ let _formationCleaned = false;
 // na dnešním datu (startup scrubTo), takže přechod na live je bez skoku.
 let formationActive = true;
 
+// Film o vzniku jen při první návštěvě (pak rovnou přehled); tlačítko VZNIK
+// ho pustí znovu přes ?vznik v adrese. Přeskočit jde tlačítkem nebo Esc.
+const FILM_SEEN_KEY = 'dots.vznikVidel';
+const FILM_PARAM = new URLSearchParams(location.search).has('vznik');
+function filmSeen() {
+  try { return localStorage.getItem(FILM_SEEN_KEY) === '1'; } catch { return false; }
+}
+function markFilmSeen() {
+  try { localStorage.setItem(FILM_SEEN_KEY, '1'); } catch { /* soukromý režim */ }
+  if (FILM_PARAM) {
+    const u = new URL(location.href);
+    u.searchParams.delete('vznik');
+    history.replaceState(null, '', u);
+  }
+}
+const SHOW_FILM = FILM_PARAM || !filmSeen();
+const filmCaption = createFilmCaption({ onSkip: () => skipFormation() });
+const SUPERNOVA_AT = sceneStart('shock') - 0.3;
+let _supernova = null;
+
 // Kdy začal fade ownerAlpha 0→1 pro sun-tečky (zážeh, SUN_GROW_START —
 // fade běží, dokud Slunce roste) — null když fade neběží/skončil. Viz tick().
 let _sunFadeStart = null;
@@ -186,7 +206,7 @@ function mainMinDistance() { return isFyzikalni() ? 5000 : 2500; }
 // absolutních vzdálenostech; teprve v poslední části se plynule sbíhá
 // k dnešní (bližší) výchozí pozici přehledu.
 const FILM_REF_POS = { x: 0, y: 5000, z: 9000 };
-const FILM_BLEND_FROM = 11.0;
+const FILM_BLEND_FROM = 64.0;
 function filmCameraPose(t) {
   const main = mainCameraPos();
   if (isFyzikalni()) return formationCameraPose(t, main);
@@ -210,7 +230,8 @@ let _revealDone = false;
 let _orbitLines = null;
 let _tracesDone = false;
 let _sunGlowSprite = null;
-let _sunGlowVis = 1; // vyhlazený násobitel záře (ztlumení v detailu jiného tělesa)
+let _sunGlowVis = 1;
+let _sunTintDone = false; // vyhlazený násobitel záře (ztlumení v detailu jiného tělesa)
 const _cold = new Set(['jupiter', 'saturn', 'uranus', 'neptune']);
 // Funkce k → nastaví průhlednost drah, pásu a popisků (0..1) při prolnutí.
 const _revealFaders = [];
@@ -355,7 +376,6 @@ const statsEl = new URLSearchParams(location.search).has('debug')
   ? document.getElementById('stats')
   : null;
 if (statsEl) statsEl.hidden = false;
-const formationLabelEl = document.getElementById('formation-label');
 let frameCount = 0;
 let tickMsAcc = 0;
 let rotMsAcc = 0;
@@ -469,11 +489,14 @@ function tick(timestamp) {
   }
   const simDate = simClock.getDate();
 
-  // Geologická osa HUD (F3) — jen během formace, levné (textContent jen při změně).
-  if (formationActive && formationLabelEl) {
-    const s = timelineAt(_realElapsed);
-    const text = s.age ? `${s.label} · ${s.age}` : s.label;
-    if (formationLabelEl.textContent !== text) formationLabelEl.textContent = text;
+  // Popisek filmu: scéna, skutečný čas, fakt.
+  if (formationActive) filmCaption.update(_realElapsed);
+
+  // Supernova v dálce: krátké vzplanutí, pak jejím mrakem projde rázová vlna.
+  if (_supernova) {
+    const u = (_realElapsed - SUPERNOVA_AT) / 2.5;
+    const a = u < 0 || u > 1 ? 0 : (u < 0.08 ? u / 0.08 : Math.pow(1 - (u - 0.08) / 0.92, 2));
+    _supernova.update(a);
   }
 
   // Zážeh: Slunce roste z bodu (škáluje se spin node — mesh i tečky pod ním).
@@ -492,6 +515,13 @@ function tick(timestamp) {
     const target = dv === DV_STATE.MAIN || detailView.focusId() === 'sun' ? 1 : 0.15;
     _sunGlowVis += (target - _sunGlowVis) * Math.min(1, dt * 3);
     _sunGlowSprite.update(REDUCED_MOTION ? 0 : g.flash * _sunGlowVis, g.glow * _sunGlowVis);
+  }
+  // Protohvězda je tmavě rudá, plné barvy dostane zážehem fúze.
+  if (!_sunTintDone && bodyMeshes.sun) {
+    const [r, gg, bb] = sunTint(_realElapsed);
+    bodyMeshes.sun.material.color.setRGB(r, gg, bb);
+    if (_sunGlowSprite) _sunGlowSprite.tint(r, gg, bb);
+    if (r >= 1 && gg >= 1 && bb >= 1) _sunTintDone = true;
   }
 
   // Dráhy planet se dokreslují, jak planety dorůstají.
@@ -781,7 +811,37 @@ function revealAfterFormation() {
   if (planetLabels) planetLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
   if (asteroidLabels) asteroidLabels.setVisible(!detailView || detailView.state() === DV_STATE.MAIN);
   tourPanel.setEnabled(true);
+  filmCaption.show(false);
+  markFilmSeen();
+  const replay = document.getElementById('replayFilm');
+  if (replay) replay.disabled = false;
   if (TOUR_ON_LOAD) startTour(true);
+}
+
+/**
+ * Přeskočení filmu (tlačítko, Esc, opakovaná návštěva): skok na konec
+ * formace. Povrchy kreslí mesh-e, tečky planet ani měsíců nejsou potřeba —
+ * úklid formace (FORMATION_CLEANUP_AT) odkryje všechna tělesa naráz, růst,
+ * barvy, záře i dráhy se počítají z _realElapsed.
+ */
+function skipFormation() {
+  if (!formationActive) return;
+  _realElapsed = Math.max(_realElapsed, FORMATION_CLEANUP_AT);
+  resetFormationIntro(pool);
+  for (const ph of PHASES) ph._done = true; // žádná dávka měsíčních teček naráz
+  // Zážeh Slunce: fade ownerAlpha by se po konci formace už nespustil.
+  _sunIgnited = true;
+  _sunFadeStart = null;
+  sunRevealed = true;
+  pool.setOwnerAlpha(0, 1);
+  if (bodyMeshes.sun) { bodyMeshes.sun.userData.settled = true; bodyMeshes.sun.visible = true; }
+  if (_filmCamera && detailView.state() === DV_STATE.MAIN && !cameraRig.isFlying()) {
+    const p = mainCameraPos();
+    camera.position.set(p.x, p.y, p.z);
+    controlsTarget.x = 0; controlsTarget.y = 0; controlsTarget.z = 0;
+    camera.lookAt(0, 0, 0);
+  }
+  _filmCamera = false;
 }
 
 Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
@@ -797,6 +857,16 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // owner) — objeví se až po formaci.
   _revealAfterFormation.push(...asteroidMeshes);
   _sunGlowSprite = createSunGlowSprite(spins.sun, PLANETS[0].radiusPx);
+  // Supernova daleko za mrakem, v záběru kamery vpravo nahoře; od ní
+  // přijde rázová vlna.
+  const np = anchors.neptune.position;
+  const cloudR = 1.35 * 1.1 * Math.hypot(np.x, np.z);
+  const cam = new THREE.Vector3().copy(filmCameraPose(SUPERNOVA_AT)).normalize();
+  const right = new THREE.Vector3(0, 1, 0).cross(cam).normalize();
+  const up = new THREE.Vector3().crossVectors(cam, right);
+  const sn = cam.multiplyScalar(-2.2 * cloudR).addScaledVector(right, 1.1 * cloudR).addScaledVector(up, 0.45 * cloudR);
+  setShockSource(sn);
+  _supernova = createFlashSprite(scene, sn, 0.9 * cloudR);
   // Picking — invisible raycast koule pro 9 planet/sun + 19 moons.
   picker = createPicker({ scene, camera, canvas: renderer.domElement });
   for (const p of PLANETS) {
@@ -892,10 +962,6 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
     // .planetLabel { opacity: var(--reveal, 1) } — po prolnutí proměnná pryč
     if (k < 1) rootStyle.setProperty('--reveal', String(k));
     else rootStyle.removeProperty('--reveal');
-    if (formationLabelEl) {
-      formationLabelEl.style.opacity = String(1 - k);
-      if (k >= 1) formationLabelEl.style.display = 'none';
-    }
   });
   _revealFaders.forEach((f) => f(0));
 
@@ -1135,6 +1201,18 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // bez skoku. setFormationLock(true) disabluje time HUD po dobu formace.
   simClock.scrubTo(new Date());
   setFormationLock(true);
+
+  // Film o vzniku: poprvé (nebo ?vznik) celý, jinak rovnou přehled.
+  if (SHOW_FILM) filmCaption.show(true);
+  else skipFormation();
+  document.getElementById('replayFilm')?.addEventListener('click', () => {
+    const u = new URL(location.href);
+    u.searchParams.set('vznik', '');
+    location.href = u.toString().replace('vznik=', 'vznik');
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && formationActive) skipFormation();
+  });
 
   clock.reset(); // první dt od teď, ne od konstrukce (load textur trvá sekundy)
   requestAnimationFrame(tick);
