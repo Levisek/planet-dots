@@ -8,15 +8,17 @@
 // mesh, tečky i prsten pod ním. V detailu a ve Fyzikálním je násobitel 1
 // (věrné poměry, detail beze změny).
 
+// Po natažení drah (scale.js, mocnina AU^0,6) je mezi obry místo:
+// zvětšení obrů víc, vnitřních o kus (mezery mezi nimi jsou pořád ~400).
 export const PLANET_BOOST = {
-  mercury: 12,
-  venus: 8,
-  earth: 8,
-  mars: 11,
-  jupiter: 1.7,
-  saturn: 1.5,
-  uranus: 3,
-  neptune: 3,
+  mercury: 14,
+  venus: 10,
+  earth: 10,
+  mars: 13,
+  jupiter: 4,
+  saturn: 3.5,
+  uranus: 7,
+  neptune: 7,
 };
 
 /**

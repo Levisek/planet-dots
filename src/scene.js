@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { POCHOPENI_SYSTEM_R } from './scale.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export function createScene() {
@@ -18,13 +19,10 @@ export function createScene() {
     1,
     2000000, // far plane — Fyzikální Neptun (115K) + obloha (sky.js, 900K od kamery).
   );
-  // Default 3D pohled na celou soustavu — kamera nad orbital rovinou (~30°),
-  // vidí Sun (origin) + Neptune orbit (radius 3018).
-  // VISUAL-AUDIT I4: dřívější (0,3500,6000) nechalo Slunce zabrat ⅓ framu
-  // a inner planety splývaly se sluneční sférou. Dráhy jsou od té doby
-  // logaritmicky rozprostřené (scale.js) a planety zvětšené (planetBoost.js),
-  // takže soustava snese bližší kamera — (0,2540,4990) vyplní plochu obrazu.
-  camera.position.set(0, 2540, 4990);
+  // Default 3D pohled na celou soustavu — kamera nad orbital rovinou (~27°)
+  // ve vzdálenosti ~1,85× dráhy Neptunu; přesnou pozici nastaví main.js
+  // (mainCameraPos) před prvním snímkem.
+  camera.position.set(0, 0.84 * POCHOPENI_SYSTEM_R, 1.65 * POCHOPENI_SYSTEM_R);
   camera.lookAt(0, 0, 0);
 
   // Lighting toggle: ON → silný PointLight z origin (Sun) + nízký ambient.

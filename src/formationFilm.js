@@ -30,11 +30,11 @@ const KEYS = [
   { t: 20, az: -42, el: 16, d: 0.55 }, // kolaps: s mrakem dovnitř, k rovině disku
   { t: 28, az: -32, el: 12, d: 0.5 },  // disk zblízka, nízko
   { t: 38, az: -22, el: 24, d: 0.78 }, // obři a mezera po Jupiteru
-  { t: 44, az: -16, el: 28, d: 0.8 },  // plyn odfouknutý
-  { t: 54, az: -10, el: 15, d: 0.34 }, // kamenné planety u Slunce
-  { t: 58, az: -6,  el: 14, d: 0.3 },  // zážeh fúze
-  { t: 64, az: -3,  el: 30, d: 0.95 }, // stěhování obrů
-  { t: 70, az: -2,  el: 22, d: 0.45 }, // Theia a Země
+  { t: 44, az: -16, el: 28, d: 0.6 },  // plyn odfouknutý
+  { t: 54, az: -10, el: 18, d: 0.14 }, // kamenné planety u Slunce
+  { t: 58, az: -6,  el: 16, d: 0.12 }, // zážeh fúze
+  { t: 64, az: -3,  el: 30, d: 0.8 },  // stěhování obrů
+  { t: 70, az: -2,  el: 22, d: 0.2 },  // Theia a Země
   { t: 75, az: 0,   el: null, d: 1 },  // přehled — výchozí pozice
 ];
 export const FILM_END = KEYS[KEYS.length - 1].t;

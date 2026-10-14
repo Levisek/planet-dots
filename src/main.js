@@ -50,6 +50,7 @@ import {
 } from './formationFilm.js';
 import { createSunGlowSprite, createFlashSprite } from './sunGlowSprite.js';
 import { createTour } from './tour.js';
+import { POCHOPENI_SYSTEM_R } from './scale.js';
 import { createTourPanel } from './tourPanel.js';
 
 const { renderer, scene, camera, controls, setLightingMode, onLightingModeChange } = createScene();
@@ -59,8 +60,9 @@ const { anchors, spins, imageData, loaded } = createPlanetAnchors(scene);
 // Slunce v Pochopení zmenšené — s r = 995 (věrný poměr 109 R⊕) sahalo skoro
 // k dráze Merkuru (1 318), vnitřní planety byly z výchozí kamery za ním a
 // jejich popisky ležely přes kotouč. Fyzikální drží věrný poměr k planetám.
-// Škáluje se `spin` node: mesh i tečky pod ním se zmenší samy.
-const SUN_RADIUS_POCHOPENI = 400;
+// Škáluje se `spin` node: mesh i tečky pod ním se zmenší samy. Od natažení
+// drah (scale.js, Merkur 849) 260 — se 400 zabíralo půl dráhy Merkuru.
+const SUN_RADIUS_POCHOPENI = 260;
 function sunScale() {
   return isFyzikalni() ? 1 : SUN_RADIUS_POCHOPENI / PLANETS[0].radiusPx;
 }
@@ -197,15 +199,18 @@ const cameraRig = createCameraRig({
 
 /** Výchozí pozice kamery přehledu (Fyzikální má Neptun ve 115 000). */
 function mainCameraPos() {
-  return isFyzikalni() ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 2540, z: 4990 };
+  // Pochopení: ~1,85× dráhy Neptunu, ~27° nad rovinou (dřív (0,2540,4990)
+  // při Neptunu ve 3030 — měřítko scale.js se od té doby natáhlo).
+  const R = POCHOPENI_SYSTEM_R;
+  return isFyzikalni() ? { x: 0, y: 90000, z: 160000 } : { x: 0, y: 0.84 * R, z: 1.65 * R };
 }
-/** MAIN: kamera nesmí dovnitř Slunce (Pochopení r = 400, Fyzikální 995). */
+/** MAIN: kamera nesmí dovnitř Slunce (Pochopení r = 260, Fyzikální 995). */
 function mainMinDistance() { return isFyzikalni() ? 5000 : 2500; }
 // Jízda kamery ve formaci je navržená na dřívější výchozí pozici
 // (0,5000,9000) — záběry mlhoviny, zážehu a akrece zůstávají ve stejných
 // absolutních vzdálenostech; teprve v poslední části se plynule sbíhá
 // k dnešní (bližší) výchozí pozici přehledu.
-const FILM_REF_POS = { x: 0, y: 5000, z: 9000 };
+const FILM_REF_POS = { x: 0, y: 1.65 * POCHOPENI_SYSTEM_R, z: 2.97 * POCHOPENI_SYSTEM_R };
 const FILM_BLEND_FROM = 64.0;
 function filmCameraPose(t) {
   const main = mainCameraPos();

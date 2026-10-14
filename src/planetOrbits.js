@@ -7,11 +7,9 @@ import { toDisplay } from './simMode.js';
 
 // Real AU: Mercury 0.39 · Venus 0.72 · Earth 1.00 · Mars 1.52
 //          Jupiter 5.20 · Saturn 9.55 · Uranus 19.20 · Neptune 30.05
-// displayR = 1500 + 450·ln(au) (scale.js) — Slunce v Pochopení r = 400 (main.js).
-//   Mercury 0.39 → 1076  · Venus 0.72 → 1370
-//   Earth   1.0  → 1500  · Mars  1.52 → 1689
-//   Jupiter 5.2  → 2243  · Saturn 9.55 → 2517
-//   Uranus 19.2 → 2828   · Neptune 30 → 3030
+// Slunce v Pochopení r = 260 (main.js).
+//   Merkur 0,39 → 849 · Země 1 → 1500 · Jupiter 5,2 → 4035 · Neptun 30 → 11560
+//   (mocnina AU^0,6, viz scale.js)
 // Sdíleno se simMode.js přes scale.js (kvůli cyklickému importu re-export zde).
 export { auToDisplayRadius } from './scale.js';
 

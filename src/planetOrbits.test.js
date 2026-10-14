@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { auToDisplayRadius, orbitalPosition, updatePlanetOrbits } from './planetOrbits.js';
 import { setMode, MODES } from './simMode.js';
 
-test('auToDisplayRadius: Mercury (0.39 AU) → ~1076', () => {
+test('auToDisplayRadius: Mercury (0.39 AU) → ~849', () => {
   const r = auToDisplayRadius(0.39);
-  assert.ok(Math.abs(r - 1076) < 5, `r=${r}`);
+  assert.ok(Math.abs(r - 849) < 5, `r=${r}`);
 });
 
 test('auToDisplayRadius: vnitřní planety mají od sebe odstup (čitelné dráhy)', () => {
@@ -13,17 +13,17 @@ test('auToDisplayRadius: vnitřní planety mají od sebe odstup (čitelné dráh
   for (let i = 1; i < r.length; i++) assert.ok(r[i] - r[i - 1] >= 120, `r=${r}`);
 });
 
-test('auToDisplayRadius: perihel Merkuru neleze do Slunce (r = 400)', () => {
-  assert.ok(auToDisplayRadius(0.307) >= 800);
+test('auToDisplayRadius: perihel Merkuru neleze do Slunce (r = 260)', () => {
+  assert.ok(auToDisplayRadius(0.307) >= 700);
 });
 
 test('auToDisplayRadius: Earth (1.0) → 1500', () => {
   assert.equal(auToDisplayRadius(1.0), 1500);
 });
 
-test('auToDisplayRadius: Neptune (30.05) → ~3030', () => {
+test('auToDisplayRadius: Neptune (30.05) → ~11560', () => {
   const r = auToDisplayRadius(30.05);
-  assert.ok(Math.abs(r - 3030) < 5);
+  assert.ok(Math.abs(r - 11555) < 10, `r=${r}`);
 });
 
 const D = new Date('2005-03-21T00:00:00Z');

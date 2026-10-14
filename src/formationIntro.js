@@ -74,6 +74,10 @@ const CLOUD_ALPHA = 0.6;
 // Velikost tečky mraku: kamera je zdálky a velikost se dělí vzdáleností
 // (particles.js) — s velikostí disku by mrak nebyl vidět.
 const CLOUD_SIZE = 22;
+// Velikosti výš platí pro mrak o poloměru SIZE_REF_R; větší soustava (natažené
+// Pochopení, Fyzikální) má kameru dál, tečky se úměrně zvětší.
+const SIZE_REF_R = 4500;
+let _sizeK = 1;
 
 /**
  * Barva prachu podle vzdálenosti od středu: u mladé hvězdy teplý, rozžhavený
@@ -141,6 +145,7 @@ function initDisk(pool, anchors) {
   _snowR = snowR;
   const cloudR = CLOUD_FACTOR * diskMax;
   _cloudR = cloudR;
+  _sizeK = cloudR / SIZE_REF_R;
   const sunMin = SUN_RESERVE_MIN_FACTOR * rMin;
   const sunMax = SUN_ZONE_FACTOR * rMin;
 
@@ -206,8 +211,8 @@ function initDisk(pool, anchors) {
     pool.color[3 * i + 1] = CLOUD_COLOR[1];
     pool.color[3 * i + 2] = CLOUD_COLOR[2];
     pool.alpha[i] = CLOUD_ALPHA;
-    S.size[k] = S.gas[k] ? 4.0 : 5.0;
-    pool.size[i] = CLOUD_SIZE;
+    S.size[k] = (S.gas[k] ? 4.0 : 5.0) * _sizeK;
+    pool.size[i] = CLOUD_SIZE * _sizeK;
     pool.phase[i] = 99; // mimo standard PHASE enum — kustomní prach
     pool.owner[i] = -1;
   }
@@ -254,7 +259,7 @@ function blendLook(pool, i, k, e, alphaDisk) {
   pool.color[3 * i + 2] = c0[2] + (S.color[3 * k + 2] - c0[2]) * e;
   const a0 = edgeAlpha(S.c01[k]);
   pool.alpha[i] = a0 + (alphaDisk - a0) * e;
-  pool.size[i] = CLOUD_SIZE + (S.size[k] - CLOUD_SIZE) * e;
+  pool.size[i] = CLOUD_SIZE * _sizeK + (S.size[k] - CLOUD_SIZE * _sizeK) * e;
 }
 
 function updateDustFrame(pool, t, dt) {

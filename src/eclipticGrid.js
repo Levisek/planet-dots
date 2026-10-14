@@ -4,10 +4,12 @@
 // s poloměrem, ať mřížka nekonkuruje drahám a tělesům.
 
 import * as THREE from 'three';
+import { POCHOPENI_SYSTEM_R } from './scale.js';
 import { onModeChange, isFyzikalni } from './simMode.js';
 
-export const GRID_HALF = 3900;   // půl strany čtverce (Neptun je ve 3030)
-export const GRID_STEP = 300;
+// Půl strany čtverce ~1,3× dráha Neptunu, krok desetina dráhy Neptunu.
+export const GRID_HALF = Math.round(1.3 * POCHOPENI_SYSTEM_R / 100) * 100;
+export const GRID_STEP = Math.round(POCHOPENI_SYSTEM_R / 10 / 50) * 50;
 const GRID_OPACITY = 0.45;
 const GRID_COLOR = [0.22, 0.34, 0.5]; // ztlumená modrošedá
 
