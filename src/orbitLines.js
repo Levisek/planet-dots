@@ -120,20 +120,12 @@ export function createAsteroidOrbitLines(scene) {
       const points = sampleOrbitCurve(asteroid, new Date(), ASTEROID_SEGMENTS);
       entry.line.geometry.dispose();
       entry.line.geometry = new THREE.BufferGeometry().setFromPoints(points);
-      applyTrace(entry);
     }
   });
 
   return {
     setVisible(v) {
       for (const entry of lines) entry.line.visible = v;
-    },
-    /** Formace: dráha se kreslí od dnešní polohy planety dokola (k = 0..1). */
-    setTrace(planetId, k) {
-      const entry = lines.find((e) => e.planetId === planetId);
-      if (!entry || entry.trace === k) return;
-      entry.trace = k;
-      applyTrace(entry);
     },
     setOpacity(k) {
       ASTEROID_ORBIT_MATERIAL.opacity = ORBIT_OPACITY * k;
