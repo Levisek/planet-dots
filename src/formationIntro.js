@@ -1,6 +1,6 @@
 // formationIntro — prach a plyn při vzniku soustavy (docs/vznik-plan.md).
 //
-// cloud/shock (0–12 s): 12k částic v chladném mraku (zploštělá koule
+// cloud/shock (0–12 s): 30k částic v chladném mraku (zploštělá koule
 //   ~1,35× disk), pomalu se točí; ve scéně shock jím projde rázová vlna
 //   (zjasní ho a postrčí).
 // collapse (12–20 s): mrak se hroutí zevnitř ven (vnitřek dřív), částice
@@ -23,14 +23,14 @@ import { Vector3 } from 'three';
 
 const _tmpTarget = new Vector3();
 
-const DUST_COUNT = 12000;
+const DUST_COUNT = 30000;
 const SUN_RESERVE_MIN_FACTOR = 0.04;
 const SUN_RESERVE_FRACTION = 0.15; // podíl DUST_COUNT vyhrazený jako sluneční zásoba
 const GAS_FRACTION = 0.45;         // podíl zbytku, který je plyn
 const DISK_MIN_FACTOR = 0.75;      // disk sahá 0.75×r_min .. 1.1×r_max
 const SUN_ZONE_FACTOR = DISK_MIN_FACTOR; // zásoba končí tam, kde disk začíná
 const DISK_MAX_FACTOR = 1.1;
-const CLOUD_FACTOR = 1.35;         // poloměr mraku / vnější okraj disku
+const CLOUD_FACTOR = 1.9;          // poloměr mraku / vnější okraj disku
 const CLOUD_FLATTEN = 0.75;        // mrak je mírně zploštělý (už se točí)
 const CLOUD_PERIOD = 120;          // s / otočka mraku (skoro stojí)
 const KEPLER_PERIOD_SNOW = 18;     // s / oběh na sněžné čáře
@@ -70,10 +70,10 @@ export function assignZone(radius, zoneRadii) {
 
 const DUST_ALPHA = 0.75;
 const GAS_ALPHA = 0.32;
-const CLOUD_ALPHA = 0.6;
+const CLOUD_ALPHA = 0.45;
 // Velikost tečky mraku: kamera je zdálky a velikost se dělí vzdáleností
 // (particles.js) — s velikostí disku by mrak nebyl vidět.
-const CLOUD_SIZE = 22;
+const CLOUD_SIZE = 42;
 // Velikosti výš platí pro mrak o poloměru SIZE_REF_R; větší soustava (natažené
 // Pochopení, Fyzikální) má kameru dál, tečky se úměrně zvětší.
 const SIZE_REF_R = 4500;
@@ -95,7 +95,7 @@ export function dustColor(r, snowR, jitter = 0.5) {
   return [0, 1, 2].map((c) => Math.min(1, (warm[c] + (cold[c] - warm[c]) * t) * j));
 }
 
-const CLOUD_COLOR = [0.86, 0.5, 0.4]; // chladný mrak: rudohnědý jako emisní mlhoviny
+const CLOUD_COLOR = [0.5, 0.4, 0.36]; // chladný mrak: tlumená prachová hněď
 const GAS_COLOR = [0.62, 0.66, 0.74];
 
 /** Keplerovská úhlová rychlost (rad/s) na poloměru r. */
@@ -179,7 +179,8 @@ function initDisk(pool, anchors) {
     const dr = isSun
       ? sunMin + (sunMax - sunMin) * Math.sqrt(v)
       : diskMax - (diskMax - diskMin) * Math.sqrt(1 - v); // hustší dovnitř
-    const r01 = isSun ? 0.25 * Math.sqrt(v) : 0.2 + 0.8 * Math.sqrt(v);
+    // Mrak: hustota plynule roste ke středu (poloměr ~ v^0,8 → řidký okraj).
+    const r01 = isSun ? 0.25 * Math.sqrt(v) : 0.02 + 0.98 * Math.pow(v, 0.8);
     const c01 = Math.min(1, r01 * (0.85 + 0.3 * Math.random()));
     // Bod v kouli o poloměru c01·Rc: náhodný sklon od roviny.
     const cosEl = Math.sqrt(Math.random());
@@ -249,7 +250,7 @@ function shockFront(t) {
 }
 
 /** Okraj mraku řídne (jinak by měl ostrou hranu koule). */
-const edgeAlpha = (c01) => CLOUD_ALPHA * (1 - 0.75 * c01 * c01);
+const edgeAlpha = (c01) => CLOUD_ALPHA * Math.exp(-2.6 * c01 * c01);
 
 /** Barva/alpha částice mezi mrakem (e = 0) a diskem (e = 1). */
 function blendLook(pool, i, k, e, alphaDisk) {

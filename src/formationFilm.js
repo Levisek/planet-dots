@@ -25,8 +25,8 @@ const DEG = Math.PI / 180;
 // rovinou (°), vzdálenost (násobek vzdálenosti výchozí kamery). Poslední
 // výška se doplní z výchozí pozice (Pochopení i Fyzikální mají ~29°).
 const KEYS = [
-  { t: 0,  az: -75, el: 30, d: 0.8 },  // mrak: celý v záběru
-  { t: 11, az: -60, el: 26, d: 0.72 }, // rázová vlna prošla
+  { t: 0,  az: -75, el: 30, d: 0.74 },  // mrak: celý v záběru
+  { t: 11, az: -60, el: 26, d: 0.66 }, // rázová vlna prošla
   { t: 20, az: -42, el: 16, d: 0.55 }, // kolaps: s mrakem dovnitř, k rovině disku
   { t: 28, az: -32, el: 12, d: 0.5 },  // disk zblízka, nízko
   { t: 38, az: -22, el: 24, d: 0.78 }, // obři a mezera po Jupiteru
