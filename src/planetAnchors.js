@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PLANETS } from './planets.js';
 import { orbitalPosition } from './planetOrbits.js';
 import { poleToScene } from './coordinateFrame.js';
+import { flattenOcean } from './earthOcean.js';
 
 const _UP = new THREE.Vector3(0, 1, 0);
 
@@ -63,6 +64,7 @@ export function createPlanetAnchors(scene) {
     // Load texture as ImageData.
     loadPromises.push(
       loadImageData(p.texture).then((data) => {
+        if (p.id === 'earth') flattenOcean(data.data);
         imageData[p.id] = data;
       })
     );

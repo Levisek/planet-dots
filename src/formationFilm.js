@@ -95,7 +95,9 @@ const FUSION_DUR = 2.5;
 /** Poloměr Slunce během zážehu jako podíl plné velikosti (0 = ještě není). */
 export function sunIgnitionScale(t) {
   const p = clamp01((t - SUN_GROW_START) / (SUN_GROW_END - SUN_GROW_START));
-  return 1 - Math.pow(1 - p, 3); // rychle se nafoukne, pomalu dosedne
+  // Roste, jak do něj padá hmota: plynule se rozjede i dosedne. Dřív
+  // 1 − (1 − p)³ — z ničeho se za sekundu nafouklo na třetinu (poskočilo).
+  return p * p * (3 - 2 * p);
 }
 
 // Tečky letí ještě až 1,2 s po konci emisního okna (TRAVEL_TIME_MAX
