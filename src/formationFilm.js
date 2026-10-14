@@ -28,8 +28,8 @@ const KEYS = [
   { t: 0,  az: -75, el: 30, d: 0.74 },  // mrak: celý v záběru
   { t: 11, az: -60, el: 26, d: 0.66 }, // rázová vlna prošla
   { t: 20, az: -42, el: 16, d: 0.55 }, // kolaps: s mrakem dovnitř, k rovině disku
-  { t: 28, az: -32, el: 12, d: 0.5 },  // disk zblízka, nízko
-  { t: 38, az: -22, el: 24, d: 0.78 }, // obři a mezera po Jupiteru
+  { t: 28, az: -32, el: 40, d: 0.66 }, // disk shora (jako snímek ALMA), vyplní záběr
+  { t: 38, az: -22, el: 44, d: 0.72 }, // obři a mezery v disku
   { t: 44, az: -16, el: 28, d: 0.6 },  // plyn odfouknutý
   { t: 54, az: -10, el: 18, d: 0.14 }, // kamenné planety u Slunce
   { t: 58, az: -6,  el: 16, d: 0.12 }, // zážeh fúze
