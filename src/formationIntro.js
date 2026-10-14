@@ -33,7 +33,7 @@ const DUST_COUNT = 30000;
 const SUN_RESERVE_MIN_FACTOR = 0.04;
 const SUN_RESERVE_FRACTION = 0.15; // podíl DUST_COUNT vyhrazený jako sluneční zásoba
 const GAS_FRACTION = 0.45;         // podíl zbytku, který je plyn
-const DISK_MIN_FACTOR = 0.5;       // disk sahá 0.75×r_min .. 1.1×r_max
+const DISK_MIN_FACTOR = 0.3;       // disk sahá 0.3×r_min .. 1.1×r_max (těsně k hvězdě)
 const SUN_ZONE_FACTOR = DISK_MIN_FACTOR; // zásoba končí tam, kde disk začíná
 const DISK_MAX_FACTOR = 1.1;
 const CLOUD_FACTOR = 1.9;          // poloměr mraku / vnější okraj disku
@@ -74,20 +74,28 @@ export function assignZone(radius, zoneRadii) {
   return best;
 }
 
-const DUST_ALPHA = 0.42;
-const GAS_ALPHA = 0.3;
+// Skoro nepropustné tečky: překryv stejné barvy splyne do hladké hmoty,
+// jas nese barva (rampa) a řídnutí v mezerách.
+const DUST_ALPHA = 0.92;
+const GAS_ALPHA = 0.86;
 const CLOUD_ALPHA = 0.45;
 // Mezery v disku: obři vyhloubí pás kolem své dráhy. Šířka (σ) jako podíl
 // poloměru dráhy, amplituda posunu (A < 2,24 drží zobrazení monotónní),
 // v hloubce mezery zbývá ~1/(1+A) hustoty, na okrajích ~1/(1−0,446·A).
 const GAP_PLANETS = { mars: 0.6, jupiter: 1, saturn: 1, uranus: 1, neptune: 1 };
 const GAP_AMPLITUDE = 1.7;
-const GAP_WIDTH = 0.12;
+const GAP_WIDTH = 0.1;
+// Vedlejší mezery obra (rezonance): na 0,78× a 1,22× poloměru dráhy, užší a mělčí.
+const GHOST_OFFSETS = [0.78, 1.22];
+const GHOST_AMP = 0.45;     // podíl amplitudy hlavní mezery
+const GHOST_WIDTH = 0.07;
+const GHOST_DEPLETION = 0.8;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const GAP_LEAD = 4;        // jádro obra otvírá mezeru dřív, než planeta viditelně vyroste
 const FEED_HALF_WIDTH = 1; // prach v |x| < 1 σ od dráhy padá do planety
 const FEED_PROB = 0.7;
 const PROFILE_EXP = 0.85;  // počet částic do poloměru r ~ r^0,85 (plošná hustota ~ r^-1,15)
-const GAP_DEPLETION = 0.75; // o kolik se v hloubce mezery ztlumí alpha prachu
+const GAP_DEPLETION = 0.93; // o kolik se v hloubce mezery ztlumí alpha prachu (čistě tmavá)
 const DISK_THICKNESS = 0.02;
 // Velikost tečky mraku: kamera je zdálky a velikost se dělí vzdáleností
 // (particles.js) — s velikostí disku by mrak nebyl vidět.
@@ -118,10 +126,10 @@ const CLOUD_COLOR = [0.5, 0.4, 0.36]; // chladný mrak: tlumená prachová hně�
 // Barva disku podle poloměru (podíl vnějšího okraje): žlutobílý střed →
 // oranžová → tmavě rudý okraj, jako jas ALMA snímku mladé soustavy.
 const DISK_RAMP = [
-  [0.0, [1.0, 0.93, 0.58]],
-  [0.12, [1.0, 0.74, 0.22]],
-  [0.4, [0.95, 0.44, 0.08]],
-  [1.0, [0.72, 0.16, 0.04]],
+  [0.0, [1.0, 0.84, 0.42]],
+  [0.06, [1.0, 0.68, 0.2]],
+  [0.22, [0.92, 0.42, 0.08]],
+  [1.0, [0.6, 0.14, 0.04]],
 ];
 export function diskColor(r01, jitter = 0.5) {
   const x = Math.min(1, Math.max(0, r01));
@@ -130,7 +138,7 @@ export function diskColor(r01, jitter = 0.5) {
   const [x0, c0] = DISK_RAMP[k];
   const [x1, c1] = DISK_RAMP[k + 1];
   const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
-  const j = 0.92 + 0.16 * jitter;
+  const j = 0.97 + 0.06 * jitter; // skoro bez rozptylu — hladký přechod jasu
   return [0, 1, 2].map((c) => Math.min(1, (c0[c] + (c1[c] - c0[c]) * u) * j));
 }
 
@@ -160,7 +168,7 @@ let _diskMax = 1; // vnější okraj disku
 
 /** Velikost tečky disku (světové jednotky) — velké, ať se překrývají do hladké hmoty. */
 function diskDotSize(r01) {
-  return _diskMax * 0.024 * (0.45 + 0.9 * Math.sqrt(Math.min(1, Math.max(0, r01))));
+  return _diskMax * 0.027 * (0.45 + 0.9 * Math.sqrt(Math.min(1, Math.max(0, r01))));
 }
 let _emitted = {};
 
@@ -194,7 +202,16 @@ function initDisk(pool, anchors) {
 
   const gaps = entries
     .filter((e) => GAP_PLANETS[e.planetId] !== undefined)
-    .map((e) => ({ e, rp: e.radius, w: GAP_WIDTH * e.radius, amp: GAP_AMPLITUDE * GAP_PLANETS[e.planetId], g: 0 }));
+    .map((e) => ({ e, rp: e.radius, w: GAP_WIDTH * e.radius, amp: GAP_AMPLITUDE * GAP_PLANETS[e.planetId], dep: GAP_DEPLETION, g: 0 }));
+  // Vedlejší mezery téhož obra (otevírají se se stejnou planetou).
+  for (const main of gaps.slice()) {
+    if (main.e.planetId === 'mars') continue;
+    for (const off of GHOST_OFFSETS) {
+      const rp = main.rp * off;
+      if (rp > 0.97 * diskMax || rp < 1.5 * diskMin) continue;
+      gaps.push({ e: main.e, rp, w: GHOST_WIDTH * rp, amp: main.amp * GHOST_AMP, dep: GHOST_DEPLETION, g: 0 });
+    }
+  }
 
   const idle = pool.takeIdleIndices(DUST_COUNT);
   if (idle.length === 0) return;
@@ -211,6 +228,7 @@ function initDisk(pool, anchors) {
     dr: new Float32Array(n),      // disk: poloměr a výška
     dy: new Float32Array(n),
     th: new Float32Array(n),      // azimut (integruje se)
+    dth: new Float32Array(n),     // posun azimutu mrak → disk (zlatý úhel: rovnoměrné pokrytí)
     color: new Float32Array(n * 3), // barva v disku
     size: new Float32Array(n),      // velikost v disku
     migStart: new Float32Array(n),
@@ -219,17 +237,29 @@ function initDisk(pool, anchors) {
     released: new Uint8Array(n),
   };
   const sunCount = Math.round(n * SUN_RESERVE_FRACTION);
+  // Hodnoty v (pořadí od středu) losujeme předem: v disku se z nich stane
+  // pořadí (rank), ze kterého jde rovnoměrný poloměr + zlatý úhel — tečky
+  // netvoří shluky a díry (zrnitost), ale pořadí od středu zůstává.
+  const vs = new Float32Array(n);
+  for (let k = 0; k < n; k++) vs[k] = Math.random();
+  const order = [];
+  for (let k = sunCount; k < n; k++) order.push(k);
+  order.sort((a, b) => vs[a] - vs[b]);
+  const rankOf = new Float32Array(n);
+  order.forEach((k, m) => { rankOf[k] = m; });
+  const dustN = Math.max(1, order.length);
   for (let k = 0; k < n; k++) {
     const i = idle[k];
     const isSun = k < sunCount;
     // v ~ U(0,1): pořadí od středu — stejné v mraku i v disku, ať se
     // částice při kolapsu nekříží napříč celým diskem.
-    const v = Math.random();
+    const v = vs[k];
+    const vd = isSun ? v : (rankOf[k] + 0.5) / dustN;
     // Disk: počet částic do r ~ r^0,85 → plošná hustota ~ r^-1,15 (jasný střed).
     const a0 = Math.pow(diskMin, PROFILE_EXP);
     const dr = isSun
       ? sunMin + (sunMax - sunMin) * Math.sqrt(v)
-      : Math.pow(a0 + (Math.pow(diskMax, PROFILE_EXP) - a0) * v, 1 / PROFILE_EXP);
+      : Math.pow(a0 + (Math.pow(diskMax, PROFILE_EXP) - a0) * vd, 1 / PROFILE_EXP);
     // Mrak: hustota plynule roste ke středu (poloměr ~ v^0,8 → řidký okraj).
     const r01 = isSun ? 0.25 * Math.sqrt(v) : 0.02 + 0.98 * Math.pow(v, 0.8);
     const c01 = Math.min(1, r01 * (0.85 + 0.3 * Math.random()));
@@ -242,6 +272,7 @@ function initDisk(pool, anchors) {
     S.dr[k] = dr;
     S.dy[k] = dr * gaussianRandom() * DISK_THICKNESS;
     S.th[k] = Math.random() * Math.PI * 2;
+    S.dth[k] = isSun ? 0 : ((rankOf[k] * GOLDEN_ANGLE) % (2 * Math.PI)) - S.th[k];
 
     let col;
     if (isSun) {
@@ -254,7 +285,7 @@ function initDisk(pool, anchors) {
       const e = entries[z];
       S.gas[k] = Math.random() < GAS_FRACTION ? 1 : 0;
       col = diskColor(dr / diskMax, Math.random());
-      if (S.gas[k]) col = col.map((c) => c * 0.8);
+      if (S.gas[k]) col = col.map((c) => c * 0.96);
       S.alpha[k] = S.gas[k] ? GAS_ALPHA : DUST_ALPHA;
       // Do planety padá jen prach těsně u její dráhy (zbytek zóny mezeru
       // obklopuje); prach kamenných zón (Merkur–Země) zůstává pro jejich
@@ -356,7 +387,7 @@ function updateDustFrame(pool, t, dt) {
         if (gx > 5 || gx < -5) continue;
         const gg = Math.exp(-0.5 * gx * gx);
         drNow += gp.g * gp.amp * gp.w * gx * gg;
-        gapMul *= 1 - GAP_DEPLETION * gp.g * gg;
+        gapMul *= 1 - gp.dep * gp.g * gg;
       }
     }
     const aEff = alphaDisk * gapMul;
@@ -383,8 +414,9 @@ function updateDustFrame(pool, t, dt) {
     // Azimut: mrak se skoro netočí, s kolapsem se roztáčí na Keplera.
     const w = omegaCloud + (keplerOmega(Math.max(r, 1), S.snowR) - omegaCloud) * e * e;
     S.th[k] += w * dt;
-    let x = r * Math.cos(S.th[k]);
-    let z = r * Math.sin(S.th[k]);
+    const ang = S.th[k] + S.dth[k] * e;
+    let x = r * Math.cos(ang);
+    let z = r * Math.sin(ang);
 
     // Rázová vlna: zjasní a postrčí to, čím právě prochází.
     if (front !== null) {
