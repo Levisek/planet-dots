@@ -16,14 +16,14 @@ function halfTexture() {
 
 test('averageFaceColor: jednolitá plocha → její barva', () => {
   const tex = halfTexture();
-  // trojúhelník u u≈0.75 (bílá polovina): atan2(z, x) ≈ +π/2 → z > 0
-  const c = averageFaceColor(tex, [0.1, 0.1, 1], [-0.1, 0.1, 1], [0, -0.1, 1]);
+  // trojúhelník u u≈0.75 (bílá polovina): délka roste k −z → z < 0
+  const c = averageFaceColor(tex, [0.1, 0.1, -1], [-0.1, 0.1, -1], [0, -0.1, -1]);
   for (const ch of c) assert.ok(Math.abs(ch - 1) < 1e-9);
 });
 
 test('averageFaceColor: trojúhelník přes hranici barev → průměr, ne jeden pixel', () => {
   const tex = halfTexture();
-  // hranice černá/bílá je u u = 0.5 → atan2(z, x) = 0 → směr +x
+  // hranice černá/bílá je u u = 0.5 → směr +x
   const [r] = averageFaceColor(tex, [1, 0.2, -0.2], [1, 0.2, 0.2], [1, -0.2, 0]);
   assert.ok(r > 0.2 && r < 0.8, `r=${r}`);
   assert.ok(r !== srgbToLinear(0) && r !== srgbToLinear(1));

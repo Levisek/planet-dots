@@ -10,9 +10,14 @@ export function sampleColor(imageData, u, v) {
   return [data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255];
 }
 
-/** UV na jednotkové sféře z kartézských souřadnic. radius = vzdálenost bodu od středu. */
+/**
+ * UV na jednotkové sféře z kartézských souřadnic. radius = vzdálenost bodu od středu.
+ * Délka roste k −z (jako SphereGeometry v three.js): při pohledu zvenku
+ * s pólem +y nahoře je východ vpravo. Dřív atan2(z, x) → textury zrcadlově
+ * (Afrika na západ od Jižní Ameriky).
+ */
 export function sphericalUV(x, y, z, radius) {
-  const u = Math.atan2(z, x) / (Math.PI * 2) + 0.5;
+  const u = Math.atan2(-z, x) / (Math.PI * 2) + 0.5;
   const v = Math.asin(y / radius) / Math.PI + 0.5;
   return [u, v];
 }
