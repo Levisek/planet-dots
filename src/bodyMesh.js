@@ -3,6 +3,79 @@ import { icosphereRaw } from './geometry.js';
 import { sampleColorPoleSafe, sphericalUV, srgbToLinear } from './textureUtils.js';
 import { applySimplexDisplacement, makeSeededSimplex } from './displacement.js';
 
+// Barycentrické body vzorkování: těžiště 4 pod-trojúhelníků (dělení 2×).
+// Texturu předem zmenšíme průměrem bloků 4×4 (downsample4), takže 4 vzorky
+// pokryjí ~64 px originálu — skoro celý trojúhelník (~100 px) za zlomek
+// ceny 16 vzorků z plné textury (~45 ms na těleso, na telefonu násobky).
+const FACE_SAMPLES = (() => {
+  const n = 2, out = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; i + j < n; j++) {
+      out.push([(i + 1 / 3) / n, (j + 1 / 3) / n]);
+      if (i + j < n - 1) out.push([(i + 2 / 3) / n, (j + 2 / 3) / n]);
+    }
+  }
+  return out;
+})();
+
+const _small = new WeakMap();
+/** ImageData zmenšená průměrem bloků 4×4 (sRGB průměr, cache per textura). */
+export function downsample4(imageData) {
+  const hit = _small.get(imageData);
+  if (hit) return hit;
+  const { data, width, height } = imageData;
+  const w = Math.max(1, width >> 2), h = Math.max(1, height >> 2);
+  const out = new Uint8ClampedArray(w * h * 4);
+  // Jeden průchod po řádcích originálu, součty do řádku výstupu. Okrajové
+  // sloupce/řádky za násobkem 4 se zahodí (textury jsou 2048×1024 ap.).
+  // Čtení po celých pixelech (RGBA v jednom Uint32, little-endian) je
+  // ~3× rychlejší než po bajtech.
+  const px = new Uint32Array(data.buffer, data.byteOffset, width * height);
+  const acc = new Uint32Array(w * 3);
+  for (let y = 0; y < h * 4; y++) {
+    let i = y * width;
+    for (let x = 0; x < w; x++) {
+      const o = x * 3;
+      let r = 0, g = 0, b = 0;
+      for (let k = 0; k < 4; k++, i++) {
+        const v = px[i];
+        r += v & 255; g += (v >>> 8) & 255; b += (v >>> 16) & 255;
+      }
+      acc[o] += r; acc[o + 1] += g; acc[o + 2] += b;
+    }
+    if ((y & 3) === 3) {
+      const row = (y >> 2) * w * 4;
+      for (let x = 0; x < w; x++) {
+        out[row + x * 4] = acc[x * 3] / 16;
+        out[row + x * 4 + 1] = acc[x * 3 + 1] / 16;
+        out[row + x * 4 + 2] = acc[x * 3 + 2] / 16;
+        out[row + x * 4 + 3] = 255;
+      }
+      acc.fill(0);
+    }
+  }
+  const small = { data: out, width: w, height: h };
+  _small.set(imageData, small);
+  return small;
+}
+
+/** Průměrná lineární barva textury přes trojúhelník (vrcholy na jednotkové sféře). */
+export function averageFaceColor(imageData, va, vb, vc) {
+  let r = 0, g = 0, b = 0;
+  for (const [s, t] of FACE_SAMPLES) {
+    const w = 1 - s - t;
+    const x = va[0] * s + vb[0] * t + vc[0] * w;
+    const y = va[1] * s + vb[1] * t + vc[1] * w;
+    const z = va[2] * s + vb[2] * t + vc[2] * w;
+    const len = Math.sqrt(x * x + y * y + z * z) || 1;
+    const [u, v] = sphericalUV(x / len, y / len, z / len, 1);
+    const [sr, sg, sb] = sampleColorPoleSafe(imageData, u, v);
+    r += srgbToLinear(sr); g += srgbToLinear(sg); b += srgbToLinear(sb);
+  }
+  const k = 1 / FACE_SAMPLES.length;
+  return [r * k, g * k, b * k];
+}
+
 /**
  * Vytvoří mesh pro tělo: icosphere trojúhelníky s per-face barvou sampled
  * z textury ve středu trojúhelníku. Flat shading (non-shared verts) =
@@ -15,6 +88,7 @@ import { applySimplexDisplacement, makeSeededSimplex } from './displacement.js';
  */
 export function buildBodyMesh(imageData, radius, minVertices) {
   const { vertices, faces } = icosphereRaw(minVertices);
+  const small = downsample4(imageData);
 
   const numTris = faces.length;
   const posArray = new Float32Array(numTris * 3 * 3);
@@ -27,14 +101,10 @@ export function buildBodyMesh(imageData, radius, minVertices) {
     const vb = vertices[b];
     const vc = vertices[c];
 
-    // Centroid jen pro UV sampling (jedna barva per face → vintage flat-triangle look).
-    const cx = (va[0] + vb[0] + vc[0]) / 3;
-    const cy = (va[1] + vb[1] + vc[1]) / 3;
-    const cz = (va[2] + vb[2] + vc[2]) / 3;
-    const clen = Math.sqrt(cx * cx + cy * cy + cz * cz) || 1;
-    const [u, v] = sphericalUV(cx / clen, cy / clen, cz / clen, 1);
-    const [sr, sg, sb] = sampleColorPoleSafe(imageData, u, v);
-    const cr = srgbToLinear(sr), cg = srgbToLinear(sg), cb = srgbToLinear(sb);
+    // Jedna barva per face (vintage flat-triangle look) = průměr plochy
+    // trojúhelníku. Trojúhelník kryje ~100 px textury; jeden vzorek ze
+    // středu dával zrnitý šum (Jupiterovy pásy, pevnina Země).
+    const [cr, cg, cb] = averageFaceColor(small, va, vb, vc);
 
     const base = i * 9;
     posArray[base + 0] = va[0] * radius;
