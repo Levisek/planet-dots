@@ -849,7 +849,9 @@ function skipFormation() {
   _filmCamera = false;
 }
 
+window.__dotsStage = 'čekám na textury';
 Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
+  window.__dotsStage = 'textury hotové, stavím scénu';
   initAfterLoad();
 
   // Mesh-e planet, měsíců a asteroidů (viz bodyMeshes.js) — mesh-y jsou
@@ -1220,9 +1222,11 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   });
 
   clock.reset(); // první dt od teď, ne od konstrukce (load textur trvá sekundy)
+  window.__dotsReady = true;
   requestAnimationFrame(tick);
 }).catch((err) => {
   console.error('Texture preload failed:', err);
+  window.__hlasChybu?.(`start (${window.__dotsStage}): ${err?.stack || err}`);
   clock.reset();
   requestAnimationFrame(tick);
 });
