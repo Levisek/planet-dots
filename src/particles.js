@@ -13,10 +13,13 @@ attribute vec3 aColor;
 attribute float aSize;
 attribute float aAlpha;
 attribute float aOwnerAlpha;
+attribute float aSoft;
 varying vec3 vColor;
 varying float vAlpha;
+varying float vSoft;
 void main() {
   vColor = aColor;
+  vSoft = aSoft;
   vAlpha = aAlpha * aOwnerAlpha;
   if (vAlpha <= 0.0) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -32,7 +35,18 @@ void main() {
 const FRAGMENT_SHADER = /* glsl */ `
 varying vec3 vColor;
 varying float vAlpha;
+varying float vSoft;
 void main() {
+  // Měkká hrana (opt-in, aSoft > 0): gaussovský profil, průhlednost klesá
+  // k okraji. aSoft = 0 → beze změny ostrý osmiúhelník níž.
+  if (vSoft > 0.0) {
+    float r = length(gl_PointCoord - vec2(0.5)) * 2.0;
+    float g = exp(-4.0 * r * r) * (1.0 - smoothstep(0.85, 1.0, r));
+    float a = vAlpha * mix(1.0, g, vSoft);
+    if (a < 0.003) discard;
+    gl_FragColor = vec4(vColor, a);
+    return;
+  }
   // Octagon — kulatější než hexagon, hranatější než kruh.
   // Netilují dokonale (mezi 4 octagony vzniknou čtvercové mezery), ale
   // vypadají pixelart-příjemně a při malé velikosti vizuálně zaplní.
@@ -69,6 +83,12 @@ export class ParticlePool {
     this.size = new Float32Array(count);
     this.alpha = new Float32Array(count);
     this.ownerAlpha = new Float32Array(count); // per-particle kopie ownerAlphaMul[owner]
+    // Měkkost hrany tečky 0..1 (0 = ostrý osmiúhelník = původní vzhled). Opt-in,
+    // nastavuje ji jen formationIntro pro prach disku. softActive = někde je
+    // soft > 0 → pool se kreslí bez zápisu hloubky (měkké okraje by jinak
+    // v náhodném pořadí vrstev vyřezávaly díry do tečky za nimi).
+    this.soft = new Float32Array(count);
+    this.softActive = false;
     // CPU-only
     this.target = new Float32Array(count * 3);
     this.velocity = new Float32Array(count * 3);    // pro FLYING tečky (world-space units/sec)
@@ -87,16 +107,19 @@ export class ParticlePool {
     this.sizeAttr = new THREE.BufferAttribute(this.size, 1);
     this.alphaAttr = new THREE.BufferAttribute(this.alpha, 1);
     this.ownerAlphaAttr = new THREE.BufferAttribute(this.ownerAlpha, 1);
+    this.softAttr = new THREE.BufferAttribute(this.soft, 1);
     this.posAttr.setUsage(THREE.DynamicDrawUsage);
     this.colorAttr.setUsage(THREE.DynamicDrawUsage);
     this.sizeAttr.setUsage(THREE.DynamicDrawUsage);
     this.alphaAttr.setUsage(THREE.DynamicDrawUsage);
     this.ownerAlphaAttr.setUsage(THREE.DynamicDrawUsage);
+    this.softAttr.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('position', this.posAttr);
     geometry.setAttribute('aColor', this.colorAttr);
     geometry.setAttribute('aSize', this.sizeAttr);
     geometry.setAttribute('aAlpha', this.alphaAttr);
     geometry.setAttribute('aOwnerAlpha', this.ownerAlphaAttr);
+    geometry.setAttribute('aSoft', this.softAttr);
     this.geometry = geometry;
 
     this.material = new THREE.ShaderMaterial({
@@ -161,6 +184,7 @@ export class ParticlePool {
     this.sizeAttr.needsUpdate = true;
     this.alphaAttr.needsUpdate = true;
     this.ownerAlphaAttr.needsUpdate = true;
+    this.softAttr.needsUpdate = true;
   }
 
   /** Rozšíří activeEnd, aby index i spadal do aktivního rozsahu. */
@@ -209,11 +233,12 @@ export class ParticlePool {
     // je to O(1).
     this.compact();
     const n = this.activeEnd;
-    for (const attr of [this.posAttr, this.colorAttr, this.sizeAttr, this.alphaAttr, this.ownerAlphaAttr]) {
+    for (const attr of [this.posAttr, this.colorAttr, this.sizeAttr, this.alphaAttr, this.ownerAlphaAttr, this.softAttr]) {
       attr.clearUpdateRanges();
       if (n > 0) attr.addUpdateRange(0, n * attr.itemSize);
     }
     this.geometry.setDrawRange(0, n);
+    this.material.depthWrite = !this.softActive;
   }
 
   dispose() {

@@ -143,7 +143,7 @@ export function protoTint(k, cold) {
 // fúze záblesk (náběh 0,3 s, dozní za ~3 s) a trvalá záře. Hodnoty jsou
 // průhlednost spritu (0..1).
 export const GLOW_STEADY = 0.75;
-const GLOW_PROTO = 0.36; // akrece: protohvězda září jasně (test: < GLOW_STEADY/2)
+const GLOW_PROTO = 0.37; // akrece: protohvězda září jasně (test: < GLOW_STEADY/2)
 const FLASH_RISE = 0.3;
 const FLASH_FALL = 3.2;
 /** @returns {{ flash: number, glow: number }} */
@@ -160,7 +160,7 @@ export function sunGlow(t) {
 }
 
 // Barva protohvězdy (násobí texturu Slunce): žlutooranžová, se zážehem plné barvy.
-const PROTO_SUN = [1.0, 0.82, 0.42];
+const PROTO_SUN = [1.0, 0.9, 0.46];
 /** Násobitel barvy Slunce (a jeho záře) v čase t. */
 export function sunTint(t) {
   const u = smooth(clamp01((t - FUSION_START) / FUSION_DUR));
