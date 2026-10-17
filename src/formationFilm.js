@@ -85,6 +85,49 @@ export function formationCameraPose(t, mainPos) {
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
+// Přiblížení k tělesu, které právě vzniká: kamera opustí střed soustavy
+// a zajede k němu (t0 → t1 nájezd, t2 → t3 odjezd). dist = vzdálenost
+// v poloměrech tělesa (plné velikosti) — z dálky by růst z teček nebyl vidět.
+// lift = jak moc se pohled zvedne nad rovinu disku (0 = směr celku, 1 = svisle).
+export const FOCUS = [
+  { id: 'sun', t0: 14, t1: 17, t2: 21, t3: 24.5, dist: 7, lift: 0.55 },
+  { id: 'jupiter', t0: 27.5, t1: 29.5, t2: 33.5, t3: 36, dist: 7, lift: 0.35 },
+  { id: 'earth', t0: 45.5, t1: 47.5, t2: 52, t3: 54, dist: 9, lift: 0.35 },
+  { id: 'sun', t0: 54, t1: 55.5, t2: 57, t3: 59.5, dist: 6, lift: 0.3 }, // zážeh fúze
+];
+
+/** Těleso v záběru a váha přiblížení (0 = celek soustavy, 1 = u tělesa). */
+export function formationFocus(t) {
+  for (const f of FOCUS) {
+    if (t <= f.t0 || t >= f.t3) continue;
+    const w = t < f.t1 ? smooth((t - f.t0) / (f.t1 - f.t0))
+      : t > f.t2 ? 1 - smooth((t - f.t2) / (f.t3 - f.t2)) : 1;
+    return { id: f.id, w, dist: f.dist, lift: f.lift };
+  }
+  return null;
+}
+
+/**
+ * Kamera s přiblížením: z pozice celku `sys` (míří na střed) po přímce
+ * k tělesu v `c`, vzdálenost se mění v logaritmu (stejně rychle „na oko").
+ * Cíl pohledu se přesune na těleso dřív, než kamera dojede.
+ * @returns {{ pos: {x,y,z}, target: {x,y,z} }}
+ */
+export function focusPose(sys, c, near, w, lift = 0) {
+  const dx = sys.x - c.x, dy = sys.y - c.y, dz = sys.z - c.z;
+  const far = Math.hypot(dx, dy, dz) || 1;
+  const d = Math.exp(Math.log(far) + (Math.log(near) - Math.log(far)) * w);
+  // Směr od tělesa ke kameře, zvednutý nad rovinu disku.
+  const l = lift * w;
+  const ux = dx / far * (1 - l), uy = dy / far * (1 - l) + l, uz = dz / far * (1 - l);
+  const ul = Math.hypot(ux, uy, uz) || 1;
+  const wt = smooth(clamp01(w * 1.6));
+  return {
+    pos: { x: c.x + ux / ul * d, y: c.y + uy / ul * d, z: c.z + uz / ul * d },
+    target: { x: c.x * wt, y: c.y * wt, z: c.z * wt },
+  };
+}
+
 // Protohvězda: Slunce roste během kolapsu (prach sluneční zásoby do něj
 // padá); hvězdou se stane až zážehem fúze (FUSION_START, sunTint/sunGlow).
 export const SUN_GROW_START = sceneStart('collapse') + 1;
@@ -126,6 +169,13 @@ export function growthScale(t, win) {
 
 const smooth = (p) => p * p * (3 - 2 * p);
 
+/** Měřítko pevného tělesa planety při růstu (k = growthScale): do 0,55
+ *  ho není vidět (planeta je jen koule z prachu, formationIntro), pak se
+ *  z prachu vynoří a dorovná se na k. */
+export function planetMeshScale(k) {
+  return k * smooth(clamp01((k - 0.55) / 0.45));
+}
+
 // Barva prachu, ze kterého planeta roste (násobí barvy povrchu): skalnaté
 // planety jsou rozžhavené, obři za sněžnou čarou ledově studení.
 const PROTO_HOT = [1.0, 0.5, 0.3];
@@ -143,7 +193,7 @@ export function protoTint(k, cold) {
 // fúze záblesk (náběh 0,3 s, dozní za ~3 s) a trvalá záře. Hodnoty jsou
 // průhlednost spritu (0..1).
 export const GLOW_STEADY = 0.75;
-const GLOW_PROTO = 0.37; // akrece: protohvězda září jasně (test: < GLOW_STEADY/2)
+const GLOW_PROTO = 0.2; // akrece: protohvězda září jasně (test: < GLOW_STEADY/2)
 const FLASH_RISE = 0.3;
 const FLASH_FALL = 3.2;
 /** @returns {{ flash: number, glow: number }} */

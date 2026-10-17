@@ -146,19 +146,34 @@ function spread(pool) {
   return { maxR, maxY };
 }
 
-test('mrak je trojrozměrný, po kolapsu placka; sluneční zásoba spadne do Slunce', () => {
+test('mrak je trojrozměrný, po kolapsu placka; sluneční zásoba dosedne na protohvězdu', () => {
   const pool = makeFakePool();
+  const SUN_R = 260;
   resetFormationIntro(pool);
-  updateFormationIntro(pool, 1.0, 1 / 30, fakeAnchors, fakeImageData);
+  updateFormationIntro(pool, 1.0, 1 / 30, fakeAnchors, fakeImageData, SUN_R);
   const cloud = spread(pool);
   assert.ok(cloud.maxY > 0.4 * cloud.maxR, `mrak plochý už na začátku: ${cloud.maxY} / ${cloud.maxR}`);
   const before = countDust(pool);
-  for (let t = 1; t <= 21; t += 1 / 30) updateFormationIntro(pool, t, 1 / 30, fakeAnchors, fakeImageData);
-  const disk = spread(pool);
-  assert.ok(disk.maxY < 0.25 * disk.maxR, `disk není placka: ${disk.maxY} / ${disk.maxR}`);
-  assert.ok(disk.maxR < cloud.maxR, 'mrak se zmenšil');
-  const fallen = (before - countDust(pool)) / before;
-  assert.ok(Math.abs(fallen - 0.15) < 0.02, `do Slunce spadlo ${fallen}, čekáno ~15 %`);
+  for (let t = 1; t <= 21; t += 1 / 30) updateFormationIntro(pool, t, 1 / 30, fakeAnchors, fakeImageData, SUN_R);
+  // Zásoba nezmizí, leží na povrchu protohvězdy (Slunce roste z teček).
+  assert.equal(countDust(pool), before, 'zásoba nemá zmizet');
+  let onShell = 0;
+  for (let i = 0; i < pool.count; i++) {
+    if (pool.phase[i] !== 99) continue;
+    const d = Math.hypot(pool.position[3 * i], pool.position[3 * i + 1], pool.position[3 * i + 2]);
+    if (Math.abs(d - SUN_R * 1.03) < 1) onShell++;
+  }
+  assert.ok(Math.abs(onShell / before - 0.15) < 0.02, `na povrchu ${onShell / before}, čekáno ~15 %`);
+  // Placka disku (bez slupky Slunce, ta je kulatá).
+  let maxR = 0, maxY = 0;
+  for (let i = 0; i < pool.count; i++) {
+    if (pool.phase[i] !== 99 || pool.alpha[i] === 0) continue;
+    const x = pool.position[3 * i], y = pool.position[3 * i + 1], z = pool.position[3 * i + 2];
+    if (Math.hypot(x, y, z) < SUN_R * 1.1) continue;
+    maxR = Math.max(maxR, Math.hypot(x, z)); maxY = Math.max(maxY, Math.abs(y));
+  }
+  assert.ok(maxY < 0.25 * maxR, `disk není placka: ${maxY} / ${maxR}`);
+  assert.ok(maxR < cloud.maxR, 'mrak se zmenšil');
 });
 
 test('keplerovský disk: vnitřek obíhá rychleji, ω ~ r^(-3/2)', async () => {

@@ -26,6 +26,7 @@ import { PLANETS, PLANET_BY_ID } from './planets.js';
 import { getPlanetTargets } from './planetTargets.js';
 import { PHASE } from './phase.js';
 import { Vector3 } from 'three';
+import { growthWindow, growthScale, planetMeshScale } from './formationFilm.js';
 
 const _tmpTarget = new Vector3();
 
@@ -103,6 +104,23 @@ const FEED_PROB = 0.7;
 const PROFILE_EXP = 0.85;  // počet částic do poloměru r ~ r^0,85 (plošná hustota ~ r^-1,15)
 const GAP_DEPLETION = 0.8; // o kolik se v hloubce mezery ztlumí alpha prachu (čistě tmavá)
 const DISK_THICKNESS = 0.02;
+// Protohvězda z teček: zásoba se usadí kousek nad povrchem rostoucího
+// Slunce (ať ji kotouč nepřekryje), tečka ~ 1/8 poloměru — souvislá slupka.
+// Se zážehem fúze (T_END) se během SHELL_FADE rozplyne do hvězdy.
+const SHELL_LIFT = 1.03;
+const SHELL_DOT = 0.075;
+const SHELL_ALPHA = 0.9;
+const SHELL_FADE = 2.5;
+const SHELL_COLOR = [1.0, 0.72, 0.32];
+const SUN_SPIN = 2 * Math.PI / 25; // rad/s — protohvězda se zvolna točí
+// Planeta z prachu: let z disku na povrch (s), nejmenší koule (podíl
+// plného poloměru), velikost tečky (podíl poloměru), od jaké části růstu
+// prach mizí do pevného tělesa.
+const FALL_SEC = 2.5;
+const DUST_BALL_MIN = 0.25;
+const DUST_BALL_DOT = 0.12;
+const DUST_BALL_ALPHA = 0.95;
+const DUST_BALL_FADE = 0.85;
 // Velikost tečky mraku: kamera je zdálky a velikost se dělí vzdáleností
 // (particles.js) — s velikostí disku by mrak nebyl vidět.
 const CLOUD_SIZE = 42;
@@ -172,6 +190,12 @@ let S = null; // viz initDisk
 let _snowR = 1;   // sněžná čára — barva prachu letícího k planetě
 let _cloudR = 0;  // poloměr mraku (pro rázovou vlnu a záběr kamery)
 let _diskMax = 1; // vnější okraj disku
+let _sunR = 0;    // poloměr protohvězdy (updateFormationIntro)
+let _cam = null;  // poloha kamery (setFormationCamera)
+const NEAR_PX = 90;
+
+/** Poloha kamery — tečky disku těsně u ní se rozplynou (jinak mlha přes záběr). */
+export function setFormationCamera(p) { _cam = p; }
 
 /** Velikost tečky disku (světové jednotky) — velké, ať se překrývají do hladké hmoty. */
 function diskDotSize(r01) {
@@ -189,7 +213,10 @@ function initDisk(pool, anchors) {
     const anchor = anchors[w.planetId];
     if (!anchor) continue;
     const { x, z } = anchor.position;
-    entries.push({ planetId: w.planetId, radius: Math.hypot(x, z), window: w, anchorPos: anchor.position });
+    entries.push({
+      planetId: w.planetId, radius: Math.hypot(x, z), window: w, anchorPos: anchor.position,
+      growth: growthWindow(w.planetId), bodyR: 1,
+    });
   }
   if (entries.length === 0) return;
   const zoneRadii = entries.map((e) => e.radius);
@@ -242,6 +269,8 @@ function initDisk(pool, anchors) {
     migrating: new Uint8Array(n),
     fromX: new Float32Array(n), fromY: new Float32Array(n), fromZ: new Float32Array(n),
     released: new Uint8Array(n),
+    sl: new Float32Array(n),        // sinus šířky místa, kam tečka dosedne (protohvězda, planeta)
+    lon: new Float32Array(n),       // zeměpisná délka téhož místa
   };
   const sunCount = Math.round(n * SUN_RESERVE_FRACTION);
   // Hodnoty v (pořadí od středu) losujeme předem: v disku se z nich stane
@@ -282,6 +311,8 @@ function initDisk(pool, anchors) {
     S.dth[k] = isSun ? 0 : ((rankOf[k] * GOLDEN_ANGLE) % (2 * Math.PI)) - S.th[k];
 
     let col;
+    S.sl[k] = 2 * Math.random() - 1;
+    S.lon[k] = Math.random() * Math.PI * 2;
     if (isSun) {
       S.zone[k] = -1;
       col = diskColor(dr / diskMax, Math.random());
@@ -386,6 +417,8 @@ function updateDustFrame(pool, t, dt) {
     const gas = S.gas[k];
     const alphaDisk = S.alpha[k];
     const e = collapseProgress(t, S.c01[k]);
+    let landed = 0;
+    if (zone !== -1 && t >= T_END) { releaseParticle(pool, k); continue; }
     // Disk: poloměr po vytlačení prachu rostoucími obři (mezery a prstence).
     // Prach z mezery navíc ubývá (padá na planetu) — mezera je tmavší.
     let drNow = S.dr[k];
@@ -408,11 +441,25 @@ function updateDustFrame(pool, t, dt) {
     if (zone === -1) {
       r = S.cr[k] + (S.dr[k] - S.cr[k]) * e;
       y = S.cy[k] + (S.dy[k] - S.cy[k]) * e;
-      // Po dosednutí do zásoby padá dál do Slunce (protohvězda roste).
+      // Po dosednutí do zásoby padá dál na protohvězdu a zůstane na jejím
+      // povrchu — Slunce roste z teček (dřív zmizely ve středu).
       const fall = Math.min(1, Math.max(0, (t - T_COLLAPSE - 2 - 4 * S.c01[k]) / 3));
-      r *= 1 - fall; y *= 1 - fall;
-      if (fall >= 1) { releaseParticle(pool, k); continue; }
-      blendLook(pool, i, k, e, DUST_ALPHA * (1 - fall));
+      landed = fall * fall * (3 - 2 * fall);
+      const surf = _sunR * SHELL_LIFT;
+      const cl = Math.sqrt(1 - S.sl[k] * S.sl[k]);
+      r += (surf * cl - r) * landed;
+      y += (surf * S.sl[k] - y) * landed;
+      blendLook(pool, i, k, e, DUST_ALPHA);
+      if (landed > 0) {
+        // Dosednutá tečka je rozžhavená; jas se liší (horká a chladnější místa).
+        const hot = 0.7 + 0.45 * S.c01[k] * 4;
+        for (let c = 0; c < 3; c++) pool.color[3 * i + c] = Math.min(1, SHELL_COLOR[c] * hot) * landed + pool.color[3 * i + c] * (1 - landed);
+        pool.size[i] += (Math.max(1, surf * SHELL_DOT) - pool.size[i]) * landed;
+        // Zážeh: tečky splynou s hvězdou (záblesk, pak plné Slunce).
+        const fade = Math.min(1, Math.max(0, (t - T_END) / SHELL_FADE));
+        if (fade >= 1) { releaseParticle(pool, k); continue; }
+        pool.alpha[i] = SHELL_ALPHA * (1 - fade * fade);
+      }
     } else {
       r = S.cr[k] + (drNow - S.cr[k]) * e;
       // Výška klesá rychleji než poloměr — mrak se zplošťuje do placky.
@@ -422,8 +469,10 @@ function updateDustFrame(pool, t, dt) {
       else pool.alpha[i] = aEff;
     }
 
-    // Azimut: mrak se skoro netočí, s kolapsem se roztáčí na Keplera.
-    const w = omegaCloud + (keplerOmega(Math.max(r, 1), S.snowR) - omegaCloud) * e * e;
+    // Azimut: mrak se skoro netočí, s kolapsem se roztáčí na Keplera;
+    // tečka usazená na protohvězdě se točí s ní.
+    const wk = omegaCloud + (keplerOmega(Math.max(r, 1), S.snowR) - omegaCloud) * e * e;
+    const w = wk + (SUN_SPIN - wk) * landed;
     S.th[k] += w * dt;
     const ang = S.th[k] + S.dth[k] * e;
     let x = r * Math.cos(ang);
@@ -460,22 +509,40 @@ function updateDustFrame(pool, t, dt) {
           if (b >= 1 || t >= T_CLEAR_END) { releaseParticle(pool, k); continue; }
         }
       }
-      // Migrace k planetě (akreční okno její zóny).
+      // Akrece: prach zóny padá na rostoucí planetu a usadí se na jejím
+      // povrchu — planeta roste jako koule z teček. Pevné těleso se z ní
+      // vynoří až ke konci růstu (planetMeshScale) a prach se do něj rozplyne.
       if (t >= S.migStart[k]) {
         if (!S.migrating[k]) {
           S.fromX[k] = x; S.fromY[k] = y; S.fromZ[k] = z;
           S.migrating[k] = 1;
         }
-        const win = S.entries[zone].window;
-        const u = Math.min(1, (t - S.migStart[k]) / Math.max(1e-6, win.end - S.migStart[k]));
+        const en = S.entries[zone];
+        const kG = growthScale(t, en.growth);
+        const fade = (kG - DUST_BALL_FADE) / (1 - DUST_BALL_FADE);
+        if (fade >= 1) { releaseParticle(pool, k); continue; }
+        const span = Math.min(FALL_SEC, Math.max(0.3, en.growth.end - S.migStart[k]));
+        const u = Math.min(1, (t - S.migStart[k]) / span);
         const f = u * u; // ease-in — akcelerace pádu do akrece
-        const a = S.entries[zone].anchorPos;
-        x = S.fromX[k] + (a.x - S.fromX[k]) * f;
-        y = S.fromY[k] + (a.y - S.fromY[k]) * f;
-        z = S.fromZ[k] + (a.z - S.fromZ[k]) * f;
-        pool.alpha[i] = aEff * (1 - f);
-        if (u >= 1) { releaseParticle(pool, k); continue; }
+        const a = en.anchorPos;
+        const rs = en.bodyR * Math.max(kG, DUST_BALL_MIN) * 1.02;
+        const cl = Math.sqrt(1 - S.sl[k] * S.sl[k]);
+        const tx = a.x + rs * cl * Math.cos(S.lon[k]);
+        const ty = a.y + rs * S.sl[k];
+        const tz = a.z + rs * cl * Math.sin(S.lon[k]);
+        x = S.fromX[k] + (tx - S.fromX[k]) * f;
+        y = S.fromY[k] + (ty - S.fromY[k]) * f;
+        z = S.fromZ[k] + (tz - S.fromZ[k]) * f;
+        pool.size[i] = S.size[k] + (en.bodyR * DUST_BALL_DOT - S.size[k]) * f;
+        pool.alpha[i] = DUST_BALL_ALPHA * (1 - Math.max(0, fade));
       }
+    }
+    // Tečka těsně u kamery by zakryla záběr (přiblížení k tělesu uvnitř
+    // disku) — nad NEAR_PX px na obrazovce se rozplyne.
+    if (_cam) {
+      const dist = Math.hypot(x - _cam.x, y - _cam.y, z - _cam.z);
+      const px = pool.size[i] * 900 / Math.max(dist, 1);
+      if (px > NEAR_PX) pool.alpha[i] *= Math.max(0, 1 - (px - NEAR_PX) / NEAR_PX);
     }
     pool.position[3 * i] = x;
     pool.position[3 * i + 1] = y;
@@ -569,8 +636,12 @@ function emitAccretion(pool, currentTime, anchors, imageData) {
   }
 }
 
-export function updateFormationIntro(pool, currentTime, dt, anchors, imageData) {
-  if (currentTime >= T_END) {
+/**
+ * @param {number} sunR — poloměr protohvězdy právě teď (roste během kolapsu)
+ */
+export function updateFormationIntro(pool, currentTime, dt, anchors, imageData, sunR = 0) {
+  _sunR = sunR;
+  if (currentTime >= T_END + SHELL_FADE) {
     // Slunce zažehlo — zbytek prachu je pryč (rozmetaný, pohlcený).
     if (S) releaseAll(pool);
     return;
@@ -579,7 +650,10 @@ export function updateFormationIntro(pool, currentTime, dt, anchors, imageData) 
   if (!S) return;
   for (const e of S.entries) {
     const a = anchors[e.planetId];
-    if (a) e.anchorPos = a.position;
+    if (!a) continue;
+    e.anchorPos = a.position;
+    // Plný poloměr planety ve scéně (zvětšení přehledu je na spin nodu).
+    e.bodyR = (PLANET_BY_ID[e.planetId]?.radiusPx ?? 1) * (a.userData?.spin?.scale?.x ?? 1);
   }
   updateDustFrame(pool, currentTime, dt);
   if (currentTime >= ACCRETION_START) emitAccretion(pool, currentTime, anchors, imageData);

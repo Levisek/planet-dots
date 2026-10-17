@@ -15,7 +15,7 @@ import { initKeyboard } from './keyboard.js';
 import { createAsteroidAnchors } from './asteroidAnchors.js';
 import { createAsteroidBelt } from './asteroidBelt.js';
 import { ASTEROIDS } from './asteroids.js';
-import { updateFormationIntro, resetFormationIntro, setShockSource } from './formationIntro.js';
+import { updateFormationIntro, resetFormationIntro, setShockSource, setFormationCamera } from './formationIntro.js';
 import { updateMoonWind } from './moonWind.js';
 import { updateSunWind } from './sunWind.js';
 import { tickHyperion } from './hyperionChaos.js';
@@ -45,8 +45,9 @@ import { initTimeControls, setFormationLock, setDetailRateNote } from './timeCon
 import { LIVE_START, PHASES, sceneStart } from './animation.js';
 import { createFilmCaption } from './filmCaption.js';
 import {
-  formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_START, SUN_GROW_END,
+  formationCameraPose, FILM_END, sunIgnitionScale, SUN_GROW_END,
   growthWindow, growthScale, revealFade, REVEAL_SEC, protoTint, sunGlow, orbitTrace, sunTint,
+  formationFocus, focusPose, FUSION_START, planetMeshScale,
 } from './formationFilm.js';
 import { createSunGlowSprite, createFlashSprite } from './sunGlowSprite.js';
 import { createTour } from './tour.js';
@@ -156,11 +157,11 @@ const filmCaption = createFilmCaption({ onSkip: () => skipFormation() });
 const SUPERNOVA_AT = sceneStart('shock') - 0.3;
 let _supernova = null;
 
-// Kdy začal fade ownerAlpha 0→1 pro sun-tečky (zážeh, SUN_GROW_START —
-// fade běží, dokud Slunce roste) — null když fade neběží/skončil. Viz tick().
+// Kdy začal fade ownerAlpha 0→1 pro sun-tečky (zážeh, FUSION_START —
+// fade běží SUN_REVEAL_SEC) — null když fade neběží/skončil. Viz tick().
 let _sunFadeStart = null;
 
-// True jakmile proběhl zážeh (t ≥ SUN_GROW_START), NAVŽDY — jediný gate na spuštění fade.
+// True jakmile proběhl zážeh (t ≥ FUSION_START), NAVŽDY — jediný gate na spuštění fade.
 // Záměrně NEZÁVISLÉ na bodyMeshes.sun.userData.settled: ten flag může být
 // force-nastaven vstupem do detail view (F3 review HIGH fix) a kdyby na něm
 // zážeh závisel, klik na Slunce před t=6 by ho natrvalo přeskočil (fade by
@@ -212,7 +213,7 @@ function mainMinDistance() { return isFyzikalni() ? 5000 : 2500; }
 // k dnešní (bližší) výchozí pozici přehledu.
 const FILM_REF_POS = { x: 0, y: 1.65 * POCHOPENI_SYSTEM_R, z: 2.97 * POCHOPENI_SYSTEM_R };
 const FILM_BLEND_FROM = 64.0;
-function filmCameraPose(t) {
+function filmSystemPose(t) {
   const main = mainCameraPos();
   if (isFyzikalni()) return formationCameraPose(t, main);
   const a = formationCameraPose(t, FILM_REF_POS);
@@ -224,11 +225,21 @@ function filmCameraPose(t) {
     z: a.z + (main.z - a.z) * k,
   };
 }
+/** Kamera filmu: celek soustavy, u vznikajícího tělesa přiblížená k němu. */
+function filmCameraPose(t) {
+  const sys = filmSystemPose(t);
+  const f = formationFocus(t);
+  if (!f) return { pos: sys, target: ORIGIN };
+  const c = anchors[f.id].position;
+  const r = f.id === 'sun' ? getSunRadius() : PLANET_BY_ID[f.id].radiusPx * planetScaleOf(f.id);
+  return focusPose(sys, c, r * f.dist, f.w, f.lift);
+}
 // Režie formace (formationFilm.js): kamera jede nad vznikající soustavou,
 // dokud ji návštěvník nepřevezme (klik na těleso). Při reduced-motion stojí.
 let _filmCamera = !REDUCED_MOTION;
 // Slunce dorostlo (zážeh) / tělesa dorostla / prolnutí drah po formaci doběhlo.
 let _sunGrown = false;
+const SUN_REVEAL_SEC = 2.5; // kotouč Slunce se při zážehu prolne za slupku z prachu
 let _growthDone = false;
 let _revealDone = false;
 // Dráhy planet se dokreslují během formace (orbitTrace); záře Slunce.
@@ -595,10 +606,12 @@ function tick(timestamp) {
       _filmCamera = false;
       detailView.setReturnPose(mainCameraPos(), { x: 0, y: 0, z: 0 });
     } else if (!cameraRig.isFlying()) {
-      const p = filmCameraPose(_realElapsed);
+      const { pos: p, target: q } = filmCameraPose(_realElapsed);
       camera.position.set(p.x, p.y, p.z);
-      controlsTarget.x = 0; controlsTarget.y = 0; controlsTarget.z = 0;
-      camera.lookAt(0, 0, 0);
+      controlsTarget.x = q.x; controlsTarget.y = q.y; controlsTarget.z = q.z;
+      // I cíl OrbitControls — jejich update() by jinak pohled vrátil na střed.
+      controls.target.set(q.x, q.y, q.z);
+      camera.lookAt(q.x, q.y, q.z);
     }
   }
 
@@ -611,7 +624,8 @@ function tick(timestamp) {
   // settled). fadeOthers stejně dimuje non-focus ownery, takže i letící
   // tečky do jiné planety jsou v detailu ztlumené.
   if (formationActive) {
-    updateFormationIntro(pool, _realElapsed, dt, anchors, imageData);
+    setFormationCamera(camera.position);
+    updateFormationIntro(pool, _realElapsed, dt, anchors, imageData, getSunRadius() * sunIgnitionScale(_realElapsed));
     updateMoonWind(pool, _realElapsed, dt, anchors, moonAnchors, imageData, moonImageData);
   }
 
@@ -649,7 +663,9 @@ function tick(timestamp) {
         appeared = true;
       }
       const b = m.userData.baseScale;
-      if (b) m.scale.set(b.x * Math.max(k, 1e-3), b.y * Math.max(k, 1e-3), b.z * Math.max(k, 1e-3));
+      // Planeta je zprvu jen koule z prachu (formationIntro), těleso se vynoří později.
+      const km = Math.max(g.isPlanet || g.key === 'saturn_ring' ? planetMeshScale(k) : k, 1e-3);
+      if (b) m.scale.set(b.x * km, b.y * km, b.z * km);
       // Zprvu má barvu prachu, ze kterého roste (i materiál pro STÍNY: ZAP).
       if (g.isPlanet) {
         const [r, gg, bb] = protoTint(k, _cold.has(g.key));
@@ -709,14 +725,16 @@ function tick(timestamp) {
   // by zůstalo false, ownerAlphaMul[0] (prominence/CME) by zůstalo 0 na celou
   // session. Settled/visible se tu i tak nastaví (idempotentní, i kdyby už
   // byly force-nastavené dřív) — jen SPUŠTĚNÍ fade na nich nezávisí.
-  if (bodyMeshes.sun && _realElapsed >= SUN_GROW_START && !_sunIgnited) {
+  // Do zážehu fúze tvoří protohvězdu jen prach usazený na jejím povrchu
+  // (formationIntro); kotouč a vlastní tečky Slunce se objeví se zábleskem.
+  if (bodyMeshes.sun && _realElapsed >= FUSION_START && !_sunIgnited) {
     _sunIgnited = true;
     bodyMeshes.sun.userData.settled = true;
     bodyMeshes.sun.visible = true;
     _sunFadeStart = _realElapsed;
   }
   if (formationActive && _sunFadeStart !== null) {
-    const fadeT = Math.min(1, (_realElapsed - _sunFadeStart) / (SUN_GROW_END - SUN_GROW_START));
+    const fadeT = Math.min(1, (_realElapsed - _sunFadeStart) / SUN_REVEAL_SEC);
     // Cíl fade musí respektovat aktivní detail view — pokud uživatel v
     // okamžiku zážehu sleduje detail jiného tělesa než Slunce, fade má jít
     // 0 → dim (ne 0 → 1 se skokem dolů při dalším fadeOthers volání).
@@ -868,7 +886,7 @@ Promise.all([loaded, moonsLoaded, asteroidsLoaded]).then(() => {
   // přijde rázová vlna.
   const np = anchors.neptune.position;
   const cloudR = 1.35 * 1.1 * Math.hypot(np.x, np.z);
-  const cam = new THREE.Vector3().copy(filmCameraPose(SUPERNOVA_AT)).normalize();
+  const cam = new THREE.Vector3().copy(filmSystemPose(SUPERNOVA_AT)).normalize();
   const right = new THREE.Vector3(0, 1, 0).cross(cam).normalize();
   const up = new THREE.Vector3().crossVectors(cam, right);
   const sn = cam.multiplyScalar(-2.2 * cloudR).addScaledVector(right, 1.1 * cloudR).addScaledVector(up, 0.45 * cloudR);

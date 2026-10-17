@@ -138,3 +138,27 @@ test('dráhy: kreslí se postupně zevnitř ven, všechny hotové před koncem f
   }
   assert.equal(orbitTrace(0, 'ceres'), 1);
 });
+
+test('přiblížení: mimo okna celek, uvnitř váha 1, náběh plynulý', async () => {
+  const { formationFocus, FOCUS } = await import('./formationFilm.js');
+  for (const f of FOCUS) {
+    const before = formationFocus(f.t0 - 0.01); // okna smí navazovat, ale ne skokem
+    assert.ok(!before || before.w < 0.01, `skok před oknem ${f.id}`);
+    assert.equal(formationFocus((f.t1 + f.t2) / 2).w, 1);
+    assert.equal(formationFocus((f.t1 + f.t2) / 2).id, f.id);
+    const a = formationFocus(f.t0 + 0.01).w, b = formationFocus(f.t3 - 0.01).w;
+    assert.ok(a < 0.01 && b < 0.01, `skok na kraji okna ${f.id}: ${a}, ${b}`);
+  }
+  assert.equal(formationFocus(FILM_END), null);
+});
+
+test('focusPose: w=0 je pohled celku, w=1 u tělesa v zadané vzdálenosti', async () => {
+  const { focusPose } = await import('./formationFilm.js');
+  const sys = { x: 0, y: 5000, z: 9000 }, c = { x: 3000, y: 0, z: 0 };
+  const p0 = focusPose(sys, c, 500, 0);
+  assert.ok(Math.hypot(p0.pos.x - sys.x, p0.pos.y - sys.y, p0.pos.z - sys.z) < 1e-6);
+  assert.deepEqual(p0.target, { x: 0, y: 0, z: 0 });
+  const p1 = focusPose(sys, c, 500, 1);
+  assert.ok(Math.abs(Math.hypot(p1.pos.x - c.x, p1.pos.y - c.y, p1.pos.z - c.z) - 500) < 1e-6);
+  assert.deepEqual(p1.target, c);
+});
